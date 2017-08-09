@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2016 Kaspar Schleiser <kaspar@schleiser.de>
+ * Copyright (C) 2017 HAW-Hamburg
+                 2016 Kaspar Schleiser <kaspar@schleiser.de>
  *               2015 Freie Universität Berlin
  *               2015 Engineering-Spirit
  *
@@ -19,6 +20,7 @@
  * @author      Nick v. IJzendoorn <nijzndoorn@engineering-spirit.nl>
  * @author      Kaspar Schleiser <kaspar@schleiser.de>
  * @author      Fabian Nack <nack@inf.fu-berlin.de>
+ * @author      Michel Rottleuthner <michel.rottleuthner@haw-hamburg.de>
  *
  * @}
  */
@@ -26,7 +28,8 @@
 #include "irq.h"
 #include "periph/pm.h"
 #if defined(CPU_FAM_STM32F1) || defined(CPU_FAM_STM32F2) || \
-    defined(CPU_FAM_STM32F4) || defined(CPU_FAM_STM32L0)
+    defined(CPU_FAM_STM32F4) || defined(CPU_FAM_STM32L0) || \
+    defined(CPU_FAM_STM32L4)
 #include "stmclk.h"
 #endif
 
@@ -40,6 +43,87 @@
  * Available values can be found in reference manual, PWR section, register CR.
  */
 #define PM_STOP_CONFIG (PWR_CR_LPDS | PWR_CR_FPDS)
+#endif
+
+#if defined(CPU_FAM_STM32L4)
+/**
+ *  Power modes available on STM32L4x5 and STM32L4x6
+ *  For details see ST reference manual RM0351 (DocID024597 Rev 5)
+ */
+enum stm32l4_system_sleepmode {
+    /**
+     * The Shutdown mode allows to achieve the lowest power
+     * consumption. It is based on the deepsleep mode, with the voltage
+     * regulator disabled. The VCORE domain is consequently powered
+     * off. The PLL, the HSI16, the MSI, the LSI and the HSE
+     * oscillators are also switched off.
+     * SRAM1, SRAM2 and register contents are lost except for registers
+     * in the Backup domain. The BOR is not available in Shutdown mode.
+     * No power voltage monitoring is possible in this mode, therefore
+     * the switch to Backup domain is not supported.
+     *
+     * In the Shutdown mode, the I/Os can be configured either with a
+     * pull-up (refer to PWR_PUCRx registers (x=A,B,C,D,E,F,G,H),
+     * or with a pull-down (refer to PWR_PDCRx registers
+     * (x=A,B,C,D,E,F,G,H)), or can be kept in analog state. However
+     * this configuration is lost when exiting the Shutdown mode due
+     * to the power-on reset. The RTC outputs on PC13 are functional
+     * in Shutdown mode. PC14 and PC15 used for LSE are also
+     * functional. 5 wakeup pins (WKUPx, x=1,2...5) and the 3 RTC
+     * tampers are available.
+     */
+    SYSTEM_SLEEPMODE_SHUTDOWN,
+
+    /**
+     * The PLL, the HSI16, the MSI and the HSE oscillators are also
+     * switched off.
+     *
+     * SRAM1 and register contents are lost except for registers in
+     * the Backup domain and Standby circuitry (see Figure 9). SRAM2
+     * content can be preserved if the bit RRS is set in the PWR_CR3
+     * register. In this case the Low-power regulator is ON and
+     * provides the supply to SRAM2 only.
+     *
+     * In the Standby mode, the I/Os can be configured either with a
+     * pull-up (refer to PWR_PUCRx registers (x=A,B,C,D,E,F,G,H)), or
+     * with a pull-down (refer to PWR_PDCRx registers
+     * (x=A,B,C,D,E,F,G,H)), or can be kept in analog state.
+     * The RTC outputs on PC13 are functional in Standby mode. PC14 and
+     * PC15 used for LSE are also functional. 5 wakeup pins (WKUPx,
+     * x=1,2...5) and the 3 RTC tampers are available.
+     */
+    SYSTEM_SLEEPMODE_STANDBY,
+
+    /**
+     * The Stop 2 mode is based on the Cortex®-M4 deepsleep mode
+     * combined with peripheral clock gating. In Stop 2 mode, all
+     * clocks in the VCORE domain are stopped, the PLL, the MSI, the
+     * HSI16 and the HSE oscillators are disabled. Some peripherals
+     * with wakeup capability (I2C3 and LPUART) can switch on the
+     * HSI16 to receive a frame, and switch off the HSI16 after
+     * receiving the frame if it is not a wakeup frame. In this case
+     * the HSI16 clock is propagated only to the peripheral requesting
+     * it. SRAM1, SRAM2 and register contents are preserved.
+     * The BOR is always available in Stop 2 mode. The consumption is
+     * increased when thresholds higher than VBOR0 are used.
+     *
+     * Note: To enter Stop 2 mode, all EXTI Line pending bits (in
+     * Pending register 1 (EXTI_PR1)), and the peripheral flags
+     * generating wakeup interrupts must be cleared. Otherwise, the
+     * Stop mode entry procedure is ignored and program execution
+     * continues.
+     */
+    SYSTEM_SLEEPMODE_STOP2,
+
+    /**
+     * All I/O pins keep the same state as in Run mode.
+     *
+     * The Sleep mode is entered according Section : Entering low
+     * power mode, when the SLEEPDEEP bit in the Cortex®-M4 System
+     * Control register is clear.
+     */
+    SYSTEM_SLEEPMODE_SLEEP,
+};
 #endif
 
 void pm_set(unsigned mode)
@@ -87,6 +171,46 @@ void pm_set(unsigned mode)
             deep = 1;
             break;
     }
+#elif defined(CPU_FAM_STM32L4)
+    switch (mode) {
+
+        case SYSTEM_SLEEPMODE_SHUTDOWN:
+            /* optionally enable RTC & LSE */
+            RCC->BDCR |= RCC_BDCR_RTCEN;
+            RCC->BDCR |= RCC_BDCR_LSEON;
+            /* LPMS = “1XX” in PWR_CR1 */
+            PWR->CR1 |= PWR_CR1_LPMS_SHUTDOWN;
+            deep = 1;
+            break;
+
+        case SYSTEM_SLEEPMODE_STANDBY:
+            /* optionally enable RTC, LSI & LSE */
+            RCC->BDCR |= RCC_BDCR_RTCEN;
+            RCC->CSR |= RCC_CSR_LSION;
+            RCC->BDCR |= RCC_BDCR_LSEON;
+            /* LPMS = “011” in PWR_CR1 */
+            PWR->CR1 &= ~(PWR_CR1_LPMS_SHUTDOWN);
+            PWR->CR1 |= PWR_CR1_LPMS_STANDBY;
+            deep = 1;
+            break;
+
+        case SYSTEM_SLEEPMODE_STOP2:
+            /* optionally enable RTC, LSI & LSE */
+            RCC->BDCR |= RCC_BDCR_RTCEN;
+            RCC->CSR |= RCC_CSR_LSION;
+            RCC->BDCR |= RCC_BDCR_LSEON;
+
+            /* moreover an indepedent watchdog (IWDG) could be enabled */
+            /* LPMS = “010” in PWR_CR1 */
+            PWR->CR1 &= ~(PWR_CR1_LPMS_SHUTDOWN | PWR_CR1_LPMS_STOP1);
+            PWR->CR1 |= PWR_CR1_LPMS_STOP2;
+            deep = 1;
+            break;
+
+        case SYSTEM_SLEEPMODE_SLEEP:
+            deep = 0;
+            break;
+    }
 #else
     (void) mode;
 #endif
@@ -94,7 +218,8 @@ void pm_set(unsigned mode)
     cortexm_sleep(deep);
 
 #if defined(CPU_FAM_STM32F1) || defined(CPU_FAM_STM32F2) || \
-    defined(CPU_FAM_STM32F4) || defined(CPU_FAM_STM32L0)
+    defined(CPU_FAM_STM32F4) || defined(CPU_FAM_STM32L0) || \
+    defined(CPU_FAM_STM32L4)
     if (deep) {
         /* Re-init clock after STOP */
         stmclk_init_sysclk();
@@ -103,7 +228,8 @@ void pm_set(unsigned mode)
 }
 
 #if defined(CPU_FAM_STM32F1) || defined(CPU_FAM_STM32F2) || \
-    defined(CPU_FAM_STM32F4) || defined(CPU_FAM_STM32L0)
+    defined(CPU_FAM_STM32F4) || defined(CPU_FAM_STM32L0) || \
+    defined(CPU_FAM_STM32L4)
 void pm_off(void)
 {
     irq_disable();
