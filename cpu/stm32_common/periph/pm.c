@@ -210,6 +210,10 @@ void pm_set(unsigned mode)
         case SYSTEM_SLEEPMODE_SLEEP:
             deep = 0;
             break;
+
+        default:
+            /* return immediately to prevent calling cortexm_sleep() */
+            return;
     }
 #else
     (void) mode;
