@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2017 HAW-Hamburg
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -11,7 +12,7 @@
  *
  * @file
  * @brief       Register definitions for Texas Instruments INA226 High-Side or Low-Side Measurement,
- *              Bi-Directional Current and Power Monitor with I2C Compatible Interface
+ *              Bi-Directional Current and Power Monitor with I2C Compatible Interface.
  *
  * @author      Michel Rottleuthner <michel.rottleuthner@haw-hamburg.de>
  */
@@ -31,12 +32,6 @@
  * All registers in the INA226 are 16 bit wide and transmitted MSB first.
  */
 typedef enum ina226_reg {
-    INA226_REG_CONFIGURATION   = 0x00, /**< Configuration register (read/write) */
-    INA226_REG_SHUNT_VOLTAGE   = 0x01, /**< Shunt voltage register (read only) */
-    INA226_REG_BUS_VOLTAGE     = 0x02, /**< Bus voltage register (read only) */
-    INA226_REG_POWER           = 0x03, /**< Power register (read only) */
-    INA226_REG_CURRENT         = 0x04, /**< Current register (read only) */
-    INA226_REG_CALIBRATION     = 0x05, /**< Calibration register (read/write) */
     INA226_REG_MASK_ENABLE     = 0x06, /**< Mask/Enable register (read/write) */
     INA226_REG_ALERT_LIMIT     = 0x07, /**< Alert Limit register (read/write) */
     INA226_REG_MANUFACTURER_ID = 0xFE, /**< Manufacturer ID register (read only) */

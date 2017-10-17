@@ -102,8 +102,8 @@ ifneq (,$(filter ina220,$(USEMODULE)))
   USEMODULE_INCLUDES += $(RIOTBASE)/drivers/ina220/include
 endif
 
-ifneq (,$(filter ina226,$(USEMODULE)))
-    USEMODULE_INCLUDES += $(RIOTBASE)/drivers/ina226/include
+ifneq (,$(filter ina22x,$(USEMODULE)))
+    USEMODULE_INCLUDES += $(RIOTBASE)/drivers/ina22x/include
 endif
 
 ifneq (,$(filter io1_xplained,$(USEMODULE)))

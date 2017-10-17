@@ -1,0 +1,23 @@
+APPLICATION = driver_ina22x
+include ../Makefile.tests_common
+
+FEATURES_REQUIRED += periph_gpio
+FEATURES_REQUIRED += periph_i2c
+
+USEMODULE += ina22x
+USEMODULE += xtimer
+
+TEST_INA22X_I2C   ?= I2C_DEV\(0\)
+
+#Slave address of INA22x. For A0 = A1 = GND --> 0b1000000 = 0x40
+TEST_INA22X_ADDR  ?= 0x40
+TEST_INA22X_MODEL ?= INA226
+TEST_I2C_SPEED    ?= I2C_SPEED_NORMAL
+
+# export parameters
+CFLAGS += -DTEST_INA22X_I2C=$(TEST_INA22X_I2C)
+CFLAGS += -DTEST_INA22X_ADDR=$(TEST_INA22X_ADDR)
+CFLAGS += -DTEST_INA22X_MODEL=$(TEST_INA22X_MODEL)
+CFLAGS += -DTEST_I2C_SPEED=$(TEST_I2C_SPEED)
+
+include $(RIOTBASE)/Makefile.include
