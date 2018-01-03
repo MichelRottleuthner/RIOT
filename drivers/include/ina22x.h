@@ -384,7 +384,7 @@ int ina226_activate_int(ina22x_t *dev, uint16_t me_config, gpio_t pin, gpio_cb_t
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina22x_read_calibration_reg(ina22x_t *dev, uint16_t *calibration)
+static inline int ina22x_read_calibration_reg(ina22x_t *dev, uint16_t *calibration)
 {
     return ina22x_read_reg(dev, INA22X_REG_CALIBRATION, calibration);
 }
@@ -398,7 +398,7 @@ inline int ina22x_read_calibration_reg(ina22x_t *dev, uint16_t *calibration)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina22x_write_calibration_reg(ina22x_t *dev, uint16_t calibration)
+static inline int ina22x_write_calibration_reg(ina22x_t *dev, uint16_t calibration)
 {
     return ina22x_write_reg(dev, INA22X_REG_CALIBRATION, calibration);
 }
@@ -412,7 +412,7 @@ inline int ina22x_write_calibration_reg(ina22x_t *dev, uint16_t calibration)
  * @return                   0 on success
  * @return                   <0 on error
  */
-inline int ina22x_read_config_reg(ina22x_t *dev, uint16_t *config)
+static inline int ina22x_read_config_reg(ina22x_t *dev, uint16_t *config)
 {
     return ina22x_read_reg(dev, INA22X_REG_CONFIGURATION, config);
 }
@@ -426,7 +426,7 @@ inline int ina22x_read_config_reg(ina22x_t *dev, uint16_t *config)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina22x_write_config_reg(ina22x_t *dev, uint16_t config)
+static inline int ina22x_write_config_reg(ina22x_t *dev, uint16_t config)
 {
     return ina22x_write_reg(dev, INA22X_REG_CONFIGURATION, config);
 }
@@ -445,7 +445,7 @@ inline int ina22x_write_config_reg(ina22x_t *dev, uint16_t config)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina22x_read_shunt_reg(ina22x_t *dev, int16_t *voltage)
+static inline int ina22x_read_shunt_reg(ina22x_t *dev, int16_t *voltage)
 {
     return ina22x_read_reg(dev, INA22X_REG_SHUNT_VOLTAGE, (uint16_t *)voltage);
 }
@@ -465,7 +465,7 @@ inline int ina22x_read_shunt_reg(ina22x_t *dev, int16_t *voltage)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina22x_read_bus_reg(ina22x_t *dev, int16_t *voltage)
+static inline int ina22x_read_bus_reg(ina22x_t *dev, int16_t *voltage)
 {
     return ina22x_read_reg(dev, INA22X_REG_BUS_VOLTAGE, (uint16_t *)voltage);
 }
@@ -479,7 +479,7 @@ inline int ina22x_read_bus_reg(ina22x_t *dev, int16_t *voltage)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina22x_read_current_reg(ina22x_t *dev, int16_t *current)
+static inline int ina22x_read_current_reg(ina22x_t *dev, int16_t *current)
 {
     return ina22x_read_reg(dev, INA22X_REG_CURRENT, (uint16_t *)current);
 }
@@ -493,7 +493,7 @@ inline int ina22x_read_current_reg(ina22x_t *dev, int16_t *current)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina22x_read_power_reg(ina22x_t *dev, int16_t *power)
+static inline int ina22x_read_power_reg(ina22x_t *dev, int16_t *power)
 {
     return ina22x_read_reg(dev, INA22X_REG_POWER, (uint16_t *)power);
 }
@@ -507,7 +507,7 @@ inline int ina22x_read_power_reg(ina22x_t *dev, int16_t *power)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina226_read_die_id_reg(ina22x_t *dev, uint16_t *id)
+static inline int ina226_read_die_id_reg(ina22x_t *dev, uint16_t *id)
 {
     return ina22x_read_reg(dev, INA226_REG_DIE_ID, id);
 }
@@ -522,7 +522,7 @@ inline int ina226_read_die_id_reg(ina22x_t *dev, uint16_t *id)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina226_read_manufacturer_id_reg(ina22x_t *dev, uint16_t *id)
+static inline int ina226_read_manufacturer_id_reg(ina22x_t *dev, uint16_t *id)
 {
     return ina22x_read_reg(dev, INA226_REG_MANUFACTURER_ID, id);
 }
@@ -536,7 +536,7 @@ inline int ina226_read_manufacturer_id_reg(ina22x_t *dev, uint16_t *id)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina226_read_mask_enable_reg(ina22x_t *dev, uint16_t *val)
+static inline int ina226_read_mask_enable_reg(ina22x_t *dev, uint16_t *val)
 {
     return ina22x_read_reg(dev, INA226_REG_MASK_ENABLE, val);
 }
@@ -550,7 +550,7 @@ inline int ina226_read_mask_enable_reg(ina22x_t *dev, uint16_t *val)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina226_write_mask_enable_reg(ina22x_t *dev, uint16_t val)
+static inline int ina226_write_mask_enable_reg(ina22x_t *dev, uint16_t val)
 {
     return ina22x_write_reg(dev, INA226_REG_MASK_ENABLE, val);
 }
@@ -564,7 +564,7 @@ inline int ina226_write_mask_enable_reg(ina22x_t *dev, uint16_t val)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina226_read_alert_limit_reg(ina22x_t *dev, uint16_t *val)
+static inline int ina226_read_alert_limit_reg(ina22x_t *dev, uint16_t *val)
 {
     return ina22x_read_reg(dev, INA226_REG_ALERT_LIMIT, val);
 }
@@ -578,7 +578,7 @@ inline int ina226_read_alert_limit_reg(ina22x_t *dev, uint16_t *val)
  * @return                  0 on success
  * @return                  <0 on error
  */
-inline int ina226_write_alert_limit_reg(ina22x_t *dev, uint16_t val)
+static inline int ina226_write_alert_limit_reg(ina22x_t *dev, uint16_t val)
 {
     return ina22x_write_reg(dev, INA226_REG_ALERT_LIMIT, val);
 }
