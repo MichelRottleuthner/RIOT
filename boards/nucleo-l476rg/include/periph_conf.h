@@ -306,8 +306,8 @@ static const spi_conf_t spi_config[] = {
 
 /* I2C 2 device configuration */
 #define I2C_2_DEV           I2C3
-#define I2C_2_CLKEN()       (periph_clk_en(APB1, RCC_APB1ENR1_I2C2EN))
-#define I2C_2_CLKDIS()      (periph_clk_dis(APB1, RCC_APB1ENR1_I2C2EN))
+#define I2C_2_CLKEN()       (periph_clk_en(APB1, RCC_APB1ENR1_I2C3EN))
+#define I2C_2_CLKDIS()      (periph_clk_dis(APB1, RCC_APB1ENR1_I2C3EN))
 #define I2C_2_EVT_IRQ       I2C3_EV_IRQn
 #define I2C_2_EVT_ISR       isr_i2c3
 /* I2C 2 pin configuration */
