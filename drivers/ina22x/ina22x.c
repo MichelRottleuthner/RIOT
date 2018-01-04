@@ -124,8 +124,6 @@ int ina22x_write_reg(ina22x_t *dev, uint8_t reg, uint16_t in)
         return INA22X_I2C_ERR;
     }
 
-    printf("ina22x_write_reg returning OK\n");
-
     return INA22X_OK;
 }
 
@@ -156,14 +154,11 @@ int ina226_activate_int(ina22x_t *dev, uint16_t me_config, gpio_t pin, gpio_cb_t
 
     uint16_t me_reg_val;
     ina22x_read_reg(dev, INA226_REG_MASK_ENABLE, &me_reg_val);
-    printf("Mask/Enable Reg : 0x%0x\n", me_reg_val);
 
     if (ina22x_write_reg(dev, INA226_REG_MASK_ENABLE, me_config) == INA22X_OK ) {
-        printf("activate int write reg OK!\n");
         if ( gpio_init_int(pin, GPIO_IN_PU, GPIO_FALLING, callback, dev) == 0) {
             return INA22X_OK;
         }
-        printf("activate int GPIO init failed!\n");
         return INA22X_PIN_ERR;
     }
 
