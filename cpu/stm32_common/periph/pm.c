@@ -30,6 +30,7 @@
 #if defined(CPU_FAM_STM32F1) || defined(CPU_FAM_STM32F2) || \
     defined(CPU_FAM_STM32F4) || defined(CPU_FAM_STM32L4)
 #include "stmclk.h"
+#include "cpu.h"
 #endif
 
 #define ENABLE_DEBUG (0)
@@ -151,6 +152,7 @@ void pm_set(unsigned mode)
             break;
     }
 #elif defined(CPU_FAM_STM32L4)
+    periph_clk_en(APB1, RCC_APB1ENR1_PWREN);
     switch (mode) {
 
         case SYSTEM_SLEEPMODE_SHUTDOWN:
@@ -194,6 +196,7 @@ void pm_set(unsigned mode)
             /* return immediately to prevent calling cortexm_sleep() */
             return;
     }
+    periph_clk_dis(APB1, RCC_APB1ENR1_PWREN);
 #else
     (void) mode;
 #endif
