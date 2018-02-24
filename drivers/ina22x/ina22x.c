@@ -28,7 +28,7 @@
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
-int ina22x_read_bus_voltage(ina22x_t *dev, uint32_t* uvolt)
+int ina22x_read_bus_voltage(const ina22x_t *dev, uint32_t* uvolt)
 {
     int16_t bus_voltage_reg;
     if (ina22x_read_bus_reg(dev, &bus_voltage_reg) == 0) {
@@ -44,7 +44,7 @@ int ina22x_read_bus_voltage(ina22x_t *dev, uint32_t* uvolt)
     return INA22X_I2C_ERR;
 }
 
-int ina22x_read_shunt_voltage(ina22x_t *dev, int32_t* nvolt)
+int ina22x_read_shunt_voltage(const ina22x_t *dev, int32_t* nvolt)
 {
     int16_t sht_voltage_reg;
     if (ina22x_read_shunt_reg(dev, &sht_voltage_reg) == 0) {
@@ -60,7 +60,7 @@ int ina22x_read_shunt_voltage(ina22x_t *dev, int32_t* nvolt)
     return INA22X_I2C_ERR;
 }
 
-int ina22x_read_current(ina22x_t *dev, int32_t* ua)
+int ina22x_read_current(const ina22x_t *dev, int32_t* ua)
 {
     int16_t current_reg;
     if (ina22x_read_current_reg(dev, &current_reg) == 0) {
@@ -70,7 +70,7 @@ int ina22x_read_current(ina22x_t *dev, int32_t* ua)
     return INA22X_I2C_ERR;
 }
 
-int ina22x_read_power(ina22x_t *dev, uint32_t* uw)
+int ina22x_read_power(const ina22x_t *dev, uint32_t* uw)
 {
     int16_t power_reg;
     if (ina22x_read_power_reg(dev, &power_reg) == 0) {
@@ -90,7 +90,7 @@ int ina22x_read_power(ina22x_t *dev, uint32_t* uw)
     return INA22X_I2C_ERR;
 }
 
-int ina22x_read_reg(ina22x_t *dev, uint8_t reg, uint16_t *out)
+int ina22x_read_reg(const ina22x_t *dev, uint8_t reg, uint16_t *out)
 {
     union {
         char c[2];
@@ -108,7 +108,7 @@ int ina22x_read_reg(ina22x_t *dev, uint8_t reg, uint16_t *out)
     return INA22X_OK;
 }
 
-int ina22x_write_reg(ina22x_t *dev, uint8_t reg, uint16_t in)
+int ina22x_write_reg(const ina22x_t *dev, uint8_t reg, uint16_t in)
 {
     union {
         char c[2];
