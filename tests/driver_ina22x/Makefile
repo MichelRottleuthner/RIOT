@@ -7,7 +7,7 @@ FEATURES_REQUIRED += periph_i2c
 USEMODULE += ina22x
 USEMODULE += xtimer
 
-TEST_INA22X_I2C   ?= I2C_DEV\(0\)
+TEST_INA22X_I2C   ?= I2C_DEV\(2\)
 
 #Slave address of INA22x. For A0 = A1 = GND --> 0b1000000 = 0x40
 TEST_INA22X_ADDR  ?= 0x40

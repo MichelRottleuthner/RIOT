@@ -194,6 +194,7 @@ void *measurement_print_thread(void *args)
 {
     msg_init_queue(_print_msg_queue, PRINT_MSG_QUEUE_SIZE);
     msg_t msg;
+    (void) args;
 
     //--- raw values of INA226 registers ---vvv
     uint16_t mask_enable_reg;
@@ -296,7 +297,7 @@ void *measurement_print_thread(void *args)
         }
 
         if (ina22x_read_power_reg(dev,&power_reg) == 0) {
-            DEBUG("ina22x_read_power [OK]: power_reg = %"PRIi16"\n", power_regc);
+            DEBUG("ina22x_read_power [OK]: power_reg = %"PRIi16"\n", power_reg);
             power_uw = (INA226_POWER_LSB_CURRENT_LSB_RATIO * TEST_INA226_CURRENT_LSB_NA * power_reg) / NANOS_PER_MICRO;
             power_int_mw = power_uw / MICROS_PER_MILLI;
             power_frac_uw = power_uw % MICROS_PER_MILLI;
