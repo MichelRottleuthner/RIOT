@@ -193,6 +193,8 @@ void pm_set(unsigned mode)
             /* LPMS = “011” in PWR_CR1 */
             PWR->CR1 &= ~(PWR_CR1_LPMS_SHUTDOWN);
             PWR->CR1 |= PWR_CR1_LPMS_STANDBY;
+
+            PWR->CR3 |= PWR_CR3_RRS;
             deep = 1;
             break;
 
