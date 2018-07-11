@@ -1,6 +1,7 @@
 # Set the common memory addresses for stm32 MCU family
 ROM_START_ADDR ?= 0x08000000
 RAM_START_ADDR ?= 0x20000000
+RAM2_START_ADDR ?= 0x10000000
 
 # The next block takes care of setting the rigth lengths of RAM and ROM
 # for the stm32 family. Most of the CPUs should have been taken into
@@ -233,7 +234,8 @@ else ifeq ($(STM32_TYPE), L)
     ifeq ($(STM32_MODEL2), 3)
       RAM_LEN = 64K
     else ifeq ($(STM32_MODEL2), 7)
-      RAM_LEN = 128K
+      RAM_LEN =  96K
+      RAM2_LEN = 32K
     else ifeq ($(STM32_MODEL2), 5)
       RAM_LEN = 160K
     else ifeq ($(STM32_MODEL2), 9)

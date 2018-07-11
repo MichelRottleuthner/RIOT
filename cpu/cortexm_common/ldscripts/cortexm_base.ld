@@ -139,6 +139,16 @@ SECTIONS
         _ezero = .;
     } > ram
 
+    /* .retained_ram section for low-power-retained data */
+    .retram (NOLOAD) :
+    {
+        . = ALIGN(4);
+        _sretram = . ;
+        KEEP (*(.retram))
+        . = ALIGN(4);
+        _eretram = . ;
+    } > ram2
+
     /* heap section */
     . = ALIGN(4);
     _sheap = . ;
@@ -147,4 +157,8 @@ SECTIONS
     /* Populate information about ram size */
     _sram = ORIGIN(ram);
     _eram = ORIGIN(ram) + LENGTH(ram);
+
+    /* Populate information about ram size */
+    _sram2 = ORIGIN(ram2);
+    _eram2 = ORIGIN(ram2) + LENGTH(ram2);
 }
