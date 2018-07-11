@@ -31,6 +31,12 @@
 #endif
 #include "shell.h"
 
+/* this variable is allocated at the start of SRAM2 address space */
+extern uint32_t _sram2;
+#define RET_RAM_TEST_LEN (64)
+__attribute__ ((__section__(".retram")))
+uint8_t retention_test_buf[RET_RAM_TEST_LEN];
+
 #ifdef MODULE_PM_LAYERED
 static int check_mode(int argc, char **argv)
 {
@@ -227,6 +233,26 @@ static const shell_command_t shell_commands[] = {
 int main(void)
 {
     char line_buf[SHELL_DEFAULT_BUFSIZE];
+
+    printf("\n&_sram2:   %p\n", &_sram2);
+    printf("should be: 0x10000000\n\n");
+    printf("&retention_test_buf:     %p\n", &retention_test_buf);
+    printf("should be:               0x10000000\n\n");
+
+    bool mismatch = false;
+    /* print some data from SRAM2. If the system woke up from a low power state
+       with ram retention this should print an upcounting value.
+       Otherwise the RAM will be uninitialized*/
+    for(unsigned i = 0; i < RET_RAM_TEST_LEN; i++) {
+        uint8_t expected_value = i % 256;
+        if (retention_test_buf[i] != expected_value ){
+            mismatch = true;
+        }
+        /* write the expected pattern so we can compare on next boot */
+        retention_test_buf[i] = expected_value;
+    }
+
+    printf("** RAM was%spreserved from previous boot **\n\n", mismatch ? " NOT " : " ");
 
     /* print test application information */
 #ifdef MODULE_PM_LAYERED
