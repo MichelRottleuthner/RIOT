@@ -31,6 +31,7 @@
 #include "xtimer.h"
 #include "timex.h"
 #include "periph/gpio.h"
+#include "mutex.h"
 
 #include "dht.h"
 #include "dht_params.h"
@@ -40,25 +41,51 @@
 
 #define PULSE_WIDTH_THRESHOLD       (40U)
 
-static uint16_t read(gpio_t pin, int bits)
-{
-    uint16_t res = 0;
+typedef struct{
+    uint32_t start;
+    uint32_t read_val;
+    mutex_t mutex;
+    gpio_t pin;
+    uint8_t bitcnt;
+} dht_isr_ctx_t;
 
-    for (int i = 0; i < bits; i++) {
-        uint32_t start, end;
-        res <<= 1;
-        /* measure the length between the next rising and falling flanks (the
-         * time the pin is high - smoke up :-) */
-        while (!gpio_read(pin)) {}
-        start = xtimer_now_usec();
-        while (gpio_read(pin)) {}
-        end = xtimer_now_usec();
-        /* if the high phase was more than 40us, we got a 1 */
-        if ((end - start) > PULSE_WIDTH_THRESHOLD) {
-            res |= 0x0001;
+static void cb(void *arg)
+{
+    dht_isr_ctx_t *ctx = (dht_isr_ctx_t*)arg;
+    uint32_t now = xtimer_now_usec();
+
+    if (gpio_read(ctx->pin)) {
+        ctx->start = now;
+    }else{
+        ctx->read_val<<=1;
+        if ((now - ctx->start) > PULSE_WIDTH_THRESHOLD) {
+            ctx->read_val |= 0x0001;
         }
+        ctx->bitcnt--;
     }
-    return res;
+
+    if (ctx->bitcnt == 0) {
+      gpio_irq_disable(ctx->pin);
+      mutex_unlock(&ctx->mutex);
+      return;
+    }
+}
+
+static uint16_t read(const dht_t *dev, int bits)
+{
+    dht_isr_ctx_t ctx;
+    mutex_lock(&ctx.mutex);
+    ctx.bitcnt = bits;
+    ctx.pin = dev->pin;
+    gpio_init_int(dev->pin, dev->in_mode, GPIO_BOTH, cb, &ctx);
+
+    /* wait for the callback to give back the mutex */
+    mutex_lock(&ctx.mutex);
+
+    /* reset mutex */
+    mutex_unlock(&ctx.mutex);
+
+    return ctx.read_val;
 }
 
 int dht_init(dht_t *dev, const dht_params_t *params)
@@ -105,9 +132,9 @@ int dht_read(const dht_t *dev, int16_t *temp, int16_t *hum)
      */
 
     /* read the humidity, temperature, and checksum bits */
-    raw_hum = read(dev->pin, 16);
-    raw_temp = read(dev->pin, 16);
-    csum = (uint8_t)read(dev->pin, 8);
+    raw_hum = read(dev, 16);
+    raw_temp = read(dev, 16);
+    csum = (uint8_t)read(dev, 8);
 
     /* set pin high again - so we can trigger the next reading by pulling it low
      * again */
