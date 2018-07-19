@@ -93,6 +93,7 @@ enum {
     /* electricity */
     UNIT_A,         /**< Ampere */
     UNIT_V,         /**< Volts */
+    UNIT_W,         /**< Watt */
     UNIT_GS,        /**< gauss */
     /* pressure */
     UNIT_BAR,       /**< Beer? */
