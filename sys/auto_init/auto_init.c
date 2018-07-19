@@ -300,6 +300,10 @@ void auto_init(void)
     extern void auto_init_lps331ap(void);
     auto_init_lps331ap();
 #endif
+#ifdef MODULE_INA22X
+    extern void auto_init_ina22x(void);
+    auto_init_ina22x();
+#endif
 #ifdef MODULE_ISL29020
     extern void auto_init_isl29020(void);
     auto_init_isl29020();
