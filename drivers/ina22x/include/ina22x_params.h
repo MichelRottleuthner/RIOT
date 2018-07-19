@@ -40,36 +40,50 @@ extern "C" {
 #define INA22X_PARAM_MODEL          (INA226)
 #endif
 #ifndef INA22X_PARAM_ALERT_PIN
-#define INA22X_PARAM_ALERT_PIN      (GPIO(0,0))
+#define INA22X_PARAM_ALERT_PIN      (GPIO_PIN(0,0))
 #endif
 #ifndef INA22X_PARAM_CONFIG
 #define INA22X_PARAM_CONFIG         (INA22X_MODE_CONTINUOUS_SHUNT_AND_BUS | \
-                                    INA226_VBUSCT_588_US | \
-                                    INA226_VSHCT_588_US | \
-                                    INA226_AVG_1024)
+                                     INA226_VBUSCT_588_US | \
+                                     INA226_VSHCT_588_US | \
+                                     INA226_AVG_1024)
 #endif
+
+#ifndef INA22X_PARAM_LSB_NA
+#define INA22X_PARAM_LSB_NA         (100000)
+#endif
+
 #ifndef INA22X_PARAM_CAL
 #define INA22X_PARAM_CAL            (2048)
 #endif
 
-#define INA22X_PARAMS_DEFAULT         { .i2c       = INA22X_PARAM_I2C, \
-                                        .addr      = INA22X_PARAM_ADDR, \
-                                        .model     = INA22X_PARAM_MODEL, \
-                                        .config    = INA22X_PARAM_CONFIG, \
-                                        .alert_pin = INA22X_PARAM_ALERT_PIN, \
-                                        .cal       = INA22X_PARAM_CAL,}
+#ifndef INA22X_SAUL_INFO
+#define INA22X_SAUL_INFO            { .name = "ina22x" }
+#endif
+
+#define INA22X_PARAMS               { .i2c       = INA22X_PARAM_I2C, \
+                                      .addr      = INA22X_PARAM_ADDR, \
+                                      .model     = INA22X_PARAM_MODEL, \
+                                      .config    = INA22X_PARAM_CONFIG, \
+                                      .alert_pin = INA22X_PARAM_ALERT_PIN, \
+                                      .cal       = INA22X_PARAM_CAL, \
+                                      .current_lsb_na = INA22X_PARAM_LSB_NA }
 /**@}*/
 
 /**
- * @brief   Allocate some memory to store the actual configuration
+ * @brief   INA22x configuration
  */
 static const ina22x_params_t ina22x_params[] =
 {
-#ifdef INA22X_PARAMS_CUSTOM
-    INA22X_PARAMS_CUSTOM,
-#else
-    INA22X_PARAMS_DEFAULT,
-#endif
+    INA22X_PARAMS
+};
+
+/**
+ * @brief   INA22x meta information for the SAUL registry
+ */
+static const saul_reg_info_t ina22x_saul_info[] =
+{
+    INA22X_SAUL_INFO
 };
 
 #ifdef __cplusplus
