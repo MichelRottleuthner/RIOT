@@ -97,6 +97,9 @@ enum {
     SAUL_SENSE_CO2      = 0x8f,     /**< sensor: CO2 Gas */
     SAUL_SENSE_TVOC     = 0x90,     /**< sensor: TVOC Gas */
     SAUL_SENSE_OCCUP    = 0x91,     /**< sensor: occupancy */
+    SAUL_SENSE_VOLTAGE  = 0x92,     /**< sensor: voltage */
+    SAUL_SENSE_CURRENT  = 0x93,     /**< sensor: current */
+    SAUL_SENSE_POWER    = 0x94,     /**< sensor: power */
     SAUL_CLASS_ANY      = 0xff      /**< any device - wildcard */
     /* extend this list as needed... */
 };

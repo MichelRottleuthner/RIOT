@@ -53,8 +53,11 @@ const char *saul_class_to_str(const uint8_t class_id)
         case SAUL_SENSE_DISTANCE:  return "SENSE_DISTANCE";
         case SAUL_SENSE_CO2:       return "SENSE_CO2";
         case SAUL_SENSE_TVOC:      return "SENSE_TVOC";
-        case SAUL_CLASS_ANY:       return "CLASS_ANY";
         case SAUL_SENSE_OCCUP:     return "SENSE_OCCUP";
+        case SAUL_SENSE_VOLTAGE:   return "SENSE_VOLTAGE";
+        case SAUL_SENSE_CURRENT:   return "SENSE_CURRENT";
+        case SAUL_SENSE_POWER:     return "SENSE_POWER";
+        case SAUL_CLASS_ANY:       return "CLASS_ANY";
         default:                   return "CLASS_UNKNOWN";
     }
 }
