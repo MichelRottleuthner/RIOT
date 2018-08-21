@@ -279,6 +279,56 @@ static const spi_conf_t spi_config[] = {
 #define RTC_NUMOF           (1)
 /** @} */
 
+/**
+ * @name I2C configuration
+ * @{
+ */
+static const i2c_conf_t i2c_config[] = {
+    {
+        .dev            = I2C1,
+        .speed          = I2C_SPEED_FAST_PLUS,
+        .scl_pin        = GPIO_PIN(PORT_B, 8),
+        .sda_pin        = GPIO_PIN(PORT_B, 9),
+        .scl_af         = GPIO_AF4,
+        .sda_af         = GPIO_AF4,
+        .bus            = APB1,
+        .rcc_mask       = RCC_APB1ENR1_I2C1EN,
+        .rcc_sw_mask    = RCC_CCIPR_I2C1SEL_1, /* HSI (16 MHz) */
+        .irqn           = I2C1_ER_IRQn,
+    },
+    {
+        .dev            = I2C2,
+        .speed          = I2C_SPEED_FAST_PLUS,
+        .scl_pin        = GPIO_PIN(PORT_B, 13),
+        .sda_pin        = GPIO_PIN(PORT_B, 14),
+        .scl_af         = GPIO_AF4,
+        .sda_af         = GPIO_AF4,
+        .bus            = APB1,
+        .rcc_mask       = RCC_APB1ENR1_I2C2EN,
+        .rcc_sw_mask    = RCC_CCIPR_I2C2SEL_1, /* HSI (16 MHz) */
+        .irqn           = I2C2_ER_IRQn,
+    },
+    {
+        .dev            = I2C3,
+        .speed          = I2C_SPEED_FAST_PLUS,
+        .scl_pin        = GPIO_PIN(PORT_C, 0),
+        .sda_pin        = GPIO_PIN(PORT_C, 1),
+        .scl_af         = GPIO_AF4,
+        .sda_af         = GPIO_AF4,
+        .bus            = APB1,
+        .rcc_mask       = RCC_APB1ENR1_I2C3EN,
+        .rcc_sw_mask    = RCC_CCIPR_I2C3SEL_1, /* HSI (16 MHz) */
+        .irqn           = I2C3_ER_IRQn,
+    },
+};
+
+#define I2C_0_ISR           isr_i2c1_er
+#define I2C_1_ISR           isr_i2c2_er
+#define I2C_2_ISR           isr_i2c3_er
+
+#define I2C_NUMOF           (sizeof(i2c_config) / sizeof(i2c_config[0]))
+/** @} */
+
 #ifdef __cplusplus
 }
 #endif
