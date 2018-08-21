@@ -578,3 +578,10 @@ void I2C_1_ISR(void)
     irq_handler(I2C_DEV(1));
 }
 #endif /* I2C_1_ISR */
+
+#ifdef I2C_2_ISR
+void I2C_2_ISR(void)
+{
+    irq_handler(I2C_DEV(2));
+}
+#endif /* I2C_2_ISR */
