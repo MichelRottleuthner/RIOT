@@ -139,6 +139,9 @@ endif
 ifneq (,$(filter bluetil_%,$(USEMODULE)))
   DIRS += net/ble/bluetil
 endif
+ifneq (,$(filter owsn_%,$(USEMODULE)))
+  DIRS += net/owsn
+endif
 
 DIRS += $(dir $(wildcard $(addsuffix /Makefile, $(USEMODULE))))
 
