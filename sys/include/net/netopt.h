@@ -574,6 +574,89 @@ typedef enum {
      */
     NETOPT_PHY_BUSY,
 
+    /**
+     * @brief   Get the join status in a network
+     *
+     * When set, the MAC layer will try to join the corresponding network
+     */
+    NETOPT_JOIN,
+
+    /**
+     * @brief   (uint8_t*) application EUI (8 bytes length)
+     */
+    NETOPT_APPEUI,
+
+    /**
+     * @brief   (uint8_t*) application key (16 bytes length)
+     */
+    NETOPT_APPKEY,
+
+    /**
+     * @brief   (uint8_t*) application session key (16 bytes length)
+     */
+    NETOPT_APPSKEY,
+
+    /**
+     * @brief   (uint8_t*) network session key (16 bytes length)
+     */
+    NETOPT_NWKSKEY,
+
+    /**
+     * @brief   (uint8_t*) phy layer syncword
+     */
+    NETOPT_SYNCWORD,
+
+    /**
+     * @brief  (uint32_t) Get a random value from the device
+     *
+     * Nothing happens when set
+     */
+    NETOPT_RANDOM,
+
+    /**
+     * @brief (uint8_t) Get or set the datarate of the device
+     */
+    NETOPT_DATARATE,
+
+    /**
+     * @brief (uint8_t) Get or set the second reception window datarate
+     * (LoRaWAN)
+     */
+    NETOPT_RX2_DATARATE,
+
+    /**
+     * @brief (uint8_t) Get or set the MAC TX port
+     */
+    NETOPT_TX_PORT,
+
+    /**
+     * @brief (@ref netopt_enable_t) Perform a Link Check request (LoRaWAN)
+     *
+     * When set, the next transmission will request a Link Check and will
+     * be received on the next downlink
+     */
+    NETOPT_LINK_CHECK,
+
+    /**
+     * @brief (@ref netopt_enable_t) Enable or disable OTAA activation (LoRaWAN)
+     */
+    NETOPT_OTAA,
+
+    /**
+     * @brief (uint8_t) Get the demodulation margin of the last Link Check request.
+     */
+    NETOPT_DEMOD_MARGIN,
+
+    /**
+     * @brief (uint8_t) Get the number of gateways of the last Link Check request.
+     */
+    NETOPT_NUM_GATEWAYS,
+
+    /**
+     * @brief (uint8_t) Get or set the number of PHY symbols before assuming there's no data
+     */
+    NETOPT_RX_SYMBOL_TIMEOUT,
+
     /* add more options if needed */
 
     /**
