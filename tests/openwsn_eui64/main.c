@@ -26,8 +26,7 @@ int main(void) {
 
    uint8_t eui[8];
 
-   // initialize the board
-   board_init_ow();
+   // no need to init the board for this feature
 
    printf("Get euid now\n");
    eui64_get(eui);
