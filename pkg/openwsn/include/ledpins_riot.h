@@ -74,7 +74,7 @@ typedef struct ledpins_config {
 
 static const ledpins_config_t openwsn_ledpins_params[] =
 {
-#ifdef OPENWSN_DEBUGPINS_BOARD
+#ifdef OPENWSN_LEDPINS_BOARD
     OPENWSN_LEDPINS_BOARD,
 #else
     OPENWSN_LEDPINS_DEFAULT,
