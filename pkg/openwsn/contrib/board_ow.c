@@ -39,7 +39,7 @@ void board_init_ow(void)
     DEBUG("OpenWSN board_init\n");
 
     DEBUG("pins & leds init\n");
-#if defined (BOARD_NUCLEO_F103) || defined (BOARD_SAMR21_XPRO)
+#if defined (BOARD_NUCLEO_F103) || defined (BOARD_SAMR21_XPRO) || defined (BOARD_OPENMOTE_B)
     ledpins_riot_init(openwsn_ledpins_params);
 #else
     ledpins_riot_init(NULL);
