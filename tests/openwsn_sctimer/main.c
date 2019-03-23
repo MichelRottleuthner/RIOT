@@ -9,7 +9,7 @@
 
 //=========================== defines =========================================
 
-#define SCTIMER_PERIOD     (32768) // @32kHz = 1s or 2 s?
+#define SCTIMER_PERIOD     (32768) // @32kHz = 1s
 
 //=========================== prototypes ======================================
 
@@ -24,22 +24,20 @@ int main(void)
 {
    sctimer_init();
    sctimer_set_callback(cb_compare);
-   sctimer_setCompare(sctimer_readCounter()+SCTIMER_PERIOD);
-   printf("main sctimer: %" PRIu32 ", next wakeup: %" PRIu32 "\n",
-      sctimer_readCounter(), sctimer_readCounter()+ SCTIMER_PERIOD);
-   LED0_TOGGLE;
+   /* bootstrapping repeating callback by calling it manually once */
+   cb_compare();
 }
 
 //=========================== callbacks =======================================
-int coutner=0;
+int counter=0;
 void cb_compare(void) {
+   uint32_t now = sctimer_readCounter();
+   uint32_t next_wakeup = now + SCTIMER_PERIOD;
+   sctimer_setCompare(next_wakeup);
 
-   //puts("cb_compare");
    printf("%i. cb_compare, sctimer: %" PRIu32 ", next wakeup: %" PRIu32 "\n",
-      coutner++, sctimer_readCounter(), sctimer_readCounter()+ SCTIMER_PERIOD);
+          counter++, now, next_wakeup);
 
    LED0_TOGGLE;
-
-   // schedule again
-   sctimer_setCompare(sctimer_readCounter()+SCTIMER_PERIOD);
+   sctimer_setCompare(next_wakeup);
 }
