@@ -68,6 +68,17 @@ static const timer_conf_t timer_config[] = {
 /** @} */
 
 /**
+ * @name    RTT configuration
+ *
+ * On the cc2538 platforms, we use the sleep timer for RTT.
+ * @{
+ */
+#define RTT_NUMOF           (1)
+#define RTT_FREQUENCY       (32768U)
+#define RTT_MAX_VALUE       (0xffffffff)        /* 32-bit timer */
+/** @} */
+
+/**
  * @name ADC configuration
  * @{
  */
