@@ -22,8 +22,7 @@ void cb_compare(void);
 */
 int main(void)
 {
-
-   openwsn_bootstrap();
+   sctimer_init();
    sctimer_set_callback(cb_compare);
    sctimer_setCompare(sctimer_readCounter()+SCTIMER_PERIOD);
    printf("main sctimer: %" PRIu32 ", next wakeup: %" PRIu32 "\n",
