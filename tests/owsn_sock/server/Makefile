@@ -19,6 +19,7 @@ USEMODULE += owsn_sock
 USEMODULE += owsn_sock_udp
 USEMODULE += nanocoap_sock
 
+USEMODULE += xtimer
 
 # Enable this to use single channel debugging mode
 #CFLAGS=-DOW_RIOT_SINGLE_CHANNEL=26
