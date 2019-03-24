@@ -20,8 +20,12 @@ USEMODULE += owsn_sock_udp
 USEMODULE += nanocoap_sock
 
 
+# Support practical use in IoT-LAB
+CFLAGS += -DCOAP_ACK_TIMEOUT=16U
+CFLAGS += -DCOAP_MAX_RETRANSMIT=1
+
 # Enable this to use single channel debugging mode
-#CFLAGS=-DOW_RIOT_SINGLE_CHANNEL=26
+#CFLAGS += -DOW_RIOT_SINGLE_CHANNEL=26
 
 CFLAGS += -DDEVELHELP
 WERROR = 0
