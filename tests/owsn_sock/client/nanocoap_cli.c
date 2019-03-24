@@ -94,7 +94,7 @@ int nanocoap_cli_cmd(int argc, char **argv)
 
     /* parse options */
     if (argc == 5 || argc == 6) {
-        ssize_t hdrlen = coap_build_hdr(pkt.hdr, COAP_TYPE_NON, &token[0], 2,
+        ssize_t hdrlen = coap_build_hdr(pkt.hdr, COAP_TYPE_CON, &token[0], 2,
                                         code_pos+1, 1);
         coap_pkt_init(&pkt, &buf[0], buflen, hdrlen);
         coap_opt_add_string(&pkt, COAP_OPT_URI_PATH, argv[4], '/');
