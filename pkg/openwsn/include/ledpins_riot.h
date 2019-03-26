@@ -40,7 +40,7 @@ typedef struct ledpins_config {
  * Set default configuration parameters for debugpins (tested on Nucleo-F103)
  * On Nucleo boards the LED pin is shared with SPI -> don't use it!
  */
-#if defined (LED0_PIN) && !defined(BOARD_NUCLEO_F103)
+#if defined (LED0_PIN) && !defined(BOARD_NUCLEO_F103RB)
 #define OPENWSN_LEDPIN_ERROR            LED0_PIN
 #else
 #define OPENWSN_LEDPIN_ERROR            (GPIO_PIN(2, 8))
