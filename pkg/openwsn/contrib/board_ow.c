@@ -53,6 +53,7 @@ void board_init_ow(void)
     DEBUG("sctimer_init\n");
     sctimer_init();
 
+    // todo: make this optional or board wise?
     DEBUG("uart_ow init\n");
     uart_init_ow();
 

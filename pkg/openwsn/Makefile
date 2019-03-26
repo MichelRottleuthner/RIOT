@@ -6,7 +6,10 @@ PKG_LICENSE=BSD-3-Clause
 
 .PHONY: all
 
-all: git-download
-	"$(MAKE)" -C $(PKG_BUILDDIR)
+OPENWSN_PATH := ../../../openwsn-fw
+all:
+	rm -rf $(PKG_BUILDDIR) && mkdir -p $(PKG_BUILDDIR)
+	rsync -a $(OPENWSN_PATH) $(dir $(PKG_BUILDDIR)) --exclude .git
+	$(MAKE) -C $(PKG_BUILDDIR)
 
 include $(RIOTBASE)/pkg/pkg.mk
