@@ -71,7 +71,7 @@ void sctimer_setCompare(uint32_t val)
         rtt_set_alarm(cnt + MINIMUM_COMPAREVALE_ADVANCE, sctimer_isr_internal, NULL);
     }
     else {
-        rtt_set_alarm(val, sctimer_isr_internal, NULL);
+        rtt_set_alarm(val - 1, sctimer_isr_internal, NULL);
     }
 }
 
