@@ -23,8 +23,8 @@
 
 #include "periph/rtt.h"
 
-#define ENABLE_DEBUG    (0)
-#include "debug.h"
+#define LOG_LEVEL LOG_DEBUG
+#include "log.h"
 
 // ========================== define ==========================================
 #define MINIMUM_COMPAREVALE_ADVANCE  10
@@ -53,49 +53,52 @@ static void sctimer_isr_internal(void *arg);
  */
 void sctimer_init(void)
 {
-    DEBUG("sctimer_init\n");
+    LOG_DEBUG("sctimer_init\n");
     memset(&sctimer_vars, 0, sizeof(sctimer_vars_t));
     rtt_init();
 }
 
 void sctimer_set_callback(sctimer_cbt cb)
 {
-    DEBUG("sctimer_set_callback\n");
+    LOG_DEBUG("sctimer_set_callback\n");
     sctimer_vars.sctimer_cb = cb;
 }
 
 void sctimer_setCompare(uint32_t val)
 {
     uint32_t cnt = rtt_get_counter();
+    LOG_DEBUG("now: %"PRIu32": setting timer to %"PRIu32" +%"PRIu32" steps (+%"PRIu32" µs)\n", cnt, val, val - cnt, ((val - cnt)*10000)/328);
     if (val <= cnt) {
-        rtt_set_alarm(cnt + MINIMUM_COMPAREVALE_ADVANCE, sctimer_isr_internal, NULL);
+        rtt_set_alarm(rtt_get_counter() + MINIMUM_COMPAREVALE_ADVANCE, sctimer_isr_internal, NULL);
     }
     else {
-        rtt_set_alarm(val - 1, sctimer_isr_internal, NULL);
+        rtt_set_alarm(val, sctimer_isr_internal, NULL);
     }
 }
 
 uint32_t sctimer_readCounter(void)
 {
-    return rtt_get_counter();
+    uint32_t now = rtt_get_counter();
+    LOG_DEBUG("sctimer_readCounter: %"PRIu32"\n", now);
+    return now;
 }
 
 void sctimer_enable(void)
 {
-    DEBUG("sctimer_enable\n");
+    LOG_DEBUG("sctimer_enable\n");
     rtt_poweron();
 }
 
 void sctimer_disable(void)
 {
-    DEBUG("sctimer_disable\n");
+    LOG_DEBUG("sctimer_disable\n");
     rtt_poweroff();
 }
 
 void sctimer_isr_internal(void *arg)
 {
     (void)arg;
-    DEBUG("sctimer_isr_internal\n");
+    LOG_DEBUG("sctimer_isr_internal\n");
     if (sctimer_vars.sctimer_cb != NULL) {
         sctimer_vars.sctimer_cb();
     }
