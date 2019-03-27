@@ -29,15 +29,24 @@ int main(void)
 }
 
 //=========================== callbacks =======================================
-int counter=0;
+#define REPETITIONS 100
+uint32_t cnt=0;
+uint32_t durations[] = { 1, 2, 5, 10, 100, 200};
+uint32_t duration_conf = 0;
 void cb_compare(void) {
    uint32_t now = sctimer_readCounter();
-   uint32_t next_wakeup = now + SCTIMER_PERIOD;
+   cnt++;
+   if (cnt == REPETITIONS) {
+       printf("%"PRIu32" ms  %"PRIu32" times: %"PRIu32"\n", durations[duration_conf], cnt, now);
+       duration_conf++;
+       duration_conf %= (sizeof(durations)/sizeof(durations[0]));
+       cnt = 0;
+   }
+   //uint32_t next_wakeup = now + SCTIMER_PERIOD;
+   //uint32_t next_wakeup = now + (2 * 32768) / 1000;
+   uint32_t next_wakeup = now + (durations[duration_conf] * 32768) / 1000;
    sctimer_setCompare(next_wakeup);
-
-   printf("%i. cb_compare, sctimer: %" PRIu32 ", next wakeup: %" PRIu32 "\n",
-          counter++, now, next_wakeup);
 
    LED0_TOGGLE;
-   sctimer_setCompare(next_wakeup);
+   //sctimer_setCompare(next_wakeup);
 }
