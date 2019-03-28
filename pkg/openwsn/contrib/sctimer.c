@@ -23,7 +23,7 @@
 
 #include "periph/rtt.h"
 
-#define LOG_LEVEL LOG_DEBUG
+#define LOG_LEVEL LOG_NONE
 #include "log.h"
 
 // ========================== define ==========================================
