@@ -28,6 +28,7 @@
 #include "cpu.h"
 #include "periph_conf.h"
 #include "periph/rtt.h"
+#include "xtimer.h"
 
 #define TICKS_TO_WAIT       (5 * RTT_FREQUENCY)
 
@@ -44,6 +45,8 @@ void cb(void *arg)
     puts("Hello");
 }
 
+#define REPEAT 10000000
+
 int main(void)
 {
     puts("\nRIOT RTT low-level driver test");
@@ -52,7 +55,31 @@ int main(void)
     puts("Initializing the RTT driver");
     rtt_init();
 
-    uint32_t now = rtt_get_counter();
+    volatile uint32_t now = rtt_get_counter();
+    xtimer_init();
+
+
+    printf("start..\n");
+    uint32_t start = xtimer_now_usec();
+    uint32_t a = 0;
+    uint32_t b = 0;
+    uint32_t max = 0;
+    for (int i = 0; i < REPEAT; i++) {
+        a = xtimer_now_usec();
+        //xtimer_usleep();
+        rtt_set_alarm(0xffffffff, cb, 0);
+        b = xtimer_now_usec();
+        if ((b-a) > max) {
+            max = (b-a);
+        }
+    }
+
+    uint32_t end = xtimer_now_usec();
+
+    printf("done: %ld (%ld µs per call)\n", end - start, (end - start)/REPEAT );
+    printf("max %lu\n", max);
+
+
     printf("RTT now: %" PRIu32 "\n", now);
 
     last = (now + TICKS_TO_WAIT) & RTT_MAX_VALUE;
