@@ -3,6 +3,7 @@ include ../Makefile.tests_common
 
 USEPKG += openwsn
 USEMODULE += at86rf2xx
+USEMODULE += xtimer
 
 CFLAGS += -DTHREAD_STACKSIZE_MAIN=10240
 CFLAGS += -DTHREAD_EXTRA_STACKSIZE_PRINTF=4096
