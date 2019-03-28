@@ -12,4 +12,4 @@ all:
 	rsync -a $(OPENWSN_PATH) $(dir $(PKG_BUILDDIR)) --exclude .git
 	$(MAKE) -C $(PKG_BUILDDIR)
 
-include $(RIOTBASE)/pkg/pkg.mk
+#include $(RIOTBASE)/pkg/pkg.mk
