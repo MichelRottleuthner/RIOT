@@ -53,17 +53,26 @@ extern "C" {
 #define CONFIG_GNRC_LORAWAN_ENABLE_LPM_STORAGE (0)
 #endif
 
-
 #define GNRC_LORAWAN_REQ_STATUS_SUCCESS (0)     /**< MLME or MCPS request successful status */
 #define GNRC_LORAWAN_REQ_STATUS_DEFERRED (1)    /**< the MLME or MCPS confirm message is asynchronous */
 
-#define MCPS_EVENT_RX (1)                               /**< MCPS RX event */
-#define MCPS_EVENT_NO_RX (2)                            /**< MCPS no RX event */
-#define MCPS_EVENT_ACK_TIMEOUT (3)                      /**< MCPS retrans event */
+/**
+ * @brief MCPS events
+ */
+typedef enum {
+    MCPS_EVENT_RX,            /**< MCPS RX event */
+    MCPS_EVENT_NO_RX,         /**< MCPS no RX event */
+    MCPS_EVENT_ACK_TIMEOUT    /**< MCPS retrans event */
+} mcps_event_t;
 
-#define MLME_ACTIVATION_NONE (1)                        /**< MAC layer is not activated */
-#define MLME_ACTIVATION_ABP  (2)                        /**< MAC layer activated by ABP */
-#define MLME_ACTIVATION_OTAA (3)                        /**< MAC layer activated by OTAA */
+/**
+ * @brief LoRaWAN activation mechanism
+ */
+typedef enum {
+    MLME_ACTIVATION_NONE,     /**< MAC layer is not activated */
+    MLME_ACTIVATION_ABP,      /**< MAC layer activated by ABP */
+    MLME_ACTIVATION_OTAA      /**< MAC layer activated by OTAA */
+} mlme_activation_t;
 
 /**
  * @brief MAC Information Base attributes
@@ -98,7 +107,7 @@ typedef enum {
 typedef struct {
     mlme_mib_type_t type; /**< MIB attribute identifier */
     union {
-        int activation;   /**< holds activation mechanism */
+        mlme_activation_t activation;   /**< holds activation mechanism */
     };
 } mlme_mib_t;
 
