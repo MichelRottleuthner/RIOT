@@ -49,29 +49,27 @@ static gnrc_pktsnip_t *_build_join_req_pkt(uint8_t *appeui, uint8_t *deveui, uin
 {
     gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, NULL, sizeof(lorawan_join_request_t), GNRC_NETTYPE_UNDEF);
 
-    if (!pkt) {
-        goto out;
+    if (pkt) {
+        lorawan_join_request_t *hdr = (lorawan_join_request_t *) pkt->data;
+
+        hdr->mt_maj = 0;
+        lorawan_hdr_set_mtype((lorawan_hdr_t *) hdr, MTYPE_JOIN_REQUEST);
+        lorawan_hdr_set_maj((lorawan_hdr_t *) hdr, MAJOR_LRWAN_R1);
+
+        le_uint64_t l_appeui = *((le_uint64_t *) appeui);
+        le_uint64_t l_deveui = *((le_uint64_t *) deveui);
+
+        hdr->app_eui = l_appeui;
+        hdr->dev_eui = l_deveui;
+
+        le_uint16_t l_dev_nonce = *((le_uint16_t *) dev_nonce);
+        hdr->dev_nonce = l_dev_nonce;
+
+        iolist_t io = { .iol_base = pkt->data, .iol_len = JOIN_REQUEST_SIZE - MIC_SIZE,
+                        .iol_next = NULL };
+        gnrc_lorawan_calculate_join_mic(&io, appkey, &hdr->mic);
     }
-    lorawan_join_request_t *hdr = (lorawan_join_request_t *) pkt->data;
 
-    hdr->mt_maj = 0;
-    lorawan_hdr_set_mtype((lorawan_hdr_t *) hdr, MTYPE_JOIN_REQUEST);
-    lorawan_hdr_set_maj((lorawan_hdr_t *) hdr, MAJOR_LRWAN_R1);
-
-    le_uint64_t l_appeui = *((le_uint64_t *) appeui);
-    le_uint64_t l_deveui = *((le_uint64_t *) deveui);
-
-    hdr->app_eui = l_appeui;
-    hdr->dev_eui = l_deveui;
-
-    le_uint16_t l_dev_nonce = *((le_uint16_t *) dev_nonce);
-    hdr->dev_nonce = l_dev_nonce;
-
-    iolist_t io = { .iol_base = pkt->data, .iol_len = JOIN_REQUEST_SIZE - MIC_SIZE,
-                    .iol_next = NULL };
-    gnrc_lorawan_calculate_join_mic(&io, appkey, &hdr->mic);
-
-out:
     return pkt;
 }
 
