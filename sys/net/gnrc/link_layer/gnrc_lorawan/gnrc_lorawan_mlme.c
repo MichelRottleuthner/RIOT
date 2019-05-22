@@ -302,7 +302,7 @@ static int _mlme_link_check_ans(gnrc_lorawan_t *mac, lorawan_buffer_t *fopt)
 void gnrc_lorawan_process_fopts(gnrc_lorawan_t *mac, uint8_t *fopts, size_t size)
 {
     if (!fopts || !size) {
-        goto out;
+        return;
     }
 
     lorawan_buffer_t buf;
@@ -312,15 +312,13 @@ void gnrc_lorawan_process_fopts(gnrc_lorawan_t *mac, uint8_t *fopts, size_t size
         switch (*(buf.data)) {
             case GNRC_LORAWAN_CID_LINK_CHECK_REQ_ANS:
                 if (_mlme_link_check_ans(mac, &buf) < 0) {
-                    goto out;
+                    return;
                 }
                 break;
             default:
-                goto out;
+                return;
         }
     }
-out:
-    return;
 }
 
 uint8_t gnrc_lorawan_build_options(gnrc_lorawan_t *mac, lorawan_buffer_t *buf)
