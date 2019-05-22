@@ -70,11 +70,11 @@ static uint32_t _get_nth_channel(gnrc_lorawan_t *mac, size_t n)
 
 void gnrc_lorawan_channels_init(gnrc_lorawan_t *mac)
 {
-    mac->channel[0] = GNRC_LORAWAN_LC_1;
-    mac->channel[1] = GNRC_LORAWAN_LC_2;
-    mac->channel[2] = GNRC_LORAWAN_LC_3;
+    for(unsigned i = 0; i<GNRC_LORAWAN_DEFAULT_CHANNELS_NUMOF; i++) {
+        mac->channel[i] = gnrc_lorawan_default_channels[i];
+    }
 
-    for (unsigned i = GNRC_LORAWAN_DEFAULT_CHANNELS; i < GNRC_LORAWAN_MAX_CHANNELS; i++) {
+    for (unsigned i = GNRC_LORAWAN_DEFAULT_CHANNELS_NUMOF; i < GNRC_LORAWAN_MAX_CHANNELS; i++) {
         mac->channel[i] = 0;
     }
 }
@@ -92,7 +92,7 @@ uint32_t gnrc_lorawan_pick_channel(gnrc_lorawan_t *mac)
 void gnrc_lorawan_process_cflist(gnrc_lorawan_t *mac, uint8_t *cflist)
 {
     /* TODO: Check CFListType to 0 */
-    for (unsigned i = GNRC_LORAWAN_DEFAULT_CHANNELS; i < 8; i++) {
+    for (unsigned i = GNRC_LORAWAN_DEFAULT_CHANNELS_NUMOF; i < 8; i++) {
         le_uint32_t cl;
         cl.u32 = 0;
         memcpy(&cl, cflist, GNRC_LORAWAN_CFLIST_ENTRY_SIZE);
