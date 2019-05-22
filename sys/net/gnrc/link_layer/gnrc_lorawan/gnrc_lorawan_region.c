@@ -38,7 +38,7 @@ int gnrc_lorawan_set_dr(gnrc_lorawan_t *mac, uint8_t datarate)
 
 uint8_t gnrc_lorawan_rx1_get_dr_offset(uint8_t dr_up, uint8_t dr_offset)
 {
-    return dr_up > dr_offset ? dr_up - dr_offset : 0;
+    return (dr_up > dr_offset) ? (dr_up - dr_offset) : 0;
 }
 
 static size_t _get_num_used_channels(gnrc_lorawan_t *mac)
