@@ -70,8 +70,8 @@ typedef enum {
 typedef struct {
     mlme_mib_type_t type; /**< MIB attribute identifier */
     union {
-        int activation;
-    } param;              /**< parameters of the MIB get-set request */
+        int activation;   /**< holds activation mechanism */
+    };
 } mlme_mib_t;
 
 /**
@@ -79,9 +79,9 @@ typedef struct {
  */
 typedef struct {
     union {
-        mlme_lorawan_join_t join;
-        mlme_mib_t mib;
-    } param;        /**< parameters of the MLME request */
+        mlme_lorawan_join_t join; /**< Join Data holder */
+        mlme_mib_t mib;           /**< MIB holder */
+    };
     uint8_t type;   /**< type of the MLME request */
 } mlme_request_t;
 
@@ -90,9 +90,9 @@ typedef struct {
  */
 typedef struct {
     union {
-        mcps_data_t data;
-    } param;        /**< parameters of the MCPS request */
-    uint8_t type;   /**< type of the MCPS request */
+        mcps_data_t data;        /**< MCPS data holder */
+    };
+    uint8_t type;                /**< type of the MCPS request */
 } mcps_request_t;
 
 /**
@@ -102,9 +102,9 @@ typedef struct {
     int16_t status; /**< status of the MLME confirm */
     uint8_t type;   /**< type of the MLME confirm */
     union {
-        mlme_link_req_confirm_t link_req;
-        mlme_mib_t mib;
-    } param; /**< parameters of the MLME confirm */
+        mlme_link_req_confirm_t link_req; /**< Link Check confirmation data */
+        mlme_mib_t mib;                   /**< MIB confirmation data */
+    };
 } mlme_confirm_t;
 
 /**
@@ -122,8 +122,8 @@ typedef struct {
 typedef struct {
     uint8_t type; /**< type of the MCPS indication */
     union {
-        mcps_data_t data;
-    } param; /**< params of the MCPS indication */
+        mcps_data_t data; /**< MCPS Data holder */
+    };
 } mcps_indication_t;
 
 /**
