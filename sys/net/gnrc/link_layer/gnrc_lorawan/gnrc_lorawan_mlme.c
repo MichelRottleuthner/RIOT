@@ -197,7 +197,7 @@ void gnrc_lorawan_mlme_backoff_expire(gnrc_lorawan_t *mac)
 
 }
 
-static void _mlme_set(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
+static void _mlme_set(gnrc_lorawan_t *mac, const mlme_request_t *mlme_request,
                                mlme_confirm_t *mlme_confirm)
 {
     mlme_confirm->status = -EINVAL;
@@ -213,7 +213,7 @@ static void _mlme_set(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
     }
 }
 
-static void _mlme_get(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
+static void _mlme_get(gnrc_lorawan_t *mac, const mlme_request_t *mlme_request,
                                mlme_confirm_t *mlme_confirm)
 {
     switch(mlme_request->mib.type) {
@@ -227,7 +227,7 @@ static void _mlme_get(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
     }
 }
 
-void gnrc_lorawan_mlme_request(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
+void gnrc_lorawan_mlme_request(gnrc_lorawan_t *mac, const mlme_request_t *mlme_request,
                                mlme_confirm_t *mlme_confirm)
 {
     switch (mlme_request->type) {

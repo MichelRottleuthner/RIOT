@@ -276,7 +276,7 @@ void gnrc_lorawan_mcps_event(gnrc_lorawan_t *mac, int event, int data)
     }
 }
 
-void gnrc_lorawan_mcps_request(gnrc_lorawan_t *mac, mcps_request_t *mcps_request, mcps_confirm_t *mcps_confirm)
+void gnrc_lorawan_mcps_request(gnrc_lorawan_t *mac, const mcps_request_t *mcps_request, mcps_confirm_t *mcps_confirm)
 {
     int release = true;
     gnrc_pktsnip_t *pkt = mcps_request->data.pkt;

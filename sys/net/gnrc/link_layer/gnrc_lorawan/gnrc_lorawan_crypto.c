@@ -45,9 +45,9 @@ typedef struct  __attribute__((packed)) {
     uint8_t len;
 } lorawan_block_t;
 
-void gnrc_lorawan_calculate_join_mic(iolist_t *io, uint8_t *key, le_uint32_t *out)
+void gnrc_lorawan_calculate_join_mic(const iolist_t *io, const uint8_t *key, le_uint32_t *out)
 {
-    cmac_init(&CmacContext, (const uint8_t *) key, LORAMAC_APPKEY_LEN);
+    cmac_init(&CmacContext, key, LORAMAC_APPKEY_LEN);
     while (io != NULL) {
         cmac_update(&CmacContext, io->iol_base, io->iol_len);
         io = io->iol_next;
@@ -57,8 +57,8 @@ void gnrc_lorawan_calculate_join_mic(iolist_t *io, uint8_t *key, le_uint32_t *ou
     memcpy(out, digest, sizeof(le_uint32_t));
 }
 
-void gnrc_lorawan_calculate_mic(le_uint32_t *dev_addr, uint32_t fcnt,
-                                uint8_t dir, iolist_t *pkt, uint8_t *nwkskey, le_uint32_t *out)
+void gnrc_lorawan_calculate_mic(const le_uint32_t *dev_addr, uint32_t fcnt,
+                                uint8_t dir, iolist_t *pkt, const uint8_t *nwkskey, le_uint32_t *out)
 {
     lorawan_block_t block;
 
@@ -79,7 +79,7 @@ void gnrc_lorawan_calculate_mic(le_uint32_t *dev_addr, uint32_t fcnt,
     gnrc_lorawan_calculate_join_mic(&io, nwkskey, out);
 }
 
-void gnrc_lorawan_encrypt_payload(iolist_t *iolist, le_uint32_t *dev_addr, uint32_t fcnt, uint8_t dir, uint8_t *appskey)
+void gnrc_lorawan_encrypt_payload(iolist_t *iolist, const le_uint32_t *dev_addr, uint32_t fcnt, uint8_t dir, const uint8_t *appskey)
 {
     uint8_t s_block[16];
     uint8_t a_block[16];
@@ -117,7 +117,7 @@ void gnrc_lorawan_encrypt_payload(iolist_t *iolist, le_uint32_t *dev_addr, uint3
     }
 }
 
-void gnrc_lorawan_decrypt_join_accept(uint8_t *key, uint8_t *pkt, int has_clist, uint8_t *out)
+void gnrc_lorawan_decrypt_join_accept(const uint8_t *key, uint8_t *pkt, int has_clist, uint8_t *out)
 {
     cipher_init(&AesContext, CIPHER_AES_128, key, LORAMAC_APPKEY_LEN);
     cipher_encrypt(&AesContext, pkt, out);
@@ -127,7 +127,7 @@ void gnrc_lorawan_decrypt_join_accept(uint8_t *key, uint8_t *pkt, int has_clist,
     }
 }
 
-void gnrc_lorawan_generate_session_keys(uint8_t *app_nonce, uint8_t *dev_nonce, uint8_t *appkey, uint8_t *nwkskey, uint8_t *appskey)
+void gnrc_lorawan_generate_session_keys(const uint8_t *app_nonce, const uint8_t *dev_nonce, const uint8_t *appkey, uint8_t *nwkskey, uint8_t *appskey)
 {
     uint8_t buf[LORAMAC_APPSKEY_LEN];
 
