@@ -62,15 +62,6 @@ extern "C" {
 #define LORAWAN_STATE_RX_2 (2)                          /**< MAC state machine in RX2 */
 #define LORAWAN_STATE_TX (3)                            /**< MAC state machine in TX */
 
-#define MLME_JOIN (1)                                   /**< MLME Request to join a LoRaWAN network */
-#define MLME_LINK_CHECK (2)                             /**< MLME Request to perform a Link Check */
-#define MLME_RESET (3)                                  /**< MLME Request to reset the MAC layer */
-#define MLME_SET (4)                                    /**< MLME Request to set the MIB */
-#define MLME_GET (5)                                    /**< MLME Request to get the MIB */
-
-#define MCPS_CONFIRMED (1)                              /**< MCPS Request with confirmed data */
-#define MCPS_UNCONFIRMED (2)                            /**< MCPS Request with unconfirmed data */
-
 #define MCPS_EVENT_RX (1)                               /**< MCPS RX event */
 #define MCPS_EVENT_NO_RX (2)                            /**< MCPS no RX event */
 #define MCPS_EVENT_ACK_TIMEOUT (3)                      /**< MCPS retrans event */
@@ -78,8 +69,6 @@ extern "C" {
 #define MLME_ACTIVATION_NONE (1)                        /**< MAC layer is not activated */
 #define MLME_ACTIVATION_ABP  (2)                        /**< MAC layer activated by ABP */
 #define MLME_ACTIVATION_OTAA (3)                        /**< MAC layer activated by OTAA */
-
-#define MLME_SCHEDULE_UPLINK (1)                        /**< MLME schedule uplink indication */
 
 #define GNRC_LORAWAN_DIR_UPLINK (0U)                    /**< uplink frame direction */
 #define GNRC_LORAWAN_DIR_DOWNLINK (1U)                  /**< downlink frame direction */
