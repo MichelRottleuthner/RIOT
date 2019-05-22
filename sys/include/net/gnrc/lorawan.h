@@ -203,7 +203,7 @@ void gnrc_lorawan_init(gnrc_lorawan_t *mac, uint8_t *nwkskey, uint8_t *appskey);
  *             GNRC_LORAWAN_REQ_STATUS_DEFERRED if the confirmation is deferred
  *             or an standard error number
  */
-void gnrc_lorawan_mlme_request(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
+void gnrc_lorawan_mlme_request(gnrc_lorawan_t *mac, const mlme_request_t *mlme_request,
                                mlme_confirm_t *mlme_confirm);
 
 /**
@@ -216,7 +216,7 @@ void gnrc_lorawan_mlme_request(gnrc_lorawan_t *mac, mlme_request_t *mlme_request
  *             GNRC_LORAWAN_REQ_STATUS_DEFERRED if the confirmation is deferred
  *             or an standard error number
  */
-void gnrc_lorawan_mcps_request(gnrc_lorawan_t *mac, mcps_request_t *mcps_request,
+void gnrc_lorawan_mcps_request(gnrc_lorawan_t *mac, const mcps_request_t *mcps_request,
                                mcps_confirm_t *mcps_confirm);
 
 /**
