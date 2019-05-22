@@ -61,8 +61,28 @@ extern "C" {
  * @brief MAC Information Base attributes
  */
 typedef enum {
-    MIB_ACTIVATION_METHOD
+    MIB_ACTIVATION_METHOD      /**< type is activation method */
 } mlme_mib_type_t;
+
+/**
+ * @brief MLME primitive types
+ */
+typedef enum {
+    MLME_JOIN,                 /**< join a LoRaWAN network */
+    MLME_LINK_CHECK,           /**< perform a Link Check */
+    MLME_RESET,                /**< reset the MAC layer */
+    MLME_SET,                  /**< set the MIB */
+    MLME_GET,                  /**< get the MIB */
+    MLME_SCHEDULE_UPLINK       /**< schedule uplink indication */
+} mlme_type_t;
+
+/**
+ * @brief MCPS primitive types
+ */
+typedef enum {
+    MCPS_CONFIRMED,            /**< confirmed data */
+    MCPS_UNCONFIRMED           /**< unconfirmed data */
+} mcps_type_t;
 
 /**
  * @brief MAC Information Base descriptor for MLME Request-Confirm
@@ -82,7 +102,7 @@ typedef struct {
         mlme_lorawan_join_t join; /**< Join Data holder */
         mlme_mib_t mib;           /**< MIB holder */
     };
-    uint8_t type;   /**< type of the MLME request */
+    mlme_type_t type;   /**< type of the MLME request */
 } mlme_request_t;
 
 /**
@@ -92,7 +112,7 @@ typedef struct {
     union {
         mcps_data_t data;        /**< MCPS data holder */
     };
-    uint8_t type;                /**< type of the MCPS request */
+    mcps_type_t type;    /**< type of the MCPS request */
 } mcps_request_t;
 
 /**
@@ -100,7 +120,7 @@ typedef struct {
  */
 typedef struct {
     int16_t status; /**< status of the MLME confirm */
-    uint8_t type;   /**< type of the MLME confirm */
+    mlme_type_t type;   /**< type of the MLME confirm */
     union {
         mlme_link_req_confirm_t link_req; /**< Link Check confirmation data */
         mlme_mib_t mib;                   /**< MIB confirmation data */
@@ -113,14 +133,14 @@ typedef struct {
 typedef struct {
     void *data;     /**< data of the MCPS confirm */
     int16_t status; /**< status of the MCPS confirm */
-    uint8_t type;   /**< type of the MCPS confirm */
+    mcps_type_t type;   /**< type of the MCPS confirm */
 } mcps_confirm_t;
 
 /**
  * @brief Mac Common Part Sublayer (MCPS) indication representation
  */
 typedef struct {
-    uint8_t type; /**< type of the MCPS indication */
+    mcps_type_t type; /**< type of the MCPS indication */
     union {
         mcps_data_t data; /**< MCPS Data holder */
     };
@@ -130,7 +150,7 @@ typedef struct {
  * @brief MAC (sub) Layer Management Entity (MLME) indication representation
  */
 typedef struct {
-    uint8_t type; /**< type of the MLME indication */
+    mlme_type_t type; /**< type of the MLME indication */
 } mlme_indication_t;
 
 /**
