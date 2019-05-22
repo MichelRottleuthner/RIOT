@@ -36,6 +36,29 @@
 #define GNRC_LORAWAN_DL_DR_OFFSET_MASK    (0x70)  /**< DL Settings RX2 DR mask */
 #define GNRC_LORAWAN_DL_DR_OFFSET_POS     (4)     /**< DL Settings RX2 DR pos */
 
+static inline void gnrc_lorawan_mlme_reset(gnrc_lorawan_t *mac)
+{
+    mac->mlme.activation = MLME_ACTIVATION_NONE;
+    mac->mlme.pending_mlme_opts = 0;
+    mac->rx_delay = (LORAMAC_DEFAULT_RX1_DELAY/MS_PER_SEC);
+    mac->mlme.nid = LORAMAC_DEFAULT_NETID;
+}
+
+static inline void gnrc_lorawan_mlme_backoff_init(gnrc_lorawan_t *mac)
+{
+    mac->mlme.backoff_msg.type = MSG_TYPE_MLME_BACKOFF_EXPIRE;
+    mac->mlme.backoff_state = 0;
+
+    gnrc_lorawan_mlme_backoff_expire(mac);
+}
+
+static inline void gnrc_lorawan_mcps_reset(gnrc_lorawan_t *mac)
+{
+    mac->mcps.ack_requested = false;
+    mac->mcps.waiting_for_ack = false;
+    mac->mcps.fcnt = 0;
+    mac->mcps.fcnt_down = 0;
+}
 static inline void _set_rx2_dr(gnrc_lorawan_t *mac, uint8_t rx2_dr)
 {
     mac->dl_settings &= ~GNRC_LORAWAN_DL_RX2_DR_MASK;

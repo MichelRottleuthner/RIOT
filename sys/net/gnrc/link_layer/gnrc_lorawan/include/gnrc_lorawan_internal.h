@@ -62,14 +62,6 @@ extern "C" {
 #define LORAWAN_STATE_RX_2 (2)                          /**< MAC state machine in RX2 */
 #define LORAWAN_STATE_TX (3)                            /**< MAC state machine in TX */
 
-#define MCPS_EVENT_RX (1)                               /**< MCPS RX event */
-#define MCPS_EVENT_NO_RX (2)                            /**< MCPS no RX event */
-#define MCPS_EVENT_ACK_TIMEOUT (3)                      /**< MCPS retrans event */
-
-#define MLME_ACTIVATION_NONE (1)                        /**< MAC layer is not activated */
-#define MLME_ACTIVATION_ABP  (2)                        /**< MAC layer activated by ABP */
-#define MLME_ACTIVATION_OTAA (3)                        /**< MAC layer activated by OTAA */
-
 #define GNRC_LORAWAN_DIR_UPLINK (0U)                    /**< uplink frame direction */
 #define GNRC_LORAWAN_DIR_DOWNLINK (1U)                  /**< downlink frame direction */
 
@@ -427,49 +419,6 @@ void gnrc_lorawan_open_rx_window(gnrc_lorawan_t *mac);
  * @param mac
  */
 void gnrc_lorawan_perform_save(gnrc_lorawan_t *mac);
-
-/**
- * @brief Reset the MLME layer
- *
- *        To be called by @ref gnrc_lorawan_reset
- *
- * @param[in] mac pointer to the MAC descriptor
- */
-static inline void gnrc_lorawan_mlme_reset(gnrc_lorawan_t *mac)
-{
-    mac->mlme.activation = MLME_ACTIVATION_NONE;
-    mac->mlme.pending_mlme_opts = 0;
-    mac->rx_delay = (LORAMAC_DEFAULT_RX1_DELAY/MS_PER_SEC);
-    mac->mlme.nid = LORAMAC_DEFAULT_NETID;
-}
-
-/**
- * @brief init backoff state machine
- *
- * @param[in] mac pointer to the MAC descriptor
- */
-static inline void gnrc_lorawan_mlme_backoff_init(gnrc_lorawan_t *mac)
-{
-    mac->mlme.backoff_msg.type = MSG_TYPE_MLME_BACKOFF_EXPIRE;
-    mac->mlme.backoff_state = 0;
-
-    gnrc_lorawan_mlme_backoff_expire(mac);
-}
-
-/**
- * @brief Reset the MCPS layer
- *
- *        To be called by @ref gnrc_lorawan_reset
- *
- * @param[in] mac pointer to the MAC descriptor
- */
-static inline void gnrc_lorawan_mcps_reset(gnrc_lorawan_t *mac)
-{
-    mac->mcps.ack_requested = false;
-    mac->mcps.waiting_for_ack = false;
-    mac->mcps.fcnt = 0;
-    mac->mcps.fcnt_down = 0;
-}
 
 /**
  * @brief Acquire the MAC layer
