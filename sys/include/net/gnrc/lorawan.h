@@ -57,6 +57,14 @@ extern "C" {
 #define GNRC_LORAWAN_REQ_STATUS_SUCCESS (0)     /**< MLME or MCPS request successful status */
 #define GNRC_LORAWAN_REQ_STATUS_DEFERRED (1)    /**< the MLME or MCPS confirm message is asynchronous */
 
+#define MCPS_EVENT_RX (1)                               /**< MCPS RX event */
+#define MCPS_EVENT_NO_RX (2)                            /**< MCPS no RX event */
+#define MCPS_EVENT_ACK_TIMEOUT (3)                      /**< MCPS retrans event */
+
+#define MLME_ACTIVATION_NONE (1)                        /**< MAC layer is not activated */
+#define MLME_ACTIVATION_ABP  (2)                        /**< MAC layer activated by ABP */
+#define MLME_ACTIVATION_OTAA (3)                        /**< MAC layer activated by OTAA */
+
 /**
  * @brief MAC Information Base attributes
  */
