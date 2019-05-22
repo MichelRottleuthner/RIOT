@@ -268,9 +268,8 @@ void gnrc_lorawan_mlme_request(gnrc_lorawan_t *mac, mlme_request_t *mlme_request
     }
 }
 
-int _fopts_mlme_link_check_req(gnrc_lorawan_t *mac, lorawan_buffer_t *buf)
+int _fopts_mlme_link_check_req(lorawan_buffer_t *buf)
 {
-    (void) mac;
     if (buf) {
         assert(buf->index + GNRC_LORAWAN_CID_SIZE <= buf->size);
         buf->data[buf->index++] = GNRC_LORAWAN_CID_LINK_CHECK_REQ_ANS;
@@ -326,7 +325,7 @@ uint8_t gnrc_lorawan_build_options(gnrc_lorawan_t *mac, lorawan_buffer_t *buf)
     size_t size = 0;
 
     size += (mac->mlme.pending_mlme_opts & GNRC_LORAWAN_MLME_OPTS_LINK_CHECK_REQ) ?
-            _fopts_mlme_link_check_req(mac, buf) : 0;
+            _fopts_mlme_link_check_req(buf) : 0;
     return size;
 }
 
