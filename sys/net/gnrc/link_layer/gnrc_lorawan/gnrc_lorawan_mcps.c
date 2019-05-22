@@ -147,8 +147,8 @@ void gnrc_lorawan_mcps_process_downlink(gnrc_lorawan_t *mac, gnrc_pktsnip_t *pkt
 
         mcps_indication_t *mcps_indication = _mcps_allocate(mac);
         mcps_indication->type = ack_req;
-        mcps_indication->param.data.pkt = pkt;
-        mcps_indication->param.data.port = *((uint8_t *) fport->data);
+        mcps_indication->data.pkt = pkt;
+        mcps_indication->data.port = *((uint8_t *) fport->data);
         mac->netdev.event_callback((netdev_t *) mac, NETDEV_EVENT_MCPS_INDICATION);
     }
 
@@ -279,7 +279,7 @@ void gnrc_lorawan_mcps_event(gnrc_lorawan_t *mac, int event, int data)
 void gnrc_lorawan_mcps_request(gnrc_lorawan_t *mac, mcps_request_t *mcps_request, mcps_confirm_t *mcps_confirm)
 {
     int release = true;
-    gnrc_pktsnip_t *pkt = mcps_request->param.data.pkt;
+    gnrc_pktsnip_t *pkt = mcps_request->data.pkt;
 
     if (mac->mlme.activation == MLME_ACTIVATION_NONE) {
         DEBUG("gnrc_lorawan_mcps: LoRaWAN not activated\n");
@@ -292,26 +292,26 @@ void gnrc_lorawan_mcps_request(gnrc_lorawan_t *mac, mcps_request_t *mcps_request
         goto out;
     }
 
-    if (mcps_request->param.data.port < LORAMAC_PORT_MIN ||
-        mcps_request->param.data.port > LORAMAC_PORT_MAX) {
+    if (mcps_request->data.port < LORAMAC_PORT_MIN ||
+        mcps_request->data.port > LORAMAC_PORT_MAX) {
         mcps_confirm->status = -EBADMSG;
         goto out;
     }
 
-    if (!gnrc_lorawan_validate_dr(mcps_request->param.data.dr)) {
+    if (!gnrc_lorawan_validate_dr(mcps_request->data.dr)) {
         mcps_confirm->status = -EINVAL;
         goto out;
     }
 
     int waiting_for_ack = mcps_request->type == MCPS_CONFIRMED;
-    if (!(pkt = gnrc_lorawan_build_uplink(mac, pkt, waiting_for_ack, mcps_request->param.data.port))) {
+    if (!(pkt = gnrc_lorawan_build_uplink(mac, pkt, waiting_for_ack, mcps_request->data.port))) {
         /* This function releases the pkt if fails */
         release = false;
         mcps_confirm->status = -ENOBUFS;
         goto out;
     }
 
-    if ((gnrc_pkt_len(pkt) - MIC_SIZE - 1) > gnrc_lorawan_region_mac_payload_max(mcps_request->param.data.dr)) {
+    if ((gnrc_pkt_len(pkt) - MIC_SIZE - 1) > gnrc_lorawan_region_mac_payload_max(mcps_request->data.dr)) {
         mcps_confirm->status = -EMSGSIZE;
         goto out;
     }
@@ -325,7 +325,7 @@ void gnrc_lorawan_mcps_request(gnrc_lorawan_t *mac, mcps_request_t *mcps_request
     assert(mac->mcps.outgoing_pkt == NULL);
     mac->mcps.outgoing_pkt = pkt;
 
-    gnrc_lorawan_send_pkt(mac, pkt, mcps_request->param.data.dr);
+    gnrc_lorawan_send_pkt(mac, pkt, mcps_request->data.dr);
     mcps_confirm->status = GNRC_LORAWAN_REQ_STATUS_DEFERRED;
 out:
 

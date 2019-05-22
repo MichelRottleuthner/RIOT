@@ -203,11 +203,11 @@ static void _mlme_set(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
                                mlme_confirm_t *mlme_confirm)
 {
     mlme_confirm->status = -EINVAL;
-    switch(mlme_request->param.mib.type) {
+    switch(mlme_request->mib.type) {
         case MIB_ACTIVATION_METHOD:
-            if(mlme_request->param.mib.param.activation != MLME_ACTIVATION_OTAA) {
+            if(mlme_request->mib.activation != MLME_ACTIVATION_OTAA) {
                 mlme_confirm->status = GNRC_LORAWAN_REQ_STATUS_SUCCESS;
-                mac->mlme.activation = mlme_request->param.mib.param.activation;
+                mac->mlme.activation = mlme_request->mib.activation;
             }
             break;
         default:
@@ -218,10 +218,10 @@ static void _mlme_set(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
 static void _mlme_get(gnrc_lorawan_t *mac, mlme_request_t *mlme_request,
                                mlme_confirm_t *mlme_confirm)
 {
-    switch(mlme_request->param.mib.type) {
+    switch(mlme_request->mib.type) {
         case MIB_ACTIVATION_METHOD:
             mlme_confirm->status = GNRC_LORAWAN_REQ_STATUS_SUCCESS;
-            mlme_confirm->param.mib.param.activation = mac->mlme.activation;
+            mlme_confirm->mib.activation = mac->mlme.activation;
             break;
         default:
             mlme_confirm->status = -EINVAL;
@@ -247,9 +247,9 @@ void gnrc_lorawan_mlme_request(gnrc_lorawan_t *mac, mlme_request_t *mlme_request
                 mlme_confirm->status = -EDQUOT;
                 break;
             }
-            memcpy(mac->appskey, mlme_request->param.join.appkey, LORAMAC_APPKEY_LEN);
-            mlme_confirm->status = gnrc_lorawan_send_join_request(mac, mlme_request->param.join.deveui,
-                                                                  mlme_request->param.join.appeui, mlme_request->param.join.appkey, mlme_request->param.join.dr);
+            memcpy(mac->appskey, mlme_request->join.appkey, LORAMAC_APPKEY_LEN);
+            mlme_confirm->status = gnrc_lorawan_send_join_request(mac, mlme_request->join.deveui,
+                                                                  mlme_request->join.appeui, mlme_request->join.appkey, mlme_request->join.dr);
             break;
         case MLME_LINK_CHECK:
             mac->mlme.pending_mlme_opts |= GNRC_LORAWAN_MLME_OPTS_LINK_CHECK_REQ;
@@ -289,8 +289,8 @@ static int _mlme_link_check_ans(gnrc_lorawan_t *mac, lorawan_buffer_t *fopt)
     fopt->index++;
 
     mlme_confirm_t *mlme_confirm = _mlme_allocate(mac);
-    mlme_confirm->param.link_req.margin = fopt->data[fopt->index++];
-    mlme_confirm->param.link_req.num_gateways = fopt->data[fopt->index++];
+    mlme_confirm->link_req.margin = fopt->data[fopt->index++];
+    mlme_confirm->link_req.num_gateways = fopt->data[fopt->index++];
 
     mlme_confirm->type = MLME_LINK_CHECK;
     mlme_confirm->status = GNRC_LORAWAN_REQ_STATUS_SUCCESS;
