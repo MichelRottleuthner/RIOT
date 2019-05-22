@@ -24,11 +24,17 @@
 extern "C" {
 #endif
 
-#define GNRC_LORAWAN_LC_1 (868100000)   /**< First default EU868 channel */
-#define GNRC_LORAWAN_LC_2 (868300000)   /**< Second default EU868 channel */
-#define GNRC_LORAWAN_LC_3 (868500000)   /**< Third default EU868 channel */
+/**
+ * @brief Default LoRaWAN channels for current region (EU868)
+ */
+static const uint32_t gnrc_lorawan_default_channels[] = {
+    868100000UL,
+    868300000UL,
+    868500000UL
+};
 
-#define GNRC_LORAWAN_DEFAULT_CHANNELS 3 /**< Number of default channels for the current region */
+#define GNRC_LORAWAN_DEFAULT_CHANNELS_NUMOF \
+    (sizeof(gnrc_lorawan_default_channels)/sizeof(uint32_t)) /**< Number of default channels */
 
 /**
  * @brief Process Channel Frequency list frame
