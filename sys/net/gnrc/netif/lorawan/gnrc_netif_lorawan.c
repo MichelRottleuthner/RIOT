@@ -66,8 +66,8 @@ static void _mlme_confirm(gnrc_netif_t *netif, mlme_confirm_t *confirm)
     }
     else if (confirm->type == MLME_LINK_CHECK) {
         netif->flags &= ~GNRC_NETIF_FLAGS_LINK_CHECK;
-        netif->lorawan.demod_margin = confirm->param.link_req.margin;
-        netif->lorawan.num_gateways = confirm->param.link_req.num_gateways;
+        netif->lorawan.demod_margin = confirm->link_req.margin;
+        netif->lorawan.num_gateways = confirm->link_req.num_gateways;
     }
 }
 
@@ -84,8 +84,8 @@ static void _mac_cb(netdev_t *dev, netdev_event_t event)
             break;
         case NETDEV_EVENT_MCPS_INDICATION:
             mcps_indication = mac->mcps_buf;
-            if (!gnrc_netapi_dispatch_receive(GNRC_NETTYPE_LORAWAN, mcps_indication->param.data.port, mcps_indication->param.data.pkt)) {
-                gnrc_pktbuf_release(mcps_indication->param.data.pkt);
+            if (!gnrc_netapi_dispatch_receive(GNRC_NETTYPE_LORAWAN, mcps_indication->data.port, mcps_indication->data.pkt)) {
+                gnrc_pktbuf_release(mcps_indication->data.pkt);
             }
             break;
         case NETDEV_EVENT_MLME_CONFIRM:
@@ -204,8 +204,8 @@ static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *payload)
         mlme_request.type = MLME_LINK_CHECK;
         gnrc_lorawan_mlme_request(&netif->lorawan.mac, &mlme_request, &mlme_confirm);
     }
-    mcps_request_t req = { .type = netif->lorawan.ack_req ? MCPS_CONFIRMED : MCPS_UNCONFIRMED, .param.data.pkt = payload, .param.data.port = netif->lorawan.port,
-                           .param.data.dr = netif->lorawan.datarate };
+    mcps_request_t req = { .type = netif->lorawan.ack_req ? MCPS_CONFIRMED : MCPS_UNCONFIRMED, .data.pkt = payload, .data.port = netif->lorawan.port,
+                           .data.dr = netif->lorawan.datarate };
     mcps_confirm_t conf;
     gnrc_lorawan_mcps_request(&netif->lorawan.mac, &req, &conf);
     return conf.status;
@@ -242,9 +242,9 @@ static int _get(gnrc_netif_t *netif, gnrc_netapi_opt_t *opt)
             break;
         case NETOPT_LINK_CONNECTED:
             mlme_request.type = MLME_GET;
-            mlme_request.param.mib.type = MIB_ACTIVATION_METHOD;
+            mlme_request.mib.type = MIB_ACTIVATION_METHOD;
             gnrc_lorawan_mlme_request(&netif->lorawan.mac, &mlme_request, &mlme_confirm);
-            *((netopt_enable_t *) opt->data) = mlme_confirm.param.mib.param.activation != MLME_ACTIVATION_NONE;
+            *((netopt_enable_t *) opt->data) = mlme_confirm.mib.activation != MLME_ACTIVATION_NONE;
             break;
         case NETOPT_LINK_CHECK:
             assert(opt->data_len == sizeof(netopt_enable_t));
@@ -315,15 +315,15 @@ static int _set(gnrc_netif_t *netif, const gnrc_netapi_opt_t *opt)
             if (en) {
                 if(netif->lorawan.otaa) {
                     mlme_request.type = MLME_JOIN;
-                    mlme_request.param.join.deveui = netif->lorawan.deveui;
-                    mlme_request.param.join.appeui = netif->lorawan.appeui;
-                    mlme_request.param.join.appkey = netif->lorawan.appkey;
-                    mlme_request.param.join.dr = netif->lorawan.datarate;
+                    mlme_request.join.deveui = netif->lorawan.deveui;
+                    mlme_request.join.appeui = netif->lorawan.appeui;
+                    mlme_request.join.appkey = netif->lorawan.appkey;
+                    mlme_request.join.dr = netif->lorawan.datarate;
                     gnrc_lorawan_mlme_request(&netif->lorawan.mac, &mlme_request, &mlme_confirm);
                 }
                 else {
                     mlme_request.type = MLME_SET;
-                    mlme_request.param.mib.param.activation = MLME_ACTIVATION_ABP;
+                    mlme_request.mib.activation = MLME_ACTIVATION_ABP;
                     gnrc_lorawan_mlme_request(&netif->lorawan.mac, &mlme_request, &mlme_confirm);
                 }
             }
