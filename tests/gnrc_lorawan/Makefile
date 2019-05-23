@@ -1,21 +1,11 @@
 include ../Makefile.tests_common
 
-USEMODULE += od
 USEMODULE += shell
 USEMODULE += shell_commands
-USEMODULE += ps
-USEMODULE += xtimer
-USEMODULE += random
 USEMODULE += gnrc_netdev_default
 USEMODULE += auto_init_gnrc_netif
 USEMODULE += gnrc_lorawan
-USEMODULE += gnrc_pktbuf_cmd
 USEMODULE += gnrc_netapi_callbacks
-USEMODULE += netdev_layer
-USEMODULE += gnrc_neterr
-USEMODULE += gnrc_netreg
-USEMODULE += hashes
-USEMODULE += crypto
 
 # GNRC LoRaWAN has been tested in the following boards. Eventually this list will
 # be expanded.
