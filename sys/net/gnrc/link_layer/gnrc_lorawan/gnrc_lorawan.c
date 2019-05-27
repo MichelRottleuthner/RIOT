@@ -102,7 +102,7 @@ static void _save_restore_mac(gnrc_lorawan_t *mac, bool save)
     pos += 4;
     f(pos, (uint8_t*) &mac->mcps.fcnt_down, sizeof(uint32_t));
     pos += 4;
-    f(pos, &activation, sizeof(activation));
+    f(pos, &mac->mlme.activation, sizeof(mac->mlme.activation));
     f(pos, NULL, 0);
 }
 

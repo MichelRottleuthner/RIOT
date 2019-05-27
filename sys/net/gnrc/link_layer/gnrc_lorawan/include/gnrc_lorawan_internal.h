@@ -153,7 +153,7 @@ typedef struct {
 typedef struct {
     xtimer_t backoff_timer;     /**< timer used for backoff expiration */
     msg_t backoff_msg;          /**< msg for backoff expiration */
-    int activation;         /**< Activation mechanism of the MAC layer */
+    uint8_t activation;         /**< Activation mechanism of the MAC layer */
     int pending_mlme_opts;  /**< holds pending mlme opts */
     uint32_t nid;               /**< current Network ID */
     int32_t backoff_budget;     /**< remaining Time On Air budget */
