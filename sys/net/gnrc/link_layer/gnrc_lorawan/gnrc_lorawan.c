@@ -79,7 +79,6 @@ static void _save_restore_mac(gnrc_lorawan_t *mac, bool save)
     int (*f)(uint8_t pos, uint8_t *buf, size_t len);
     f = save ? gnrc_lorawan_save_cb : gnrc_lorawan_restore_cb;
     uint8_t pos=0;
-    uint8_t activation = mac->mlme.activation;
 
     f(pos, mac->nwkskey, 16);
     pos += 16;
