@@ -80,10 +80,8 @@ void kw2xrf_new_init(kw2xrf_t *dev, const kw2xrf_params_t *params,
 
     kw2xrf_reset_phy(dev);
 
-    /* enable TX End IRQ: the driver uses the event and gnrc_netif_ieee802154
-     * only enables this when MODULE_NETSTATS_L2 is active */
     kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL2, MKW2XDM_PHY_CTRL2_TXMSK);
-    
+
     DEBUG("[kw2xrf] init finished\n");
 }
 

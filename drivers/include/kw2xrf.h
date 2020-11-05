@@ -155,6 +155,7 @@ typedef struct {
     bool    waiting_for_cca;            /**< Indicate whether CCA is still ongoing */
     bool    tx_done;                    /**< Indicate whether TX completed */
     bool    ack_rcvd;                   /**< Indicate if ACK was received for last transmission */
+    bool    cca_before_tx;              /**< true if CCA shall be performed before TX */
 #endif
     /** @} */
 } kw2xrf_t;

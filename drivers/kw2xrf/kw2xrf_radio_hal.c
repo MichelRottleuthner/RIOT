@@ -25,7 +25,7 @@
 
 #include "net/gnrc.h"
 
-#define LOG_LEVEL LOG_DEBUG
+#define LOG_LEVEL LOG_NONE
 #include "log.h"
 #include "kw2xrf.h"
 #include "kw2xrf_spi.h"
@@ -39,10 +39,6 @@
 
 static const ieee802154_radio_ops_t kw2xrf_ops;
 
-//ieee802154_dev_t kw2xrf_dev = {
-//    .driver = &kw2xrf_ops,
-//};
-
 #define KW2XRF_NUM                    ARRAY_SIZE(kw2xrf_params)
 
 kw2xrf_dev_evt_ctx_t kw2xrf_dev_ctxs[KW2XRF_NUM];
@@ -54,8 +50,6 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
 
     kw2xrf_read_dregs(kw_dev, MKW2XDM_IRQSTS1, dregs, MKW2XDM_PHY_CTRL4 + 1);
     kw2xrf_mask_irq_b(kw_dev);
-
-    printf("kw2xrf_radio_hal_irq_handler\n");
 
     LOG_DEBUG("[kw2xrf] CTRL1 %0x, IRQSTS1 %0x, IRQSTS2 %0x\n",
           dregs[MKW2XDM_PHY_CTRL1], dregs[MKW2XDM_IRQSTS1], dregs[MKW2XDM_IRQSTS2]);
@@ -78,29 +72,23 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             break;
 
         case XCVSEQ_TRANSMIT:
-            LOG_DEBUG("IRQ handler: [XCVSEQ_TRANSMIT]\n");
+            printf("IRQ handler: [XCVSEQ_TRANSMIT]\n");
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                LOG_DEBUG("        finished TXSEQ\n");
+                printf("        finished TXSEQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_TXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_DEBUG("        finished SEQIRQ\n");
+                printf("        finished SEQIRQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_SEQIRQ;
 
-                //if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) {
-                //    irqsts1 |= MKW2XDM_IRQSTS1_CCAIRQ;
-                //    if (dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA) {
-                //        DEBUG("[kw2xrf] CCA CH busy\n");
-                //        netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
-                //    }
-                //    else {
-                //        netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE);
-                //    }
-                //}
-                //assert(dev->pending_tx != 0);
-                //dev->pending_tx--;
-                //kw2xrf_set_idle_sequence(dev);
+                if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) {
+                    irqsts1 |= MKW2XDM_IRQSTS1_CCAIRQ;
+                    kw_dev->channel_free = !(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
+                }
+
+                kw_dev->tx_done = true;
+                dev->cb(dev, IEEE802154_RADIO_CONFIRM_TX_DONE);
             }
 
             kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, irqsts1);
@@ -128,25 +116,21 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
                 LOG_DEBUG("        finished TXSEQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_TXIRQ;
 
-                //if (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_RXACKRQD) {
-                //    LOG_DEBUG("    enable ACK RX timeout\n");
-                //    /* Allow TMR3IRQ to cancel RX operation */
-                //    kw2xrf_timer3_seq_abort_on(kw_dev);
-                //    /* Enable interrupt for TMR3 and set timer */
-                //    kw2xrf_abort_rx_ops_enable(kw_dev, _MACACKWAITDURATION);
-                //}
+                if (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_RXACKRQD) {
+                    LOG_DEBUG("    enable ACK RX timeout\n");
+                    /* Allow TMR3IRQ to cancel RX operation */
+                    kw2xrf_timer3_seq_abort_on(kw_dev);
+                    /* Enable interrupt for TMR3 and set timer */
+                    kw2xrf_abort_rx_ops_enable(kw_dev, _MACACKWAITDURATION);
+                }
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
                 LOG_DEBUG("        finished SEQIRQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_SEQIRQ;
-
                 if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) {
                     irqsts1 |= MKW2XDM_IRQSTS1_CCAIRQ;
-                    if (dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA) {
-                        LOG_DEBUG("    CCA CH busy\n");
-                        //netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
-                    }
+                    kw_dev->channel_free = !(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
                 }
 
                 if (dregs[MKW2XDM_IRQSTS3] & MKW2XDM_IRQSTS3_TMR3IRQ) {
@@ -159,20 +143,15 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
                 kw2xrf_timer3_seq_abort_off(kw_dev);
                 /* Disable interrupt for TMR3 and reset TMR3IRQ */
                 kw2xrf_abort_rx_ops_disable(kw_dev);
-                ///* Go back to idle state */
-                //kw2xrf_set_idle_sequence(kw_dev);
                 kw_dev->tx_done = true;
                 dev->cb(dev, IEEE802154_RADIO_CONFIRM_TX_DONE);
             }
 
             kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, irqsts1);
-
-            //_isr_event_seq_tr(netdev, dregs);
             break;
 
         case XCVSEQ_CONTINUOUS_CCA:
             LOG_DEBUG("IRQ handler: [XCVSEQ_CONTINUOUS_CCA]\n");
-            //_isr_event_seq_ccca(netdev, dregs);
             break;
 
         case XCVSEQ_IDLE:
@@ -183,32 +162,16 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             break;
     }
 
-    //uint8_t irqsts2 = 0;
-    //if (dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_PB_ERR_IRQ) {
-    //    DEBUG("[kw2xrf] untreated PB_ERR_IRQ\n");
-    //    irqsts2 |= MKW2XDM_IRQSTS2_PB_ERR_IRQ;
-    //}
-    //if (dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_WAKE_IRQ) {
-    //    DEBUG("[kw2xrf] untreated WAKE_IRQ\n");
-    //    irqsts2 |= MKW2XDM_IRQSTS2_WAKE_IRQ;
-    //}
-    //kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS2, irqsts2);
-    //if (ENABLE_DEBUG) {
-    //    /* for debugging only */
-    //    kw2xrf_read_dregs(dev, MKW2XDM_IRQSTS1, dregs, MKW2XDM_IRQSTS1 + 3);
-    //    if (dregs[MKW2XDM_IRQSTS1] & 0x7f) {
-    //        DEBUG("[kw2xrf] IRQSTS1 contains untreated IRQs: 0x%02x\n",
-    //            dregs[MKW2XDM_IRQSTS1]);
-    //    }
-    //    if (dregs[MKW2XDM_IRQSTS2] & 0x02) {
-    //        DEBUG("[kw2xrf] IRQSTS2 contains untreated IRQs: 0x%02x\n",
-    //            dregs[MKW2XDM_IRQSTS2]);
-    //    }
-    //    if (dregs[MKW2XDM_IRQSTS3] & 0x0f) {
-    //        DEBUG("[kw2xrf] IRQSTS3 contains untreated IRQs: 0x%02x\n",
-    //            dregs[MKW2XDM_IRQSTS3]);
-    //    }
-    //}
+    uint8_t irqsts2 = 0;
+    if (dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_PB_ERR_IRQ) {
+        LOG_DEBUG("[kw2xrf] untreated PB_ERR_IRQ\n");
+        irqsts2 |= MKW2XDM_IRQSTS2_PB_ERR_IRQ;
+    }
+    if (dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_WAKE_IRQ) {
+        LOG_DEBUG("[kw2xrf] untreated WAKE_IRQ\n");
+        irqsts2 |= MKW2XDM_IRQSTS2_WAKE_IRQ;
+    }
+    kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS2, irqsts2);
 
     kw2xrf_enable_irq_b(kw_dev);
 }
@@ -218,7 +181,7 @@ static void kw2xrf_irq_cb(void *ctx) {
     kw2xrf_dev_evt_ctx_t *c = (kw2xrf_dev_evt_ctx_t*)ctx;
     /* calls the below kw2xrf_irq_event_handler from the the event thread */
     //event_post(EVENT_PRIO_HIGHEST, &c->event);
-    event_post(EVENT_PRIO_MEDIUM, &c->event);
+    event_post(EVENT_PRIO_HIGHEST, &c->event);
 }
 
 static void kw2xrf_irq_event_handler(event_t *evt) {
@@ -249,7 +212,7 @@ void kw2xrf_auto_init_offloaded(void) {
 
 static int _write(ieee802154_dev_t *dev, const iolist_t *iolist)
 {
-    printf("_write\n");
+    LOG_DEBUG("_write\n");
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     size_t len = 0;
     /* TODO: replace with address-offset spi transfer */
@@ -268,16 +231,16 @@ static int _write(ieee802154_dev_t *dev, const iolist_t *iolist)
         len += iol->iol_len;
     }
 
-    printf("len: %u\n", len);
+    LOG_DEBUG("len: %u\n", len);
     pkt_buf[0] = len + IEEE802154_FCS_LEN;
     for (unsigned i = 0; i < len; i++) {
-        printf("%02X ", pkt_buf[i+1]);
+        LOG_DEBUG("%02X ", pkt_buf[i+1]);
     }
-    printf("\n");
+    LOG_DEBUG("\n");
     for (unsigned i = 0; i < len; i++) {
-        printf(" %c ", ((pkt_buf[i+1] >= 0x20) && (pkt_buf[i +1] <= 0x7E)) ? (char)pkt_buf[i +1] : '?');
+        LOG_DEBUG(" %c ", ((pkt_buf[i+1] >= 0x20) && (pkt_buf[i +1] <= 0x7E)) ? (char)pkt_buf[i +1] : '?');
     }
-    printf("\n");
+    LOG_DEBUG("\n");
 
     /* check if ack req bit is set to decide which transmition sequence is best
        to send the frame */
@@ -290,18 +253,25 @@ static int _write(ieee802154_dev_t *dev, const iolist_t *iolist)
 static int _request_transmit(ieee802154_dev_t *dev)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    printf("_request_transmit %s\n", kw_dev->ack_requested ? "TR" : "T");
     kw_dev->tx_done = false;
+
+    uint8_t pctl1 = kw2xrf_read_dreg(kw_dev, MKW2XDM_PHY_CTRL1);
+
+    printf("_request_transmit %s PHY_CTRL1: 0x%02X\n", kw_dev->ack_requested ? "TR" : "T", pctl1);
 
     if (kw_dev->ack_requested) {
         /* expect an ACK after TX */
-        kw2xrf_set_dreg_bit(kw_dev, MKW2XDM_PHY_CTRL1,
-                            MKW2XDM_PHY_CTRL1_RXACKRQD);
+        //kw2xrf_set_dreg_bit(kw_dev, MKW2XDM_PHY_CTRL1,
+        //                    MKW2XDM_PHY_CTRL1_RXACKRQD);
+        pctl1 |= MKW2XDM_PHY_CTRL1_RXACKRQD;
     } else {
         /* don't expect an ACK after TX */
-        kw2xrf_clear_dreg_bit(kw_dev, MKW2XDM_PHY_CTRL1,
-                              MKW2XDM_PHY_CTRL1_RXACKRQD);
+        //kw2xrf_clear_dreg_bit(kw_dev, MKW2XDM_PHY_CTRL1,
+        //                      MKW2XDM_PHY_CTRL1_RXACKRQD);
+        pctl1 &= ~MKW2XDM_PHY_CTRL1_RXACKRQD;
     }
+
+    kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, pctl1);
 
     /* A T sequence performs a simple transmit and returns to idle, a TR
     sequence waits for the requested ACK response after the transmition */
@@ -320,10 +290,13 @@ static int _confirm_transmit(ieee802154_dev_t *dev, ieee802154_tx_info_t *info)
         return -EAGAIN;
     }
 
-    printf("_confirm_transmit [DONE] (%sACK)\n", kw_dev->ack_rcvd ? "" : "No ");
+    LOG_DEBUG("_confirm_transmit [DONE] (%sACK)\n", kw_dev->ack_rcvd ? "" : "No ");
 
     if (info) {
-        if (kw_dev->ack_rcvd) {
+        if (!kw_dev->channel_free) {
+            info->status = TX_STATUS_MEDIUM_BUSY;
+        }
+        else if (kw_dev->ack_rcvd || !kw_dev->ack_requested) {
             info->status = TX_STATUS_SUCCESS;
         } else {
             info->status = TX_STATUS_NO_ACK;
@@ -335,7 +308,7 @@ static int _confirm_transmit(ieee802154_dev_t *dev, ieee802154_tx_info_t *info)
 static int _len(ieee802154_dev_t *dev)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    printf("_len\n");
+    LOG_DEBUG("_len\n");
 
     size_t pkt_len = kw2xrf_read_dreg(kw_dev, MKW2XDM_RX_FRM_LEN);
     return pkt_len;
@@ -344,7 +317,7 @@ static int _len(ieee802154_dev_t *dev)
 static int _read(ieee802154_dev_t *dev, void *buf, size_t size, ieee802154_rx_info_t *info)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    printf("_read\n");
+    LOG_DEBUG("_read\n");
 
     kw2xrf_read_fifo(kw_dev, (uint8_t *)buf, size);
 
@@ -359,17 +332,18 @@ static int _read(ieee802154_dev_t *dev, void *buf, size_t size, ieee802154_rx_in
 static int _confirm_cca(ieee802154_dev_t *dev)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    printf("_confirm_cca\n");
+    LOG_DEBUG("_confirm_cca\n");
     if (kw_dev->waiting_for_cca) {
         return -EAGAIN;
     }
+
     return kw_dev->channel_free;
 }
 
 static int _request_cca(ieee802154_dev_t *dev)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    printf("_request_cca\n");
+    LOG_DEBUG("_request_cca\n");
     kw_dev->waiting_for_cca = true;
     kw2xrf_set_sequence(kw_dev, XCVSEQ_CCA);
     return 0;
@@ -378,7 +352,7 @@ static int _request_cca(ieee802154_dev_t *dev)
 static int _set_cca_threshold(ieee802154_dev_t *dev, int8_t threshold)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    printf("_set_cca_threshold to %d\n", threshold);
+    LOG_DEBUG("_set_cca_threshold to %d\n", threshold);
     /* normalize to absolute value */
     if (threshold < 0) {
         threshold = -threshold;
@@ -386,12 +360,27 @@ static int _set_cca_threshold(ieee802154_dev_t *dev, int8_t threshold)
 
     kw2xrf_write_iregs(kw_dev, MKW2XDMI_CCA1_THRESH, (uint8_t*)&threshold, 1);
     kw2xrf_write_iregs(kw_dev, MKW2XDMI_CCA2_THRESH, (uint8_t*)&threshold, 1);
+
+    //kw2xrf_write_iregs(kw_dev, MKW2XDMI_CCA1_ED_OFFSET_COMP, (uint8_t*)&val, 1);
+    //kw2xrf_write_iregs(kw_dev, MKW2XDMI_LQI_OFFSET_COMP, (uint8_t*)&val, 1);
+    //kw2xrf_write_iregs(kw_dev, MKW2XDMI_CCA_CTRL, (uint8_t*)&val, 1);
+    //kw2xrf_write_iregs(kw_dev, MKW2XDMI_CCA2_CORR_PEAKS, (uint8_t*)&val, 1);
+
+    //uint8_t iregs[6];
+    //kw2xrf_read_iregs(kw_dev, MKW2XDMI_CCA1_THRESH, iregs, sizeof(iregs));
+    //printf("MKW2XDMI_CCA1_THRESH:         0x%02X\n", iregs[0]);
+    //printf("MKW2XDMI_CCA1_ED_OFFSET_COMP: 0x%02X\n", iregs[1]);
+    //printf("MKW2XDMI_LQI_OFFSET_COMP:     0x%02X\n", iregs[2]);
+    //printf("MKW2XDMI_CCA_CTRL:            0x%02X\n", iregs[3]);
+    //printf("MKW2XDMI_CCA2_CORR_PEAKS:     0x%02X\n", iregs[4]);
+    //printf("MKW2XDMI_CCA2_THRESH:         0x%02X\n", iregs[5]);
+
     return 0;
 }
 
 static int _config_phy(ieee802154_dev_t *dev, const ieee802154_phy_conf_t *conf)
 {
-    printf("_config_phy\n");
+    LOG_DEBUG("_config_phy\n");
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     kw2xrf_set_tx_power(kw_dev, conf->pow);
     return kw2xrf_set_channel(kw_dev, conf->channel) == 0 ? 0 : -EINVAL;
@@ -402,16 +391,16 @@ static int _request_set_trx_state(ieee802154_dev_t *dev, ieee802154_trx_state_t 
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     switch (state) {
         case IEEE802154_TRX_STATE_TRX_OFF:
-            printf("_request_set_trx_state [IEEE802154_TRX_STATE_TRX_OFF]\n");
+            LOG_DEBUG("_request_set_trx_state [IEEE802154_TRX_STATE_TRX_OFF]\n");
             kw2xrf_set_power_mode(kw_dev, KW2XRF_DOZE);
             break;
         case IEEE802154_TRX_STATE_RX_ON:
-            printf("_request_set_trx_state [IEEE802154_TRX_STATE_RX_ON]\n");
+            LOG_DEBUG("_request_set_trx_state [IEEE802154_TRX_STATE_RX_ON]\n");
             /* TODO: ensure FIFO is flushed (maybe below already does) */
             kw2xrf_set_sequence(kw_dev, XCVSEQ_RECEIVE);
             break;
         case IEEE802154_TRX_STATE_TX_ON:
-            printf("_request_set_trx_state [IEEE802154_TRX_STATE_TX_ON]\n");
+            LOG_DEBUG("_request_set_trx_state [IEEE802154_TRX_STATE_TX_ON]\n");
             /* no-op on this radio as it can always perform transmit if in ON mode */
             //kw2xrf_set_power_mode(kw_dev, KW2XRF_IDLE);
             break;
@@ -421,14 +410,14 @@ static int _request_set_trx_state(ieee802154_dev_t *dev, ieee802154_trx_state_t 
 
 static int _confirm_set_trx_state(ieee802154_dev_t *dev)
 {
-    printf("_confirm_set_trx_state\n");
+    LOG_DEBUG("_confirm_set_trx_state\n");
     (void) dev;
     return 0;
 }
 
 static int _off(ieee802154_dev_t *dev)
 {
-    printf("_off\n");
+    LOG_DEBUG("_off\n");
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     /* TODO: do COMPLETE powerdown (PIN?) */
     kw2xrf_set_power_mode(kw_dev, KW2XRF_HIBERNATE);
@@ -438,7 +427,7 @@ static int _off(ieee802154_dev_t *dev)
 static bool _get_cap(ieee802154_dev_t *dev, ieee802154_rf_caps_t cap)
 {
     (void) dev;
-    printf("_get_cap\n");
+    LOG_DEBUG("_get_cap\n");
     switch (cap) {
         case IEEE802154_CAP_24_GHZ:
         case IEEE802154_CAP_IRQ_TX_DONE:
@@ -456,7 +445,7 @@ static bool _get_cap(ieee802154_dev_t *dev, ieee802154_rf_caps_t cap)
 static int _set_hw_addr_filter(ieee802154_dev_t *dev, const network_uint16_t *short_addr,
                                const eui64_t *ext_addr, const uint16_t *pan_id)
 {
-    printf("_set_hw_addr_filter\n");
+    LOG_DEBUG("_set_hw_addr_filter\n");
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     kw2xrf_set_pan(kw_dev, *pan_id);
     kw2xrf_set_addr_short(kw_dev, byteorder_ntohs(*short_addr));
@@ -466,7 +455,7 @@ static int _set_hw_addr_filter(ieee802154_dev_t *dev, const network_uint16_t *sh
 
 static int _request_on(ieee802154_dev_t *dev)
 {
-    printf("_request_on\n");
+    LOG_DEBUG("_request_on\n");
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     /* enables xtal and puts power managment controller to high power mode */
     kw2xrf_set_power_mode(kw_dev, KW2XRF_IDLE);
@@ -475,7 +464,7 @@ static int _request_on(ieee802154_dev_t *dev)
 
 static int _confirm_on(ieee802154_dev_t *dev)
 {
-    printf("_confirm_on\n");
+    LOG_DEBUG("_confirm_on\n");
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     size_t pwr_modes = kw2xrf_read_dreg(kw_dev, MKW2XDM_PWR_MODES);
     return (pwr_modes & MKW2XDM_PWR_MODES_XTAL_READY) ? 0 : -EAGAIN;
@@ -484,8 +473,9 @@ static int _confirm_on(ieee802154_dev_t *dev)
 static int _set_cca_mode(ieee802154_dev_t *dev, ieee802154_cca_mode_t mode)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    printf("_set_cca_mode\n");
+    LOG_DEBUG("_set_cca_mode\n");
 
+    uint8_t cca_ctl_val = 0;
     uint8_t dev_mode = 0;
     switch (mode) {
         case IEEE802154_CCA_MODE_ED_THRESHOLD:
@@ -495,8 +485,16 @@ static int _set_cca_mode(ieee802154_dev_t *dev, ieee802154_cca_mode_t mode)
             dev_mode = 2;
             break;
         case IEEE802154_CCA_MODE_ED_THRESH_AND_CS:
+            dev_mode = 3;
+            kw2xrf_read_iregs(kw_dev, MKW2XDMI_CCA_CTRL, &cca_ctl_val, 1);
+            cca_ctl_val |= MKW2XDMI_CCA_CTRL_CCA3_AND_NOT_OR;
+            kw2xrf_write_iregs(kw_dev, MKW2XDMI_CCA_CTRL, &cca_ctl_val, 1);
+            break;
         case IEEE802154_CCA_MODE_ED_THRESH_OR_CS:
             dev_mode = 3;
+            kw2xrf_read_iregs(kw_dev, MKW2XDMI_CCA_CTRL, &cca_ctl_val, 1);
+            cca_ctl_val &= ~(MKW2XDMI_CCA_CTRL_CCA3_AND_NOT_OR);
+            kw2xrf_write_iregs(kw_dev, MKW2XDMI_CCA_CTRL, &cca_ctl_val, 1);
             break;
     }
 
@@ -543,7 +541,7 @@ static int _set_rx_mode(ieee802154_dev_t *dev, ieee802154_rx_mode_t mode)
 
 static int _set_csma_params(ieee802154_dev_t *dev, const ieee802154_csma_be_t *bd, int8_t retries)
 {
-    printf("_set_csma_params %d retries\n", retries);
+    LOG_DEBUG("_set_csma_params %d retries\n", retries);
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     (void) bd;
 
