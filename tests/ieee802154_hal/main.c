@@ -201,13 +201,14 @@ static void _send(iolist_t *pkt)
     ieee802154_radio_request_transmit(ieee802154_hal_test_get_dev(RADIO_DEFAULT_ID));
     ieee802154_radio_set_rx_mode(ieee802154_hal_test_get_dev(RADIO_DEFAULT_ID), IEEE802154_RX_WAIT_FOR_ACK);
     mutex_lock(&lock);
-
     event_post(EVENT_PRIO_HIGHEST, &_tx_finish_ev);
 }
 
 static int _init(void)
 {
+    printf("before iee init\n");
     ieee802154_hal_test_init_devs();
+    printf("after iee init\n");
 
     /* Set the Event Notification */
     ((ieee802154_dev_t*) ieee802154_hal_test_get_dev(RADIO_DEFAULT_ID))->cb = _hal_radio_cb;
