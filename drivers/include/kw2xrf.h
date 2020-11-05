@@ -32,6 +32,10 @@
 #include "net/netdev/ieee802154.h"
 #include "net/gnrc/nettype.h"
 #include "thread.h"
+#if IS_USED(MODULE_IEEE802154_RADIO_HAL)
+#include "net/ieee802154/radio.h"
+#include "event.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -123,7 +127,14 @@ typedef struct kw2xrf_params {
  * @extends netdev_ieee802154_t
  */
 typedef struct {
-    netdev_ieee802154_t netdev;          /**< netdev parent struct */
+#if IS_USED(MODULE_NETDEV_IEEE802154_SUBMAC)
+    netdev_ieee802154_submac_t netdev;   /**< netdev parent struct */
+#elif !IS_USED(MODULE_IEEE802154_RADIO_HAL)
+    netdev_ieee802154_t netdev;   /**< netdev parent struct */
+#endif
+#if IS_USED(MODULE_IEEE802154_RADIO_HAL)
+    ieee802154_dev_t hal;
+#endif
     /**
      * @brief   device specific fields
      * @{
@@ -138,8 +149,26 @@ typedef struct {
                                              this is required to know when to
                                              return to @ref kw2xrf_t::idle_state */
     int16_t tx_power;                   /**< The current tx-power setting of the device */
+#if IS_USED(MODULE_IEEE802154_RADIO_HAL)
+    bool    ack_requested;              /**< ACK was requested for last frame */
+    bool    channel_free;               /**< CCA indicated channel free */
+    bool    waiting_for_cca;            /**< Indicate whether CCA is still ongoing */
+    bool    tx_done;                    /**< Indicate whether TX completed */
+    bool    ack_rcvd;                   /**< Indicate if ACK was received for last transmission */
+#endif
     /** @} */
 } kw2xrf_t;
+
+#if IS_USED(MODULE_IEEE802154_RADIO_HAL)
+/**
+ * @brief   Context to map between device and event for ISR offloading
+ *
+ */
+typedef struct {
+    kw2xrf_t     dev;
+    event_t      event;
+} kw2xrf_dev_evt_ctx_t;
+#endif
 
 /**
  * @brief   Setup an KW2XRF based device state
@@ -158,6 +187,19 @@ void kw2xrf_setup(kw2xrf_t *dev, const kw2xrf_params_t *params);
  * @return                  <0 on error
  */
 int kw2xrf_init(kw2xrf_t *dev, gpio_cb_t cb);
+
+/**
+ * @brief   Initialize the given KW2XRF device
+ * @param[out] dev          device descriptor
+ * @param[in]  params       parameters for device initialization
+ * @param[in]  isr_cb       irq callback
+ * @param[in]  cb_ctx       private context pointer handed to cb
+ *
+ * @return                  0 on success
+ * @return                  <0 on error
+ */
+void kw2xrf_new_init(kw2xrf_t *dev, const kw2xrf_params_t *params,
+                     gpio_cb_t isr_cb, void *cb_ctx);
 
 /**
  * @brief   Configure radio with default values

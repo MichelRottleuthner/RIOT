@@ -368,7 +368,9 @@ void kw2xrf_set_option(kw2xrf_t *dev, uint16_t option, bool state)
 
     /* set option field */
     if (state) {
-        dev->netdev.flags |= option;
+#if !IS_USED(MODULE_IEEE802154_RADIO_HAL)
+            dev->netdev.flags |= option;
+#endif
 
         /* trigger option specific actions */
         switch (option) {
@@ -420,7 +422,9 @@ void kw2xrf_set_option(kw2xrf_t *dev, uint16_t option, bool state)
         }
     }
     else {
+#if !IS_USED(MODULE_IEEE802154_RADIO_HAL)
         dev->netdev.flags &= ~(option);
+#endif
         /* trigger option specific actions */
         switch (option) {
             case KW2XRF_OPT_AUTOCCA:
@@ -432,6 +436,7 @@ void kw2xrf_set_option(kw2xrf_t *dev, uint16_t option, bool state)
                 /* disable promiscuous mode */
                 kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL4,
                     MKW2XDM_PHY_CTRL4_PROMISCUOUS);
+#if !IS_USED(MODULE_IEEE802154_RADIO_HAL)
                 /* re-enable AUTOACK only if the option is set */
                 if (dev->netdev.flags & KW2XRF_OPT_AUTOACK) {
                     kw2xrf_set_dreg_bit(dev, MKW2XDM_PHY_CTRL1,
@@ -441,6 +446,7 @@ void kw2xrf_set_option(kw2xrf_t *dev, uint16_t option, bool state)
                     kw2xrf_set_dreg_bit(dev, MKW2XDM_PHY_CTRL1,
                         MKW2XDM_PHY_CTRL1_RXACKRQD);
                 }
+#endif
                 break;
 
             case KW2XRF_OPT_AUTOACK:
