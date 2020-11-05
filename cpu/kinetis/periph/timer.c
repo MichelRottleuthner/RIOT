@@ -320,7 +320,7 @@ static inline int lptmr_clear(uint8_t dev);
 static inline uint16_t lptmr_read(uint8_t dev);
 static inline void lptmr_start(uint8_t dev);
 static inline void lptmr_stop(uint8_t dev);
-#if defined(LPTMR_ISR_0) || defined(LPTMR_ISR_1)
+#if LPTMR_NUMOF > 0 && defined(LPTMR_ISR_0) || defined(LPTMR_ISR_1)
 static inline void lptmr_irq_handler(tim_t tim);
 #endif
 
@@ -584,7 +584,7 @@ static inline void lptmr_stop(uint8_t dev)
     irq_restore(mask);
 }
 
-#if defined(LPTMR_ISR_0) || defined(LPTMR_ISR_1)
+#if LPTMR_NUMOF > 0 &&  defined(LPTMR_ISR_0) || defined(LPTMR_ISR_1)
 static inline void lptmr_irq_handler(tim_t tim)
 {
     uint8_t dev = _lptmr_index(tim);
@@ -602,7 +602,7 @@ static inline void lptmr_irq_handler(tim_t tim)
 
     cortexm_isr_end();
 }
-#endif /* defined(LPTMR_ISR_0) || defined(LPTMR_ISR_1) */
+#endif /* LPTMR_NUMOF > 0 && defined(LPTMR_ISR_0) || defined(LPTMR_ISR_1) */
 
 #endif
 /* ****** Common timer API functions ****** */
@@ -806,7 +806,7 @@ void PIT_ISR_3(void)
 }
 #endif
 
-#ifdef LPTMR_ISR_0
+#if LPTMR_NUMOF > 0 && defined(LPTMR_ISR_0)
 void LPTMR_ISR_0(void)
 {
     lptmr_irq_handler(_lptmr_tim_t(0));
