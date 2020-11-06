@@ -426,7 +426,7 @@ int txtsnd(int argc, char **argv)
     size_t res;
     bool ack_req = false;
 
-    if (argc != 3 && argc != 4) {
+    if (argc != 3 && !(argc == 4 && strcmp(argv[3], "ackreq") == 0)) {
         puts("Usage: txtsnd <long_addr> <len> [ackreq]");
         return 1;
     }
@@ -438,7 +438,7 @@ int txtsnd(int argc, char **argv)
     }
     len = atoi(argv[2]);
 
-    if (argc == 4 && strcmp(argv[3], "ackreq") == 0) {
+    if (argc == 4) {
         ack_req = true;
     }
     return send(addr, res, len, ack_req);
@@ -448,7 +448,7 @@ static int rx_mode_cmd(int argc, char **argv)
 {
     ieee802154_rx_mode_t conf;
     if (argc < 2) {
-        printf("Usage: %s <on|off|pend|promisc>", argv[0]);
+        printf("Usage: %s <on|off|pend|promisc>\n", argv[0]);
         return 1;
     }
 
