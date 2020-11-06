@@ -25,7 +25,7 @@
 
 #include "net/gnrc.h"
 
-#define LOG_LEVEL LOG_DEBUG
+#define LOG_LEVEL LOG_NONE
 #include "log.h"
 #include "kw2xrf.h"
 #include "kw2xrf_spi.h"
@@ -58,14 +58,14 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
 
     switch (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_XCVSEQ_MASK) {
         case XCVSEQ_RECEIVE:
-            printf("IRQ handler: [XCVSEQ_RECEIVE]\n");
+            LOG_INFO("IRQ handler: [XCVSEQ_RECEIVE]\n");
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXIRQ) {
-                printf("        finished RXSEQ\n");
+                LOG_INFO("        finished RXSEQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_RXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                printf("        finished SEQIRQ\n");
+                LOG_INFO("        finished SEQIRQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_SEQIRQ;
                 sequence_completed = true;
             }
@@ -76,14 +76,14 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             break;
 
         case XCVSEQ_TRANSMIT:
-            printf("IRQ handler: [XCVSEQ_TRANSMIT]\n");
+            LOG_INFO("IRQ handler: [XCVSEQ_TRANSMIT]\n");
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                printf("        finished TXSEQ\n");
+                LOG_INFO("        finished TXSEQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_TXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                printf("        finished SEQIRQ\n");
+                LOG_INFO("        finished SEQIRQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_SEQIRQ;
                 sequence_completed = true;
 
@@ -100,29 +100,29 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             break;
 
         case XCVSEQ_CCA:
-            printf("IRQ handler: [XCVSEQ_CCA]\n");
+            LOG_INFO("IRQ handler: [XCVSEQ_CCA]\n");
             ////_isr_event_seq_cca(netdev, dregs);
             /* onle handle IRQ if CCA *and* sequence (warmdown) finished */
             if ((dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) &&
                 (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ)) {
                 sequence_completed = true;
                 uint8_t ed_fnl = kw2xrf_read_dreg(kw_dev, MKW2XDM_CCA1_ED_FNL);
-                printf("MKW2XDM_CCA1_ED_FNL: 0x%02X\n", ed_fnl);
+                LOG_INFO("MKW2XDM_CCA1_ED_FNL: 0x%02X\n", ed_fnl);
 
                 uint8_t iregs[6];
                 kw2xrf_read_iregs(kw_dev, MKW2XDMI_CCA1_THRESH, iregs, sizeof(iregs));
-                printf("MKW2XDMI_CCA1_THRESH:                0x%02X\n", iregs[0]);
-                printf("MKW2XDMI_CCA1_ED_OFFSET_COMP:        0x%02X\n", iregs[1]);
-                printf("MKW2XDMI_LQI_OFFSET_COMP:            0x%02X\n", iregs[2]);
-                printf("MKW2XDMI_CCA_CTRL:                   0x%02X\n", iregs[3]);
-                printf("MKW2XDMI_CCA2_CORR_PEAKS:            0x%02X\n", iregs[4]);
-                printf("MKW2XDMI_CCA2_CORR_PEAKS_TH:         0x%02X\n", (iregs[4] & MKW2XDMI_CCA2_CORR_PEAKS_CCA2_MIN_NUM_CORR_TH_MASK) >> MKW2XDMI_CCA2_CORR_PEAKS_CCA2_MIN_NUM_CORR_TH_SHIFT);
-                printf("MKW2XDMI_CCA2_CORR_PEAKS_NUM:        0x%02X\n", iregs[4] & MKW2XDMI_CCA2_CORR_PEAKS_CCA2_NUM_CORR_PEAKS_MASK);
-                printf("MKW2XDMI_CCA2_THRESH:                0x%02X\n", iregs[5]);
+                LOG_INFO("MKW2XDMI_CCA1_THRESH:                0x%02X\n", iregs[0]);
+                LOG_INFO("MKW2XDMI_CCA1_ED_OFFSET_COMP:        0x%02X\n", iregs[1]);
+                LOG_INFO("MKW2XDMI_LQI_OFFSET_COMP:            0x%02X\n", iregs[2]);
+                LOG_INFO("MKW2XDMI_CCA_CTRL:                   0x%02X\n", iregs[3]);
+                LOG_INFO("MKW2XDMI_CCA2_CORR_PEAKS:            0x%02X\n", iregs[4]);
+                LOG_INFO("MKW2XDMI_CCA2_CORR_PEAKS_TH:         0x%02X\n", (iregs[4] & MKW2XDMI_CCA2_CORR_PEAKS_CCA2_MIN_NUM_CORR_TH_MASK) >> MKW2XDMI_CCA2_CORR_PEAKS_CCA2_MIN_NUM_CORR_TH_SHIFT);
+                LOG_INFO("MKW2XDMI_CCA2_CORR_PEAKS_NUM:        0x%02X\n", iregs[4] & MKW2XDMI_CCA2_CORR_PEAKS_CCA2_NUM_CORR_PEAKS_MASK);
+                LOG_INFO("MKW2XDMI_CCA2_THRESH:                0x%02X\n", iregs[5]);
 
                 size_t cca_cnt = kw2xrf_read_dreg(kw_dev, MKW2XDM_RSSI_CCA_CNT);
 
-                printf("MKW2XDM_RSSI_CCA_CNT:                0x%02X\n", cca_cnt);
+                LOG_INFO("MKW2XDM_RSSI_CCA_CNT:                0x%02X\n", cca_cnt);
 
                 /* clear CCA IRQ and SEQIRQ wich gets asserted after warmdown */
                 kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_CCAIRQ | MKW2XDM_IRQSTS1_SEQIRQ);
@@ -150,7 +150,7 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXIRQ) {
-                printf("        finished RXSEQ\n");
+                LOG_INFO("        finished RXSEQ\n");
                 irqsts1 |= MKW2XDM_IRQSTS1_RXIRQ;
             }
 
@@ -215,7 +215,7 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
     kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS2, irqsts2);
 
     uint8_t pctl1 = kw2xrf_read_dreg(kw_dev, MKW2XDM_IRQSTS1);
-    printf("pctl1: 0x%02X\n", pctl1);
+    LOG_INFO("pctl1: 0x%02X\n", pctl1);
 
     kw2xrf_enable_irq_b(kw_dev);
 }
@@ -301,7 +301,7 @@ static int _request_transmit(ieee802154_dev_t *dev)
 
     uint8_t pctl1 = kw2xrf_read_dreg(kw_dev, MKW2XDM_PHY_CTRL1);
 
-    printf("_request_transmit %s PHY_CTRL1: 0x%02X\n", kw_dev->ack_requested ? "TR" : "T", pctl1);
+    LOG_INFO("_request_transmit %s PHY_CTRL1: 0x%02X\n", kw_dev->ack_requested ? "TR" : "T", pctl1);
 
     if (kw_dev->ack_requested) {
         /* expect an ACK after TX */
@@ -330,7 +330,7 @@ static int _confirm_transmit(ieee802154_dev_t *dev, ieee802154_tx_info_t *info)
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
 
     if (!kw_dev->tx_done) {
-        printf("_confirm_transmit [BUSY]\n");
+        LOG_INFO("_confirm_transmit [BUSY]\n");
         return -EAGAIN;
     }
 
@@ -515,33 +515,30 @@ static bool _get_cap(ieee802154_dev_t *dev, ieee802154_rf_caps_t cap)
         kw2xrf_read_dregs(kw_dev, MKW2XDM_IRQSTS1, dregs, MKW2XDM_PHY_CTRL4 + 1);
 
         unsigned i = 0;
-        printf("MKW2XDM_IRQSTS1:    0x%02X\n", dregs[i++]);
-        printf("MKW2XDM_IRQSTS2:    0x%02X\n", dregs[i++]);
-        printf("MKW2XDM_IRQSTS3:    0x%02X\n", dregs[i++]);
-        printf("MKW2XDM_PHY_CTRL1:  0x%02X\n", dregs[i++]);
-        printf("MKW2XDM_PHY_CTRL2:  0x%02X\n", dregs[i++]);
-        printf("MKW2XDM_PHY_CTRL3:  0x%02X\n", dregs[i++]);
-        printf("MKW2XDM_RX_FRM_LEN: 0x%02X\n", dregs[i++]);
-        printf("MKW2XDM_PHY_CTRL4:  0x%02X\n", dregs[i++]);
-
-
-        printf("MKW2XDM_PHY_CTRL1_TMRTRIGEN      %s\n", dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_TMRTRIGEN ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL2_CRC_MSK        %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_CRC_MSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL2_PLL_UNLOCK_MSK %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_PLL_UNLOCK_MSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL2_FILTERFAIL_MSK %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_FILTERFAIL_MSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL2_RX_WMRK_MSK    %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_RX_WMRK_MSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL2_CCAMSK         %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_CCAMSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL2_RXMSK          %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_RXMSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL2_TXMSK          %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_TXMSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL2_SEQMSK         %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_SEQMSK ? "off" : "on");
-
-        printf("MKW2XDM_PHY_CTRL3_TMR4CMP_EN     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR4CMP_EN ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL3_TMR3CMP_EN     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR3CMP_EN ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL3_TMR2CMP_EN     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR2CMP_EN ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL3_TMR1CMP_EN     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR1CMP_EN ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL3_PB_ERR_MSK     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_PB_ERR_MSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL3_WAKE_MSK       %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_WAKE_MSK ? "off" : "on");
-        printf("MKW2XDM_PHY_CTRL4_TRCV_MSK       %s\n", dregs[MKW2XDM_PHY_CTRL4] & MKW2XDM_PHY_CTRL4_TRCV_MSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_IRQSTS1:    0x%02X\n", dregs[i++]);
+        LOG_INFO("MKW2XDM_IRQSTS2:    0x%02X\n", dregs[i++]);
+        LOG_INFO("MKW2XDM_IRQSTS3:    0x%02X\n", dregs[i++]);
+        LOG_INFO("MKW2XDM_PHY_CTRL1:  0x%02X\n", dregs[i++]);
+        LOG_INFO("MKW2XDM_PHY_CTRL2:  0x%02X\n", dregs[i++]);
+        LOG_INFO("MKW2XDM_PHY_CTRL3:  0x%02X\n", dregs[i++]);
+        LOG_INFO("MKW2XDM_RX_FRM_LEN: 0x%02X\n", dregs[i++]);
+        LOG_INFO("MKW2XDM_PHY_CTRL4:  0x%02X\n", dregs[i++]);
+        LOG_INFO("MKW2XDM_PHY_CTRL1_TMRTRIGEN      %s\n", dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_TMRTRIGEN ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL2_CRC_MSK        %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_CRC_MSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL2_PLL_UNLOCK_MSK %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_PLL_UNLOCK_MSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL2_FILTERFAIL_MSK %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_FILTERFAIL_MSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL2_RX_WMRK_MSK    %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_RX_WMRK_MSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL2_CCAMSK         %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_CCAMSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL2_RXMSK          %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_RXMSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL2_TXMSK          %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_TXMSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL2_SEQMSK         %s\n", dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_SEQMSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL3_TMR4CMP_EN     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR4CMP_EN ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL3_TMR3CMP_EN     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR3CMP_EN ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL3_TMR2CMP_EN     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR2CMP_EN ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL3_TMR1CMP_EN     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR1CMP_EN ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL3_PB_ERR_MSK     %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_PB_ERR_MSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL3_WAKE_MSK       %s\n", dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_WAKE_MSK ? "off" : "on");
+        LOG_INFO("MKW2XDM_PHY_CTRL4_TRCV_MSK       %s\n", dregs[MKW2XDM_PHY_CTRL4] & MKW2XDM_PHY_CTRL4_TRCV_MSK ? "off" : "on");
     }
 
     switch (cap) {
@@ -627,20 +624,20 @@ static int _set_rx_mode(ieee802154_dev_t *dev, ieee802154_rx_mode_t mode)
     //bool ack_filter = true;
     switch (mode) {
         case IEEE802154_RX_AACK_DISABLED:
-            printf("_set_rx_mode [IEEE802154_RX_AACK_DISABLED]\n");
+            LOG_INFO("_set_rx_mode [IEEE802154_RX_AACK_DISABLED]\n");
             kw2xrf_clear_dreg_bit(kw_dev, MKW2XDM_PHY_CTRL1,
                                   MKW2XDM_PHY_CTRL1_AUTOACK);
             break;
         case IEEE802154_RX_AACK_ENABLED:
-            printf("_set_rx_mode [IEEE802154_RX_AACK_ENABLED]\n");
+            LOG_INFO("_set_rx_mode [IEEE802154_RX_AACK_ENABLED]\n");
             kw2xrf_set_dreg_bit(kw_dev, MKW2XDM_PHY_CTRL1,
                                 MKW2XDM_PHY_CTRL1_AUTOACK);
             break;
         case IEEE802154_RX_AACK_FRAME_PENDING:
-            printf("_set_rx_mode [IEEE802154_RX_AACK_FRAME_PENDING]\n");
+            LOG_INFO("_set_rx_mode [IEEE802154_RX_AACK_FRAME_PENDING]\n");
             break;
         case IEEE802154_RX_PROMISC:
-            printf("_set_rx_mode [IEEE802154_RX_PROMISC]\n");
+            LOG_INFO("_set_rx_mode [IEEE802154_RX_PROMISC]\n");
             /* disable auto ACKs in promiscuous mode */
             kw2xrf_clear_dreg_bit(kw_dev, MKW2XDM_PHY_CTRL1,
                                   MKW2XDM_PHY_CTRL1_AUTOACK | MKW2XDM_PHY_CTRL1_RXACKRQD);
@@ -649,7 +646,7 @@ static int _set_rx_mode(ieee802154_dev_t *dev, ieee802154_rx_mode_t mode)
                                 MKW2XDM_PHY_CTRL4_PROMISCUOUS);
             break;
         case IEEE802154_RX_WAIT_FOR_ACK:
-            printf("_set_rx_mode [IEEE802154_RX_WAIT_FOR_ACK]\n");
+            LOG_INFO("_set_rx_mode [IEEE802154_RX_WAIT_FOR_ACK]\n");
             //ack_filter = false;
             break;
     }
