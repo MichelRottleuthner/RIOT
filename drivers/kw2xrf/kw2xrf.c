@@ -63,7 +63,7 @@ void kw2xrf_new_init(kw2xrf_t *dev, const kw2xrf_params_t *params,
 {
     /* initialize device descriptor */
     dev->params = *params;
-    dev->idle_state = XCVSEQ_RECEIVE;
+    dev->idle_state = XCVSEQ_IDLE;
     dev->state = 0;
     dev->pending_tx = 0;
     kw2xrf_spi_init(dev);
@@ -80,7 +80,8 @@ void kw2xrf_new_init(kw2xrf_t *dev, const kw2xrf_params_t *params,
 
     kw2xrf_reset_phy(dev);
 
-    kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL2, MKW2XDM_PHY_CTRL2_TXMSK);
+    kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL2, MKW2XDM_PHY_CTRL2_TXMSK |
+                                                  MKW2XDM_PHY_CTRL2_CCAMSK);
 
     DEBUG("[kw2xrf] init finished\n");
 }
