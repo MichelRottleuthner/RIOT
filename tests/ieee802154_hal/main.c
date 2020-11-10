@@ -152,9 +152,10 @@ static void _tx_finish_handler(event_t *event)
     /* The TX_DONE event indicates it's safe to call the confirm counterpart */
     assert(ieee802154_radio_confirm_transmit(ieee802154_hal_test_get_dev(RADIO_DEFAULT_ID), &tx_info) >= 0);
 
+    _set_trx_state(IEEE802154_TRX_STATE_RX_ON, false);
+
     if (!ieee802154_radio_has_irq_ack_timeout(ieee802154_hal_test_get_dev(RADIO_DEFAULT_ID)) && !ieee802154_radio_has_frame_retrans(ieee802154_hal_test_get_dev(RADIO_DEFAULT_ID))) {
         /* This is just to show how the MAC layer would handle ACKs... */
-        _set_trx_state(IEEE802154_TRX_STATE_RX_ON, false);
         xtimer_set(&timer_ack, ACK_TIMEOUT_TIME);
     }
 
