@@ -54,48 +54,27 @@ static void kw2xrf_set_address(kw2xrf_t *dev)
     kw2xrf_set_addr_short(dev, ntohs(addr_long.uint16[0].u16));
 }
 
-/* TODO: new init fuction tailored to be used for new radio HAL
-   The ide is to not split between setup and init.
-   The driver must be in a state that after calling the HAL on function
-   the radio can be used */
-void kw2xrf_new_init(kw2xrf_t *dev, const kw2xrf_params_t *params,
-                     gpio_cb_t isr_cb, void *cb_ctx)
-{
-    /* initialize device descriptor */
-    dev->params = *params;
-    dev->idle_state = XCVSEQ_IDLE;
-    dev->state = 0;
-    dev->pending_tx = 0;
-    kw2xrf_spi_init(dev);
-    kw2xrf_set_power_mode(dev, KW2XRF_IDLE);
-
-    kw2xrf_set_out_clk(dev);
-    kw2xrf_disable_interrupts(dev);
-    /* set up GPIO-pin used for IRQ */
-    gpio_init_int(dev->params.int_pin, GPIO_IN, GPIO_FALLING, isr_cb, cb_ctx);
-
-    kw2xrf_abort_sequence(dev);
-    kw2xrf_update_overwrites(dev);
-    kw2xrf_timer_init(dev, KW2XRF_TIMEBASE_62500HZ);
-
-    kw2xrf_reset_phy(dev);
-
-    kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL2, MKW2XDM_PHY_CTRL2_TXMSK |
-                                                  MKW2XDM_PHY_CTRL2_CCAMSK);
-
-    DEBUG("[kw2xrf] init finished\n");
-}
-
 void kw2xrf_setup(kw2xrf_t *dev, const kw2xrf_params_t *params)
 {
+#if IS_USED(MODULE_IEEE802154_RADIO_HAL)
+#if IS_USED(MODULE_NETDEV_IEEE802154_SUBMAC)
+    //printf("register netdev..\n");
+    //netdev_register((netdev_t* )dev, NETDEV_KW2XRF, 0);
+    //printf("init submac..\n");
+    //netdev_ieee802154_submac_init(&dev->netdev, &dev->hal);
+    //printf("init submac done\n");
+#endif
+#else
     netdev_t *netdev = (netdev_t *)dev;
-
     netdev->driver = &kw2xrf_driver;
+#endif
+
     /* initialize device descriptor */
     dev->params = *params;
     dev->idle_state = XCVSEQ_RECEIVE;
     dev->state = 0;
     dev->pending_tx = 0;
+
     kw2xrf_spi_init(dev);
     kw2xrf_set_power_mode(dev, KW2XRF_IDLE);
     DEBUG("[kw2xrf] setup finished\n");
@@ -109,6 +88,7 @@ int kw2xrf_init(kw2xrf_t *dev, gpio_cb_t cb)
 
     kw2xrf_set_out_clk(dev);
     kw2xrf_disable_interrupts(dev);
+
     /* set up GPIO-pin used for IRQ */
     gpio_init_int(dev->params.int_pin, GPIO_IN, GPIO_FALLING, cb, dev);
 

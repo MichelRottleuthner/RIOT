@@ -35,6 +35,9 @@
 #if IS_USED(MODULE_IEEE802154_RADIO_HAL)
 #include "net/ieee802154/radio.h"
 #include "event.h"
+#if IS_USED(MODULE_NETDEV_IEEE802154_SUBMAC)
+#include "net/netdev/ieee802154_submac.h"
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -119,6 +122,7 @@ typedef struct kw2xrf_params {
     spi_clk_t spi_clk;                  /**< SPI clock speed to use */
     gpio_t cs_pin;                      /**< GPIO pin connected to chip select */
     gpio_t int_pin;                     /**< GPIO pin connected to the interrupt pin */
+    gpio_t rst_pin;                     /**< GPIO pin connected to RST_B */
 } kw2xrf_params_t;
 
 /**
@@ -156,6 +160,7 @@ typedef struct {
     bool    tx_done;                    /**< Indicate whether TX completed */
     bool    ack_rcvd;                   /**< Indicate if ACK was received for last transmission */
     bool    cca_before_tx;              /**< true if CCA shall be performed before TX */
+    bool    tx_with_cca;                /**< true a manual CCA was started and a TX should be triggered on channel clear indication */
 #endif
     /** @} */
 } kw2xrf_t;
@@ -166,8 +171,9 @@ typedef struct {
  *
  */
 typedef struct {
-    kw2xrf_t     dev;
-    event_t      event;
+    kw2xrf_t      dev;
+    event_t       event;
+    event_queue_t *event_queue;
 } kw2xrf_dev_evt_ctx_t;
 #endif
 

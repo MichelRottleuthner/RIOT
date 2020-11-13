@@ -45,14 +45,15 @@ extern "C" {
 #define KW2XRF_PARAM_SLEEP       (GPIO_PIN(0, 2))
 #endif
 #ifndef KW2XRF_PARAM_RESET
-#define KW2XRF_PARAM_RESET       (GPIO_PIN(0, 3))
+#define KW2XRF_PARAM_RESET       (GPIO_PIN(1, 19))
 #endif
 
 #ifndef KW2XRF_PARAMS
 #define KW2XRF_PARAMS            { .spi = KW2XRF_PARAM_SPI,         \
                                    .spi_clk = KW2XRF_PARAM_SPI_CLK, \
                                    .cs_pin = KW2XRF_PARAM_CS,       \
-                                   .int_pin = KW2XRF_PARAM_INT }
+                                   .int_pin = KW2XRF_PARAM_INT, \
+                                   .rst_pin = KW2XRF_PARAM_RESET }
 #endif
 /**@}*/
 
