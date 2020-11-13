@@ -16,6 +16,7 @@ BOARD_WHITELIST :=  \
 					remote-reva \
 					remote-revb \
 					pba-d-01-kw2x \
+					frdm-k22f \
 					#
 
 DISABLE_MODULE += auto_init_at86rf2xx auto_init_nrf802154
@@ -33,6 +34,6 @@ USEMODULE += netdev_default
 
 
 CFLAGS += -DEVENT_THREAD_HIGHEST_STACKSIZE=1024
-CFLAGS += -DCONFIG_IEEE802154_DEFAULT_CHANNEL=18
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_CHANNEL=11
 
 include $(RIOTBASE)/Makefile.include
