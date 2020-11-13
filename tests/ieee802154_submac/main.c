@@ -152,7 +152,7 @@ void recv(netdev_t *dev)
     printf("%u, ", (unsigned)((buffer[1] & IEEE802154_FCF_VERS_MASK) >> 4));
     printf("Seq.: %u\n", (unsigned)ieee802154_get_seq(buffer));
     od_hex_dump(buffer + mhr_len, data_len - mhr_len, 0);
-    printf("txt: ");
+    printf("txt (%u chars): ", data_len - mhr_len);
     for (size_t i = mhr_len; i < data_len; i++) {
         if ((buffer[i] > 0x1F) && (buffer[i] < 0x80)) {
             putchar((char)buffer[i]);
