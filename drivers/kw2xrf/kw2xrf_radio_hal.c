@@ -44,6 +44,24 @@ static const ieee802154_radio_ops_t kw2xrf_ops;
 
 kw2xrf_dev_evt_ctx_t kw2xrf_dev_ctxs[KW2XRF_NUM];
 
+void _print_sts1_state(uint8_t sts1, uint8_t phyctl2) {
+    printf("MKW2XDM_IRQSTS1_RX_FRM_PEND:    %s\n", sts1 & MKW2XDM_IRQSTS1_RX_FRM_PEND ? "SET" : "off");
+    printf("MKW2XDM_IRQSTS1_PLL_UNLOCK_IRQ: %s (%s)\n", sts1 & MKW2XDM_IRQSTS1_PLL_UNLOCK_IRQ ? "SET" : "off",
+                                                        phyctl2 & MKW2XDM_PHY_CTRL2_PLL_UNLOCK_MSK ? "masked" : "ACTIVE");
+    printf("MKW2XDM_IRQSTS1_FILTERFAIL_IRQ: %s (%s)\n", sts1 & MKW2XDM_IRQSTS1_FILTERFAIL_IRQ ? "SET" : "off",
+                                                        phyctl2 & MKW2XDM_PHY_CTRL2_FILTERFAIL_MSK ? "masked" : "ACTIVE");
+    printf("MKW2XDM_IRQSTS1_RXWTRMRKIRQ:    %s (%s)\n", sts1 & MKW2XDM_IRQSTS1_RXWTRMRKIRQ ? "SET" : "off",
+                                                        phyctl2 & MKW2XDM_PHY_CTRL2_RX_WMRK_MSK ? "masked" : "ACTIVE");
+    printf("MKW2XDM_IRQSTS1_CCAIRQ:         %s (%s)\n", sts1 & MKW2XDM_IRQSTS1_CCAIRQ ? "SET" : "off",
+                                                        phyctl2 & MKW2XDM_PHY_CTRL2_CCAMSK ? "masked" : "ACTIVE");
+    printf("MKW2XDM_IRQSTS1_RXIRQ:          %s (%s)\n", sts1 & MKW2XDM_IRQSTS1_RXIRQ ? "SET" : "off",
+                                                        phyctl2 & MKW2XDM_PHY_CTRL2_RXMSK ? "masked" : "ACTIVE");
+    printf("MKW2XDM_IRQSTS1_TXIRQ:          %s (%s)\n", sts1 & MKW2XDM_IRQSTS1_TXIRQ ? "SET" : "off",
+                                                        phyctl2 & MKW2XDM_PHY_CTRL2_TXMSK ? "masked" : "ACTIVE");
+    printf("MKW2XDM_IRQSTS1_SEQIRQ:         %s (%s)\n", sts1 & MKW2XDM_IRQSTS1_SEQIRQ ? "SET" : "off",
+                                                        phyctl2 & MKW2XDM_PHY_CTRL2_SEQMSK ? "masked" : "ACTIVE");
+}
+
 void _print_irq_state(uint8_t *dregs) {
 
     printf("MKW2XDM_IRQSTS1:    0x%02X\n", dregs[MKW2XDM_IRQSTS1]);
@@ -63,23 +81,9 @@ void _print_irq_state(uint8_t *dregs) {
     printf("MKW2XDM_PHY_CTRL4:  0x%02X\n", dregs[MKW2XDM_PHY_CTRL4]);
     printf("MKW2XDM_PHY_CTRL4_TRCV_MSK      %s\n", dregs[MKW2XDM_PHY_CTRL4] & MKW2XDM_PHY_CTRL4_TRCV_MSK ? "off" : "on");
     printf("MKW2XDM_PHY_CTRL1_TMRTRIGEN     %s\n", dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_TMRTRIGEN ? "on" : "off");
-    printf("MKW2XDM_IRQSTS1_RX_FRM_PEND:    %s\n", dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RX_FRM_PEND ? "SET" : "off");
     printf("-------------------------------------\n");
 
-    printf("MKW2XDM_IRQSTS1_PLL_UNLOCK_IRQ: %s (%s)\n", dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_PLL_UNLOCK_IRQ ? "SET" : "off",
-                                                        dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_PLL_UNLOCK_MSK ? "masked" : "ACTIVE");
-    printf("MKW2XDM_IRQSTS1_FILTERFAIL_IRQ: %s (%s)\n", dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_FILTERFAIL_IRQ ? "SET" : "off",
-                                                        dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_FILTERFAIL_MSK ? "masked" : "ACTIVE");
-    printf("MKW2XDM_IRQSTS1_RXWTRMRKIRQ:    %s (%s)\n", dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXWTRMRKIRQ ? "SET" : "off",
-                                                        dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_RX_WMRK_MSK ? "masked" : "ACTIVE");
-    printf("MKW2XDM_IRQSTS1_CCAIRQ:         %s (%s)\n", dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ ? "SET" : "off",
-                                                        dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_CCAMSK ? "masked" : "ACTIVE");
-    printf("MKW2XDM_IRQSTS1_RXIRQ:          %s (%s)\n", dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXIRQ ? "SET" : "off",
-                                                        dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_RXMSK ? "masked" : "ACTIVE");
-    printf("MKW2XDM_IRQSTS1_TXIRQ:          %s (%s)\n", dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ ? "SET" : "off",
-                                                        dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_TXMSK ? "masked" : "ACTIVE");
-    printf("MKW2XDM_IRQSTS1_SEQIRQ:         %s (%s)\n", dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ ? "SET" : "off",
-                                                        dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_SEQMSK ? "masked" : "ACTIVE");
+    _print_sts1_state(dregs[MKW2XDM_IRQSTS1], dregs[MKW2XDM_PHY_CTRL2]);
 
     printf("MKW2XDM_IRQSTS2_CRCVALID:       %s (%s)\n", dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CRCVALID ? "SET" : "off",
                                                         dregs[MKW2XDM_PHY_CTRL2] & MKW2XDM_PHY_CTRL2_CRC_MSK ? "masked" : "ACTIVE");
@@ -168,102 +172,101 @@ void _force_idle(kw2xrf_t *kw_dev) {
                                                MKW2XDM_IRQSTS1_SEQIRQ);
 }
 
+/* The first byte returned by the radio is always IRQSTS1. Thus, giving IRQSTS2
+   as the start address (first byte written) reduces communicaiton overhead by
+   one byte and reduces turnaround time for radio handling.
+   (Starting at address IRQSTS1 instead, effectively returns IRQSTS1 twice) */
+void _kw2xrf_read_dregs_from_sts1(kw2xrf_t *dev, uint8_t *buf, uint8_t length)
+{
+    spi_acquire(dev->params.spi, dev->params.cs_pin, SPI_MODE_0,
+                dev->params.spi_clk);
+    uint8_t cmd = (MKW2XDM_IRQSTS2 | MKW2XDRF_REG_READ);
+    spi_transfer_bytes(dev->params.spi, dev->params.cs_pin, true, &cmd, buf, 1);
+    if (length > 1) {
+        spi_transfer_bytes(dev->params.spi, dev->params.cs_pin, false, NULL,
+                           &buf[1], length - 1);
+    }
+    spi_release(dev->params.spi);
+}
+
+static void _start_tx(kw2xrf_t *kw_dev)
+{
+    uint8_t pctl1 = kw2xrf_read_dreg(kw_dev, MKW2XDM_PHY_CTRL1);
+
+    if (kw_dev->ack_requested) {
+        /* expect an ACK after TX */
+        pctl1 |= MKW2XDM_PHY_CTRL1_RXACKRQD;
+    } else {
+        /* don't expect an ACK after TX */
+        pctl1 &= ~MKW2XDM_PHY_CTRL1_RXACKRQD;
+    }
+
+    /* A (T) sequence performs a simple transmit and returns to idle, a (TR)
+    sequence waits for the requested ACK response after the transmition */
+    pctl1 &= ~MKW2XDM_PHY_CTRL1_XCVSEQ_MASK;
+    pctl1 |= MKW2XDM_PHY_CTRL1_XCVSEQ(kw_dev->ack_requested ? XCVSEQ_TX_RX :
+                                                              XCVSEQ_TRANSMIT);
+    kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, pctl1);
+}
+
 void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
     kw2xrf_mask_irq_b(kw_dev);
 
-    uint8_t dregs[MKW2XDM_PHY_CTRL4 + 1];
-    kw2xrf_read_dregs(kw_dev, MKW2XDM_IRQSTS1, dregs, MKW2XDM_PHY_CTRL4 + 1);
+    uint8_t dregs[MKW2XDM_PHY_CTRL2 +1];
+    _kw2xrf_read_dregs_from_sts1(kw_dev, dregs, ARRAY_SIZE(dregs));
 
-    LOG_DEBUG("[kw2xrf] CTRL1 %0x, IRQSTS1 %0x, IRQSTS2 %0x, IRQSTS3 %0x\n",
-          dregs[MKW2XDM_PHY_CTRL1], dregs[MKW2XDM_IRQSTS1], dregs[MKW2XDM_IRQSTS2], dregs[MKW2XDM_IRQSTS3]);
-    uint8_t irqsts1 = 0;
-    bool sequence_completed = false;
-
-    uint8_t irqsts2 = 0;
-    if (dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_PB_ERR_IRQ) {
-        LOG_DEBUG("[kw2xrf] untreated PB_ERR_IRQ\n");
-        irqsts2 |= MKW2XDM_IRQSTS2_PB_ERR_IRQ;
-    }
-    if (dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_WAKE_IRQ) {
-        LOG_DEBUG("[kw2xrf] untreated WAKE_IRQ\n");
-        irqsts2 |= MKW2XDM_IRQSTS2_WAKE_IRQ;
-    }
-    if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_FILTERFAIL_IRQ) {
-        LOG_DEBUG("[kw2xrf] untreated FILTERFAIL_IRQ\n");
-        kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_FILTERFAIL_IRQ);
-    }
-    kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS2, irqsts2);
+    //LOG_DEBUG("[kw2xrf] CTRL1 %0x, IRQSTS1 %0x, IRQSTS2 %0x, IRQSTS3 %0x\n",
+    //      dregs[MKW2XDM_PHY_CTRL1], dregs[MKW2XDM_IRQSTS1], dregs[MKW2XDM_IRQSTS2], dregs[MKW2XDM_IRQSTS3]);
+    uint8_t sts1_irq_clr = 0;
+    bool indicate_event = false;
+    ieee802154_trx_ev_t hal_event;
 
     switch (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_XCVSEQ_MASK) {
         case XCVSEQ_RECEIVE:
             LOG_INFO("IRQ handler: [XCVSEQ_RECEIVE]\n");
-            //_print_irq_state(dregs);
-            if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXIRQ) {
-                LOG_INFO("        finished RXSEQ\n");
-                irqsts1 |= MKW2XDM_IRQSTS1_RXIRQ;
+
+            if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXWTRMRKIRQ) {
+                sts1_irq_clr |= MKW2XDM_IRQSTS1_RXWTRMRKIRQ;
+                hal_event = IEEE802154_RADIO_INDICATION_RX_START;
+                indicate_event = true;
+                LOG_INFO("IEEE802154_RADIO_INDICATION_RX_START\n");
+                break; /* don't process further events on RX_DONE */
             }
 
-            /* is issued after an ack was transmitted */
-            if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                LOG_INFO("        finished TXSEQ\n");
-                irqsts1 |= MKW2XDM_IRQSTS1_TXIRQ;
-            }
-
+            /* SEQ assertion indicates TX_DONE */
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_INFO("        finished SEQIRQ\n");
-                irqsts1 |= MKW2XDM_IRQSTS1_SEQIRQ;
-                sequence_completed = true;
-            }
-
-            kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, irqsts1);
-
-            if (sequence_completed) {
-                /* A write ofXCVSEQ=IDLE must always be performed after a sequence is complete,
-                   and before a new sequence isprogrammed. (Datasheet p. 208)*/
-                //kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, dregs[MKW2XDM_PHY_CTRL1] & (~MKW2XDM_PHY_CTRL1_XCVSEQ_MASK));
-                //_wait_for_idle(kw_dev);
-                //_force_idle(kw_dev);
-                kw2xrf_enable_irq_b(kw_dev);
-                LOG_WARNING("IEEE802154_RADIO_INDICATION_RX_DONE\n");
-                dev->cb(dev, IEEE802154_RADIO_INDICATION_RX_DONE);
-                return;
+                /* clear all pending IRQs asserted during RX sequence */
+                sts1_irq_clr |= (MKW2XDM_IRQSTS1_RXIRQ | MKW2XDM_IRQSTS1_TXIRQ |
+                                 MKW2XDM_IRQSTS1_SEQIRQ);
+                hal_event = IEEE802154_RADIO_INDICATION_RX_DONE;
+                indicate_event = true;
+                LOG_INFO("IEEE802154_RADIO_INDICATION_RX_DONE\n");
             }
             break;
 
         case XCVSEQ_TRANSMIT:
             LOG_INFO("IRQ handler: [XCVSEQ_TRANSMIT]\n");
+
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                LOG_INFO("        finished TXSEQ\n");
-                irqsts1 |= MKW2XDM_IRQSTS1_TXIRQ;
+                LOG_DEBUG("        finished TXSEQ\n");
+                sts1_irq_clr |= MKW2XDM_IRQSTS1_TXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) {
-                LOG_INFO("        finished CCA\n");
-                irqsts1 |= MKW2XDM_IRQSTS1_CCAIRQ;
+                LOG_DEBUG("        finished CCA\n");
+                sts1_irq_clr |= MKW2XDM_IRQSTS1_CCAIRQ;
                 kw_dev->channel_free = !(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_INFO("        finished SEQIRQ\n");
-                irqsts1 |= MKW2XDM_IRQSTS1_SEQIRQ;
-                sequence_completed = true;
+                LOG_DEBUG("        finished SEQIRQ\n");
+                sts1_irq_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
                 kw_dev->tx_done = true;
-            }
-
-            kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, irqsts1);
-
-            if (kw_dev->tx_done) {
-                /* A write ofXCVSEQ=IDLE must always be performed after a sequence is complete,
-                   and before a new sequence isprogrammed. (Datasheet p. 208)*/
-                //kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, dregs[MKW2XDM_PHY_CTRL1] & (~MKW2XDM_PHY_CTRL1_XCVSEQ_MASK));
-                //_wait_for_idle(kw_dev);
-                _force_idle(kw_dev);
-                kw2xrf_enable_irq_b(kw_dev);
-                LOG_WARNING("IEEE802154_RADIO_CONFIRM_TX_DONE (T)\n");
-                dev->cb(dev, IEEE802154_RADIO_CONFIRM_TX_DONE);
-                return;
+                hal_event = IEEE802154_RADIO_CONFIRM_TX_DONE;
+                indicate_event = true;
+                LOG_INFO("IEEE802154_RADIO_CONFIRM_TX_DONE (T)\n");
             }
             break;
 
@@ -273,27 +276,9 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             /* onle handle IRQ if CCA *and* sequence (warmdown) finished */
             if ((dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) &&
                 (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ)) {
-                sequence_completed = true;
-                uint8_t ed_fnl = kw2xrf_read_dreg(kw_dev, MKW2XDM_CCA1_ED_FNL);
-                LOG_INFO("MKW2XDM_CCA1_ED_FNL: 0x%02X\n", ed_fnl);
-
-                uint8_t iregs[6];
-                kw2xrf_read_iregs(kw_dev, MKW2XDMI_CCA1_THRESH, iregs, sizeof(iregs));
-                LOG_INFO("MKW2XDMI_CCA1_THRESH:                0x%02X\n", iregs[0]);
-                LOG_INFO("MKW2XDMI_CCA1_ED_OFFSET_COMP:        0x%02X\n", iregs[1]);
-                LOG_INFO("MKW2XDMI_LQI_OFFSET_COMP:            0x%02X\n", iregs[2]);
-                LOG_INFO("MKW2XDMI_CCA_CTRL:                   0x%02X\n", iregs[3]);
-                LOG_INFO("MKW2XDMI_CCA2_CORR_PEAKS:            0x%02X\n", iregs[4]);
-                LOG_INFO("MKW2XDMI_CCA2_CORR_PEAKS_TH:         0x%02X\n", (iregs[4] & MKW2XDMI_CCA2_CORR_PEAKS_CCA2_MIN_NUM_CORR_TH_MASK) >> MKW2XDMI_CCA2_CORR_PEAKS_CCA2_MIN_NUM_CORR_TH_SHIFT);
-                LOG_INFO("MKW2XDMI_CCA2_CORR_PEAKS_NUM:        0x%02X\n", iregs[4] & MKW2XDMI_CCA2_CORR_PEAKS_CCA2_NUM_CORR_PEAKS_MASK);
-                LOG_INFO("MKW2XDMI_CCA2_THRESH:                0x%02X\n", iregs[5]);
-
-                size_t cca_cnt = kw2xrf_read_dreg(kw_dev, MKW2XDM_RSSI_CCA_CNT);
-
-                LOG_INFO("MKW2XDM_RSSI_CCA_CNT:                0x%02X\n", cca_cnt);
-
                 /* clear CCA IRQ and SEQIRQ wich gets asserted after warmdown */
-                kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_CCAIRQ | MKW2XDM_IRQSTS1_SEQIRQ);
+                sts1_irq_clr |= (MKW2XDM_IRQSTS1_CCAIRQ | MKW2XDM_IRQSTS1_SEQIRQ);
+                kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, sts1_irq_clr);
                 //kw2xrf_set_idle_sequence(kw_dev);
 
                 kw_dev->channel_free = !(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
@@ -302,44 +287,25 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
                 /* if this cca was performed as "CCA-before TX" */
                 if (kw_dev->tx_with_cca) {
                     kw_dev->tx_with_cca = false;
-                    uint8_t pctl1 = kw2xrf_read_dreg(kw_dev, MKW2XDM_PHY_CTRL1);
-
-                    if (kw_dev->ack_requested) {
-                        /* expect an ACK after TX */
-                        pctl1 |= MKW2XDM_PHY_CTRL1_RXACKRQD;
-                    } else {
-                        /* don't expect an ACK after TX */
-                        pctl1 &= ~MKW2XDM_PHY_CTRL1_RXACKRQD;
-                    }
-                    /* A (T) sequence performs a simple transmit and returns to idle, a (TR)
-                    sequence waits for the requested ACK response after the transmition */
-                    pctl1 &= ~MKW2XDM_PHY_CTRL1_XCVSEQ_MASK;
-                    pctl1 |= MKW2XDM_PHY_CTRL1_XCVSEQ(kw_dev->ack_requested ? XCVSEQ_TX_RX :
-                                                                              XCVSEQ_TRANSMIT);
-                    kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, pctl1);
+                    _start_tx(kw_dev);
                     kw2xrf_enable_irq_b(kw_dev);
                     return;
                 }
-                /* A write ofXCVSEQ=IDLE must always be performed after a sequence is complete,
-                   and before a new sequence isprogrammed. (Datasheet p. 208)*/
-                //kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, dregs[MKW2XDM_PHY_CTRL1] & (~MKW2XDM_PHY_CTRL1_XCVSEQ_MASK));
-                //_wait_for_idle(kw_dev);
-                _force_idle(kw_dev);
-                kw2xrf_enable_irq_b(kw_dev);
-                LOG_WARNING("IEEE802154_RADIO_CONFIRM_CCA\n");
-                dev->cb(dev, IEEE802154_RADIO_CONFIRM_CCA);
-                return;
+
+                LOG_INFO("IEEE802154_RADIO_CONFIRM_CCA\n");
+                hal_event = IEEE802154_RADIO_CONFIRM_CCA;
+                indicate_event = true;
             }
             break;
 
         case XCVSEQ_TX_RX:
             LOG_INFO("IRQ handler: [XCVSEQ_TX_RX]\n");
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                LOG_INFO("        finished TXSEQ\n");
-                irqsts1 |= MKW2XDM_IRQSTS1_TXIRQ;
+                LOG_DEBUG("        finished TXSEQ\n");
+                sts1_irq_clr |= MKW2XDM_IRQSTS1_TXIRQ;
 
                 if (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_RXACKRQD) {
-                    LOG_INFO("    enable ACK RX timeout\n");
+                    LOG_DEBUG("    enable ACK RX timeout\n");
                     /* Allow TMR3IRQ to cancel RX operation */
                     kw2xrf_timer3_seq_abort_on(kw_dev);
                     /* Enable interrupt for TMR3 and set timer */
@@ -348,20 +314,19 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXIRQ) {
-                LOG_INFO("        finished RXSEQ\n");
-                irqsts1 |= MKW2XDM_IRQSTS1_RXIRQ;
+                LOG_DEBUG("        finished RXSEQ\n");
+                sts1_irq_clr |= MKW2XDM_IRQSTS1_RXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) {
                 kw_dev->channel_free = !(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
-                LOG_INFO("        finished CCA (%s)\n", kw_dev->channel_free ? "FREE" : "BUSY");
-                irqsts1 |= MKW2XDM_IRQSTS1_CCAIRQ;
+                LOG_DEBUG("        finished CCA (%s)\n", kw_dev->channel_free ? "FREE" : "BUSY");
+                sts1_irq_clr |= MKW2XDM_IRQSTS1_CCAIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_INFO("        finished SEQIRQ\n");
-                sequence_completed = true;
-                irqsts1 |= MKW2XDM_IRQSTS1_SEQIRQ;
+                LOG_DEBUG("        finished SEQIRQ\n");
+                sts1_irq_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
 
                 if (dregs[MKW2XDM_IRQSTS3] & MKW2XDM_IRQSTS3_TMR3IRQ) {
                     kw_dev->ack_rcvd = false; /* ACK timed out */
@@ -373,26 +338,12 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
                 kw2xrf_timer3_seq_abort_off(kw_dev);
                 /* Disable interrupt for TMR3 and reset TMR3IRQ */
                 kw2xrf_abort_rx_ops_disable(kw_dev);
+
                 kw_dev->tx_done = true;
-            }
-
-            kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, irqsts1);
-
-            if (kw_dev->tx_done) {
-                /* A write ofXCVSEQ=IDLE must always be performed after a sequence is complete,
-                   and before a new sequence isprogrammed. (Datasheet p. 208)*/
-                //_set_sequence(kw_dev, XCVSEQ_IDLE);
-                //_wait_for_idle(kw_dev);
-                _force_idle(kw_dev);
-                kw2xrf_enable_irq_b(kw_dev);
                 LOG_WARNING("IEEE802154_RADIO_CONFIRM_TX_DONE (TR)\n");
-                dev->cb(dev, IEEE802154_RADIO_CONFIRM_TX_DONE);
-                return;
+                hal_event = IEEE802154_RADIO_CONFIRM_TX_DONE;
+                indicate_event = true;
             }
-            break;
-
-        case XCVSEQ_CONTINUOUS_CCA:
-            LOG_DEBUG("IRQ handler: [XCVSEQ_CONTINUOUS_CCA]\n");
             break;
 
         case XCVSEQ_IDLE:
@@ -405,6 +356,13 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
         default:
             LOG_DEBUG("[IRQ handler: undefined seq state in isr\n");
             break;
+    }
+
+    /* clear handled IRQs */
+    kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, sts1_irq_clr);
+
+    if (indicate_event) {
+        dev->cb(dev, hal_event);
     }
 
     kw2xrf_enable_irq_b(kw_dev);
@@ -469,8 +427,8 @@ void kw2xrf_hal_init(kw2xrf_t *dev,
              kw2xrf to at862xx and nrf52 performs very bad. */
     kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL1, MKW2XDM_PHY_CTRL1_CCABFRTX);
 
-    kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL2, MKW2XDM_PHY_CTRL2_TXMSK |
-                                                  MKW2XDM_PHY_CTRL2_CCAMSK);
+    //kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL2, MKW2XDM_PHY_CTRL2_TXMSK |
+    //                                              MKW2XDM_PHY_CTRL2_CCAMSK);
 
     LOG_DEBUG("[kw2xrf] init finished\n");
 }
@@ -537,22 +495,8 @@ static int _request_transmit(ieee802154_dev_t *dev)
         return 0;
     }
 
-    uint8_t pctl1 = kw2xrf_read_dreg(kw_dev, MKW2XDM_PHY_CTRL1);
+    _start_tx(kw_dev);
 
-    if (kw_dev->ack_requested) {
-        /* expect an ACK after TX */
-        pctl1 |= MKW2XDM_PHY_CTRL1_RXACKRQD;
-    } else {
-        /* don't expect an ACK after TX */
-        pctl1 &= ~MKW2XDM_PHY_CTRL1_RXACKRQD;
-    }
-
-    /* A (T) sequence performs a simple transmit and returns to idle, a (TR)
-    sequence waits for the requested ACK response after the transmition */
-    pctl1 &= ~MKW2XDM_PHY_CTRL1_XCVSEQ_MASK;
-    pctl1 |= MKW2XDM_PHY_CTRL1_XCVSEQ(kw_dev->ack_requested ? XCVSEQ_TX_RX :
-                                                              XCVSEQ_TRANSMIT);
-    kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, pctl1);
     kw2xrf_enable_irq_b(kw_dev);
     return 0;
 }
@@ -675,15 +619,26 @@ static int _request_set_trx_state(ieee802154_dev_t *dev, ieee802154_trx_state_t 
             _set_sequence(kw_dev, XCVSEQ_RECEIVE);
 
             /* clear any pending rx interrupts */
-            kw2xrf_clear_dreg_bit(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_RXIRQ);
-            /* enable rx interrupt */
-            kw2xrf_clear_dreg_bit(kw_dev, MKW2XDM_PHY_CTRL2, MKW2XDM_PHY_CTRL2_RXMSK);
+            kw2xrf_clear_dreg_bit(kw_dev, MKW2XDM_IRQSTS1,
+                                  MKW2XDM_IRQSTS1_RXIRQ |
+                                  MKW2XDM_IRQSTS1_RXWTRMRKIRQ);
+
+            /* enable WTMRK and SEQ as indication for RX_START and RX_DONE */
+            kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL2,
+                              ~(MKW2XDM_PHY_CTRL2_SEQMSK |
+                                MKW2XDM_PHY_CTRL2_RX_WMRK_MSK));
             break;
         case IEEE802154_TRX_STATE_TX_ON:
             kw2xrf_set_power_mode(kw_dev, KW2XRF_IDLE);
-            kw2xrf_mask_irq_b(kw_dev);
-            _force_idle(kw_dev);
-            kw2xrf_enable_irq_b(kw_dev);
+
+            /* enable SEQ IRQ as indication for TX_DONE and TX IRQ to
+               indicate when the frame was transmitted to then possibly
+               schedule an ACK timeout */
+            kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL2,
+                              ~(MKW2XDM_PHY_CTRL2_SEQMSK |
+                                MKW2XDM_PHY_CTRL2_TXMSK));
+
+            _set_sequence(kw_dev, XCVSEQ_IDLE);
             break;
     }
     return 0;
@@ -706,6 +661,24 @@ static int _off(ieee802154_dev_t *dev)
 static bool _get_cap(ieee802154_dev_t *dev, ieee802154_rf_caps_t cap)
 {
     (void)dev;
+
+    if (cap == IEEE802154_CAP_24_GHZ) {
+        kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
+        uint8_t dregs[MKW2XDM_PHY_CTRL4];
+        uint32_t t1 = xtimer_now_usec();
+        kw2xrf_read_dregs(kw_dev, MKW2XDM_IRQSTS1, dregs, MKW2XDM_PHY_CTRL4);
+        t1 = xtimer_now_usec() - t1;
+
+        uint8_t dregscpy[MKW2XDM_PHY_CTRL4];
+        uint32_t t2 = xtimer_now_usec();
+        _kw2xrf_read_dregs_from_sts1(kw_dev, dregscpy, MKW2XDM_PHY_CTRL4);
+        t2 = xtimer_now_usec() - t2;
+        printf("t1: %lu\n", t1);
+        printf("t2: %lu\n", t2);
+        for (unsigned i = 0; i < ARRAY_SIZE(dregscpy); i++) {
+            printf("0x%02X 0x%02X\n", dregs[i], dregscpy[i]);
+        }
+    }
     switch (cap) {
         case IEEE802154_CAP_24_GHZ:
         case IEEE802154_CAP_IRQ_TX_DONE:
