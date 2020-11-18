@@ -111,65 +111,12 @@ void _print_irq_state(uint8_t *dregs) {
                                                            dregs[MKW2XDM_PHY_CTRL3] & MKW2XDM_PHY_CTRL3_TMR1CMP_EN ? "compare" : "no-compare");
 }
 
-
-///* Performs a standalone CCA measurement via polling.
-//   Must be called with masked CCA and SEQ IRQ interrupts. */
-//static bool _cca_channel_clear(kw2xrf_t *kw_dev)
-//{
-//    /* start a standalone cca sequence */
-//    kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, XCVSEQ_CCA);
-//
-//    uint8_t stsregs[2];
-//    /* wait for the sequence to finish */
-//    do {
-//        kw2xrf_read_dregs(kw_dev, MKW2XDM_IRQSTS1, stsregs, 2);
-//    } while (!(stsregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ));
-//
-//    /* after CCA the state is IDLE again. Clear asserted interrupt flags */
-//    kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_SEQIRQ |
-//                                               MKW2XDM_IRQSTS1_CCAIRQ);
-//
-//    return !(stsregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
-//}
-
 static void _set_sequence(kw2xrf_t *kw_dev, kw2xrf_physeq_t seq)
 {
     uint8_t ctl1 = kw2xrf_read_dreg(kw_dev, MKW2XDM_PHY_CTRL1);
     ctl1 &= ~(MKW2XDM_PHY_CTRL1_XCVSEQ_MASK);
     ctl1 |= MKW2XDM_PHY_CTRL1_XCVSEQ(seq);
     kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL1, ctl1);
-}
-
-void _wait_for_idle(kw2xrf_t *kw_dev) {
-    (void)kw_dev;
-    uint8_t state;
-    do {
-        state = kw2xrf_read_dreg(kw_dev, MKW2XDM_SEQ_STATE);
-        //printf("[kw2xrf] SEQ_STATE: %x\n", state);
-    } while (state != 0);
-}
-
-///* This function enforces the state to IDLE before starting
-//   a new sequence. Only used for debugging. This condition should normally be
-//   guaranteed by the abstract HAL state-machine by always synchronizing against
-//   completion of sequences by adhering to the "request" "confirm" order. */
-void _force_idle(kw2xrf_t *kw_dev) {
-    _set_sequence(kw_dev, XCVSEQ_IDLE);
-    _wait_for_idle(kw_dev);
-    //printf("reached IDLE\n");
-    //kw2xrf_read_dregs(kw_dev, MKW2XDM_IRQSTS1, dregs, MKW2XDM_PHY_CTRL4 + 1);
-    //_print_irq_state(dregs);
-    /* clear the SEQ IRQ that is asserted by transitioning to IDLE */
-    //kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_SEQIRQ);
-
-    /* after the state is IDLE again. Clear all interrupt flags */
-    kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_PLL_UNLOCK_IRQ |
-                                               MKW2XDM_IRQSTS1_FILTERFAIL_IRQ |
-                                               MKW2XDM_IRQSTS1_RXWTRMRKIRQ |
-                                               MKW2XDM_IRQSTS1_CCAIRQ |
-                                               MKW2XDM_IRQSTS1_RXIRQ |
-                                               MKW2XDM_IRQSTS1_TXIRQ |
-                                               MKW2XDM_IRQSTS1_SEQIRQ);
 }
 
 /* The first byte returned by the radio is always IRQSTS1. Thus, giving IRQSTS2
@@ -217,95 +164,94 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
     uint8_t dregs[MKW2XDM_PHY_CTRL2 +1];
     _kw2xrf_read_dregs_from_sts1(kw_dev, dregs, ARRAY_SIZE(dregs));
 
-    //LOG_DEBUG("[kw2xrf] CTRL1 %0x, IRQSTS1 %0x, IRQSTS2 %0x, IRQSTS3 %0x\n",
-    //      dregs[MKW2XDM_PHY_CTRL1], dregs[MKW2XDM_IRQSTS1], dregs[MKW2XDM_IRQSTS2], dregs[MKW2XDM_IRQSTS3]);
-    uint8_t sts1_irq_clr = 0;
-    bool indicate_event = false;
+    uint8_t sts1_clr = 0;
+    bool indicate_hal_event = false;
     ieee802154_trx_ev_t hal_event;
 
     switch (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_XCVSEQ_MASK) {
         case XCVSEQ_RECEIVE:
-            LOG_INFO("IRQ handler: [XCVSEQ_RECEIVE]\n");
+            LOG_DEBUG("[XCVSEQ_RECEIVE]\n");
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXWTRMRKIRQ) {
-                sts1_irq_clr |= MKW2XDM_IRQSTS1_RXWTRMRKIRQ;
+                sts1_clr |= MKW2XDM_IRQSTS1_RXWTRMRKIRQ;
                 hal_event = IEEE802154_RADIO_INDICATION_RX_START;
-                indicate_event = true;
-                LOG_INFO("IEEE802154_RADIO_INDICATION_RX_START\n");
-                break; /* don't process further events on RX_DONE */
+                indicate_hal_event = true;
+                LOG_DEBUG("IEEE802154_RADIO_INDICATION_RX_START\n");
+                break; /* don't process further events on RX_START */
             }
 
             /* SEQ assertion indicates TX_DONE */
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
                 /* clear all pending IRQs asserted during RX sequence */
-                sts1_irq_clr |= (MKW2XDM_IRQSTS1_RXIRQ | MKW2XDM_IRQSTS1_TXIRQ |
-                                 MKW2XDM_IRQSTS1_SEQIRQ);
+                sts1_clr |= (MKW2XDM_IRQSTS1_RXIRQ | MKW2XDM_IRQSTS1_TXIRQ |
+                             MKW2XDM_IRQSTS1_SEQIRQ);
                 hal_event = IEEE802154_RADIO_INDICATION_RX_DONE;
-                indicate_event = true;
-                LOG_INFO("IEEE802154_RADIO_INDICATION_RX_DONE\n");
+                indicate_hal_event = true;
+                LOG_DEBUG("IEEE802154_RADIO_INDICATION_RX_DONE\n");
             }
             break;
 
         case XCVSEQ_TRANSMIT:
-            LOG_INFO("IRQ handler: [XCVSEQ_TRANSMIT]\n");
+            LOG_DEBUG("[XCVSEQ_TRANSMIT]\n");
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                LOG_DEBUG("        finished TXSEQ\n");
-                sts1_irq_clr |= MKW2XDM_IRQSTS1_TXIRQ;
-            }
-
-            if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) {
-                LOG_DEBUG("        finished CCA\n");
-                sts1_irq_clr |= MKW2XDM_IRQSTS1_CCAIRQ;
-                kw_dev->channel_free = !(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
+                LOG_DEBUG("   TX\n");
+                sts1_clr |= MKW2XDM_IRQSTS1_TXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_DEBUG("        finished SEQIRQ\n");
-                sts1_irq_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
+                LOG_DEBUG("   SEQ\n");
+                sts1_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
                 kw_dev->tx_done = true;
                 hal_event = IEEE802154_RADIO_CONFIRM_TX_DONE;
-                indicate_event = true;
-                LOG_INFO("IEEE802154_RADIO_CONFIRM_TX_DONE (T)\n");
+                indicate_hal_event = true;
+                LOG_DEBUG("IEEE802154_RADIO_CONFIRM_TX_DONE (T)\n");
             }
             break;
 
         case XCVSEQ_CCA:
-            LOG_INFO("IRQ handler: [XCVSEQ_CCA]\n");
-            ////_isr_event_seq_cca(netdev, dregs);
-            /* onle handle IRQ if CCA *and* sequence (warmdown) finished */
+            LOG_DEBUG("[XCVSEQ_CCA]\n");
+            /* handle after CCA *and* sequence (warmdown) finished */
             if ((dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) &&
                 (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ)) {
-                /* clear CCA IRQ and SEQIRQ wich gets asserted after warmdown */
-                sts1_irq_clr |= (MKW2XDM_IRQSTS1_CCAIRQ | MKW2XDM_IRQSTS1_SEQIRQ);
-                kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, sts1_irq_clr);
-                //kw2xrf_set_idle_sequence(kw_dev);
+                sts1_clr |= (MKW2XDM_IRQSTS1_CCAIRQ | MKW2XDM_IRQSTS1_SEQIRQ);
 
-                kw_dev->channel_free = !(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
+                kw_dev->ch_clear = !(dregs[MKW2XDM_IRQSTS2] &
+                                     MKW2XDM_IRQSTS2_CCA);
                 kw_dev->waiting_for_cca = false;
 
                 /* if this cca was performed as "CCA-before TX" */
-                if (kw_dev->tx_with_cca) {
-                    kw_dev->tx_with_cca = false;
-                    _start_tx(kw_dev);
-                    kw2xrf_enable_irq_b(kw_dev);
-                    return;
+                if (kw_dev->tx_cca_pending) {
+                    kw_dev->tx_cca_pending = false;
+                    if (kw_dev->ch_clear) {
+                        /* clear pending interrupts before TX */
+                        kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, sts1_clr);
+                        _start_tx(kw_dev);
+                        kw2xrf_enable_irq_b(kw_dev);
+                        return;
+                    } else {
+                        kw_dev->tx_done = true;
+                        /* indicate TX_DONE. The confirm function will return
+                           channel busy */
+                        hal_event = IEEE802154_RADIO_CONFIRM_TX_DONE;
+                        indicate_hal_event = true;
+                        break;
+                    }
                 }
 
-                LOG_INFO("IEEE802154_RADIO_CONFIRM_CCA\n");
+                LOG_DEBUG("IEEE802154_RADIO_CONFIRM_CCA\n");
                 hal_event = IEEE802154_RADIO_CONFIRM_CCA;
-                indicate_event = true;
+                indicate_hal_event = true;
             }
             break;
 
         case XCVSEQ_TX_RX:
-            LOG_INFO("IRQ handler: [XCVSEQ_TX_RX]\n");
+            LOG_DEBUG("[XCVSEQ_TX_RX]\n");
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                LOG_DEBUG("        finished TXSEQ\n");
-                sts1_irq_clr |= MKW2XDM_IRQSTS1_TXIRQ;
-
+                LOG_DEBUG("   TXSEQ\n");
+                sts1_clr |= MKW2XDM_IRQSTS1_TXIRQ;
                 if (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_RXACKRQD) {
-                    LOG_DEBUG("    enable ACK RX timeout\n");
+                    LOG_DEBUG("   setup ACK timeout\n");
                     /* Allow TMR3IRQ to cancel RX operation */
                     kw2xrf_timer3_seq_abort_on(kw_dev);
                     /* Enable interrupt for TMR3 and set timer */
@@ -314,25 +260,23 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXIRQ) {
-                LOG_DEBUG("        finished RXSEQ\n");
-                sts1_irq_clr |= MKW2XDM_IRQSTS1_RXIRQ;
+                LOG_DEBUG("   RX\n");
+                sts1_clr |= MKW2XDM_IRQSTS1_RXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) {
-                kw_dev->channel_free = !(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CCA);
-                LOG_DEBUG("        finished CCA (%s)\n", kw_dev->channel_free ? "FREE" : "BUSY");
-                sts1_irq_clr |= MKW2XDM_IRQSTS1_CCAIRQ;
+                kw_dev->ch_clear = !(dregs[MKW2XDM_IRQSTS2] &
+                                     MKW2XDM_IRQSTS2_CCA);
+                LOG_DEBUG("   CCA (%s)\n", kw_dev->ch_clear ? "CLEAR" : "BUSY");
+                sts1_clr |= MKW2XDM_IRQSTS1_CCAIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_DEBUG("        finished SEQIRQ\n");
-                sts1_irq_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
+                LOG_DEBUG("   SEQ\n");
+                sts1_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
 
-                if (dregs[MKW2XDM_IRQSTS3] & MKW2XDM_IRQSTS3_TMR3IRQ) {
-                    kw_dev->ack_rcvd = false; /* ACK timed out */
-                } else {
-                    kw_dev->ack_rcvd = true;
-                }
+                kw_dev->ack_rcvd = !(dregs[MKW2XDM_IRQSTS3] &
+                                     MKW2XDM_IRQSTS3_TMR3IRQ);
 
                 /* Disallow TMR3IRQ to cancel RX operation */
                 kw2xrf_timer3_seq_abort_off(kw_dev);
@@ -342,37 +286,33 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
                 kw_dev->tx_done = true;
                 LOG_WARNING("IEEE802154_RADIO_CONFIRM_TX_DONE (TR)\n");
                 hal_event = IEEE802154_RADIO_CONFIRM_TX_DONE;
-                indicate_event = true;
+                indicate_hal_event = true;
             }
             break;
 
         case XCVSEQ_IDLE:
-            LOG_DEBUG("IRQ handler: [XCVSEQ_IDLE]\n");
-            if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_DEBUG("        finished SEQIRQ\n");
-                kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_SEQIRQ);
-            }
+            LOG_DEBUG("[XCVSEQ_IDLE]\n");
+            /* clear SEQ interrupt for explicit transitions to IDLE */
+            sts1_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
             break;
         default:
-            LOG_DEBUG("[IRQ handler: undefined seq state in isr\n");
+            LOG_DEBUG("[Unsupported XCVSEQ state]\n");
             break;
     }
 
     /* clear handled IRQs */
-    kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, sts1_irq_clr);
-
-    if (indicate_event) {
-        dev->cb(dev, hal_event);
-    }
+    kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, sts1_clr);
 
     kw2xrf_enable_irq_b(kw_dev);
+
+    if (indicate_hal_event) {
+        dev->cb(dev, hal_event);
+    }
 }
 
 static void kw2xrf_irq_cb(void *ctx) {
-    //printf("kw2xrf_irq_cb\n");
     kw2xrf_dev_evt_ctx_t *c = (kw2xrf_dev_evt_ctx_t*)ctx;
     /* calls the below kw2xrf_irq_event_handler from the the event thread */
-    //event_post(EVENT_PRIO_HIGHEST, &c->event);
     event_post(c->event_queue, &c->event);
 }
 
@@ -380,13 +320,6 @@ static void kw2xrf_irq_event_handler(event_t *evt) {
     kw2xrf_dev_evt_ctx_t *ctx = container_of(evt, kw2xrf_dev_evt_ctx_t, event);
     kw2xrf_radio_hal_irq_handler((ieee802154_dev_t*)&ctx->dev.hal);
 }
-
-//static event_queue_t offload_queues[KW2XRF_NUM];
-//void *offload_thread(void *arg) {
-//    event_queue_t *queue = (event_queue_t*)arg;
-//    event_queue_init(queue);
-//    event_loop(queue);
-//}
 
 /* TODO: new init fuction tailored to be used for new radio HAL
    The ide is to not split between setup and init.
@@ -419,16 +352,13 @@ void kw2xrf_hal_init(kw2xrf_t *dev,
 
     /* Disable automatic CCA before TX (for T and TR sequences).
        Auto CCA was found to cause poor performance (significant packet loss)
-       when performed before the transmission.
+       when performed before the transmission - even on clearchannel.
        As a workaround we perform manual CCA directly before transmittion
        which doesn't show degraded performance.
        Note: the poor performance was only visible when transmitting data
              to other models of radios. I.e., kw2xrf to kw2xrf was fine, while
              kw2xrf to at862xx and nrf52 performs very bad. */
     kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL1, MKW2XDM_PHY_CTRL1_CCABFRTX);
-
-    //kw2xrf_clear_dreg_bit(dev, MKW2XDM_PHY_CTRL2, MKW2XDM_PHY_CTRL2_TXMSK |
-    //                                              MKW2XDM_PHY_CTRL2_CCAMSK);
 
     LOG_DEBUG("[kw2xrf] init finished\n");
 }
@@ -489,13 +419,11 @@ static int _request_transmit(ieee802154_dev_t *dev)
        The automatic CCA controlled by CTRL1_CCABFRTX is avoided because it
        caused poor performance in cobination with other radio devices */
     if (kw_dev->cca_before_tx) {
-        kw_dev->tx_with_cca = true;
+        kw_dev->tx_cca_pending = true;
         _set_sequence(kw_dev, XCVSEQ_CCA);
-        kw2xrf_enable_irq_b(kw_dev);
-        return 0;
+    } else {
+        _start_tx(kw_dev);
     }
-
-    _start_tx(kw_dev);
 
     kw2xrf_enable_irq_b(kw_dev);
     return 0;
@@ -504,13 +432,12 @@ static int _request_transmit(ieee802154_dev_t *dev)
 static int _confirm_transmit(ieee802154_dev_t *dev, ieee802154_tx_info_t *info)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-
     if (!kw_dev->tx_done) {
         return -EAGAIN;
     }
 
     if (info) {
-        if (!kw_dev->channel_free) {
+        if (!kw_dev->ch_clear) {
             info->status = TX_STATUS_MEDIUM_BUSY;
         }
         else if (kw_dev->ack_rcvd || !kw_dev->ack_requested) {
@@ -557,7 +484,7 @@ static int _request_cca(ieee802154_dev_t *dev)
 static int _confirm_cca(ieee802154_dev_t *dev)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    return kw_dev->waiting_for_cca ? -EAGAIN : kw_dev->channel_free;
+    return kw_dev->waiting_for_cca ? -EAGAIN : kw_dev->ch_clear;
 }
 
 static int _set_cca_threshold(ieee802154_dev_t *dev, int8_t threshold)

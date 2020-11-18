@@ -155,12 +155,12 @@ typedef struct {
     int16_t tx_power;                   /**< The current tx-power setting of the device */
 #if IS_USED(MODULE_IEEE802154_RADIO_HAL)
     bool    ack_requested;              /**< ACK was requested for last frame */
-    bool    channel_free;               /**< CCA indicated channel free */
+    bool    ch_clear;                   /**< CCA indicated channel clear */
     bool    waiting_for_cca;            /**< Indicate whether CCA is still ongoing */
     bool    tx_done;                    /**< Indicate whether TX completed */
     bool    ack_rcvd;                   /**< Indicate if ACK was received for last transmission */
     bool    cca_before_tx;              /**< true if CCA shall be performed before TX */
-    bool    tx_with_cca;                /**< true a manual CCA was started and a TX should be triggered on channel clear indication */
+    bool    tx_cca_pending;             /**< true a manual CCA was started and a TX should be triggered on channel clear indication */
 #endif
     /** @} */
 } kw2xrf_t;
