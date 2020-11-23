@@ -163,6 +163,8 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
 
     uint8_t dregs[MKW2XDM_PHY_CTRL2 +1];
     _kw2xrf_read_dregs_from_sts1(kw_dev, dregs, ARRAY_SIZE(dregs));
+    //_print_sts1_state(dregs[MKW2XDM_IRQSTS1], dregs[MKW2XDM_PHY_CTRL2]);
+    LOG_DEBUG("0x%02X\n", dregs[MKW2XDM_IRQSTS1]);
 
     uint8_t sts1_clr = 0;
     bool indicate_hal_event = false;
@@ -171,6 +173,17 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
     switch (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_XCVSEQ_MASK) {
         case XCVSEQ_RECEIVE:
             LOG_DEBUG("[XCVSEQ_RECEIVE]\n");
+
+            if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_FILTERFAIL_IRQ) {
+                /* clear all pending IRQs and switch back to RX again */
+                kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1,
+                                  dregs[MKW2XDM_IRQSTS1]);
+                _set_sequence(kw_dev, XCVSEQ_IDLE);
+                _set_sequence(kw_dev, XCVSEQ_RECEIVE);
+                LOG_DEBUG("IEEE802154_RADIO_INDICATION_RX_FAIL\n");
+                kw2xrf_enable_irq_b(kw_dev);
+                return;
+            }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXWTRMRKIRQ) {
                 sts1_clr |= MKW2XDM_IRQSTS1_RXWTRMRKIRQ;
@@ -537,26 +550,30 @@ static int _config_phy(ieee802154_dev_t *dev, const ieee802154_phy_conf_t *conf)
 static int _request_set_trx_state(ieee802154_dev_t *dev, ieee802154_trx_state_t state)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
+    kw2xrf_mask_irq_b(kw_dev);
 
     switch (state) {
         case IEEE802154_TRX_STATE_TRX_OFF:
             kw2xrf_set_power_mode(kw_dev, KW2XRF_DOZE);
             break;
         case IEEE802154_TRX_STATE_RX_ON:
-            _set_sequence(kw_dev, XCVSEQ_RECEIVE);
-
             /* clear any pending rx interrupts */
-            kw2xrf_clear_dreg_bit(kw_dev, MKW2XDM_IRQSTS1,
-                                  MKW2XDM_IRQSTS1_RXIRQ |
-                                  MKW2XDM_IRQSTS1_RXWTRMRKIRQ);
+            kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_RXIRQ |
+                              MKW2XDM_IRQSTS1_RXWTRMRKIRQ);
 
             /* enable WTMRK and SEQ as indication for RX_START and RX_DONE */
             kw2xrf_write_dreg(kw_dev, MKW2XDM_PHY_CTRL2,
                               ~(MKW2XDM_PHY_CTRL2_SEQMSK |
                                 MKW2XDM_PHY_CTRL2_RX_WMRK_MSK));
+
+            _set_sequence(kw_dev, XCVSEQ_RECEIVE);
             break;
         case IEEE802154_TRX_STATE_TX_ON:
             kw2xrf_set_power_mode(kw_dev, KW2XRF_IDLE);
+
+            /* clear any pending Tx interrupts */
+            kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1, MKW2XDM_IRQSTS1_TXIRQ |
+                                      MKW2XDM_IRQSTS1_SEQIRQ);
 
             /* enable SEQ IRQ as indication for TX_DONE and TX IRQ to
                indicate when the frame was transmitted to then possibly
@@ -568,6 +585,8 @@ static int _request_set_trx_state(ieee802154_dev_t *dev, ieee802154_trx_state_t 
             _set_sequence(kw_dev, XCVSEQ_IDLE);
             break;
     }
+
+    kw2xrf_enable_irq_b(kw_dev);
     return 0;
 }
 
