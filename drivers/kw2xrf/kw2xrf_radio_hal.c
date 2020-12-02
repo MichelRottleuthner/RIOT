@@ -392,30 +392,37 @@ void kw2xrf_auto_init_offloaded(void) {
 static int _write(ieee802154_dev_t *dev, const iolist_t *iolist)
 {
     kw2xrf_t *kw_dev = container_of(dev, kw2xrf_t, hal);
-    size_t len = 0;
-    /* TODO: replace with address-offset spi transfer */
-    uint8_t pkt_buf[KW2XRF_MAX_PKT_LENGTH];
-    /* load packet data into buffer */
-    for (const iolist_t *iol = iolist; iol; iol = iol->iol_next) {
-        /* current packet data + FCS too long */
-        if ((len + iol->iol_len + IEEE802154_FCS_LEN) > KW2XRF_MAX_PKT_LENGTH) {
-            LOG_ERROR("[kw2xrf] packet too large (%u byte) to be send\n",
-                  (unsigned)len + IEEE802154_FCS_LEN);
-            return -EOVERFLOW;
-        }
 
-        /* start after pkt len byte */
-        memcpy(&pkt_buf[len + 1], iol->iol_base, iol->iol_len);
-        len += iol->iol_len;
+    /* get length */
+    uint8_t len = iolist_size(iolist) + IEEE802154_FCS_LEN;
+
+    if (len > KW2XRF_MAX_PKT_LENGTH) {
+        LOG_ERROR("[kw2xrf] packet too large (%u byte) to be send\n", len);
+        return -EOVERFLOW;
     }
 
-    pkt_buf[0] = len + IEEE802154_FCS_LEN;
+    /* check if ack req bit is set to decide which transmit sequence to use to
+       send the frame */
+    uint8_t *data = iolist->iol_base;
+    kw_dev->ack_requested = *data & IEEE802154_FCF_ACK_REQ;
 
-    /* check if ack req bit is set to decide which transmition sequence is best
-       to send the frame */
-    kw_dev->ack_requested = pkt_buf[1] & IEEE802154_FCF_ACK_REQ;
+    /* transfer packet data to radio buffer */
+    spi_acquire(kw_dev->params.spi, kw_dev->params.cs_pin, SPI_MODE_0,
+                kw_dev->params.spi_clk);
+    spi_transfer_byte(kw_dev->params.spi, kw_dev->params.cs_pin, true,
+                      MKW2XDRF_BUF_WRITE);
+    spi_transfer_byte(kw_dev->params.spi, kw_dev->params.cs_pin, true, len);
 
-    kw2xrf_write_fifo(kw_dev, pkt_buf, pkt_buf[0]);
+    for (const iolist_t *iol = iolist; iol; iol = iol->iol_next) {
+        /* start after pkt len byte */
+        //memcpy(&pkt_buf[len + 1], iol->iol_base, iol->iol_len);
+        bool cont = iol->iol_next;
+        spi_transfer_bytes(kw_dev->params.spi, kw_dev->params.cs_pin, cont,
+                           iol->iol_base, NULL, iol->iol_len);
+    }
+
+    spi_release(kw_dev->params.spi);
+    
     return 0;
 }
 
