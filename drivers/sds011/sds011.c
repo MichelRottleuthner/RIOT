@@ -155,9 +155,8 @@ int _send_recv_cmd(sds011_t *dev, uint8_t *data_bytes, size_t len, uint8_t *recv
     mutex_unlock(&dev->cb_lock);
 
     /* if no active reporting callback is registered, UART can be disabled */
-    if((dev->cb == NULL) &&
-       (uart_init(dev->params.uart, SDS011_UART_BAUDRATE, NULL, NULL) != 0)) {
-        res = SDS011_ERROR;
+    if(dev->cb == NULL) {
+        uart_poweroff(dev->params.uart);
     }
 
     /* release device */
@@ -216,13 +215,17 @@ int sds011_register_callback(sds011_t *dev, sds011_callback_t cb, void *ctx)
     dev->cbctx = ctx;
     dev->cb = cb;
 
-    /* either register un unregister the uart callback */
-    if (uart_init(dev->params.uart, SDS011_UART_BAUDRATE,
+    /* either register or unregister the uart callback */
+    if (cb == NULL) {
+        uart_poweroff(dev->params.uart);
+    }
+    else if (uart_init(dev->params.uart, SDS011_UART_BAUDRATE,
                   cb == NULL ? NULL : _rx_cb,
-                  cb == NULL ? NULL : dev) != 0) {
+                  cb == NULL ? NULL : dev) != 0){
         mutex_unlock(&dev->dev_lock);
         return SDS011_ERROR;
     }
+
     mutex_unlock(&dev->dev_lock);
     return SDS011_OK;
 }
