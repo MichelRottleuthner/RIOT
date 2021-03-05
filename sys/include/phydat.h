@@ -93,6 +93,7 @@ enum {
     /* electricity */
     UNIT_A,         /**< Ampere */
     UNIT_V,         /**< Volts */
+    UNIT_W,         /**< Watt */
     UNIT_GS,        /**< gauss */
     UNIT_DBM,       /**< decibel-milliwatts */
     UNIT_COULOMB,   /**< coulomb */
@@ -113,7 +114,8 @@ enum {
     UNIT_TIME,      /**< the three dimensions contain sec, min, and hours */
     UNIT_DATE,      /**< the 3 dimensions contain days, months and years */
     /* mass concentration */
-    UNIT_GPM3       /**< grams per cubic meters */
+    UNIT_GPM3,       /**< grams per cubic meters */
+    UNIT_WS          /**< watt seconds */
     /* extend this list as needed */
 };
 
