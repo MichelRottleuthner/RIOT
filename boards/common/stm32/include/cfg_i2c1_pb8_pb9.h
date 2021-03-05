@@ -32,7 +32,7 @@ extern "C" {
 static const i2c_conf_t i2c_config[] = {
     {
         .dev            = I2C1,
-        .speed          = I2C_SPEED_NORMAL,
+        .speed          = I2C_SPEED_FAST,
         .scl_pin        = GPIO_PIN(PORT_B, 8),
         .sda_pin        = GPIO_PIN(PORT_B, 9),
 #if CPU_FAM_STM32F0
