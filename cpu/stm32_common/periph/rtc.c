@@ -194,38 +194,40 @@ static inline void rtc_lock(void)
 
 void rtc_init(void)
 {
-    stmclk_dbp_unlock();
-#if defined(CPU_FAM_STM32L0) || defined(CPU_FAM_STM32L1)
-    /* Compare the stored magic number with the current one. If it's different
-       it means the clock source has changed and thus a RTC reset is
-       required. */
-    if (RTC->BKP0R != MAGIC_CLCK_NUMBER) {
-        RCC->CSR |= RCC_CSR_RTCRST;
-        RCC->CSR &= ~RCC_CSR_RTCRST;
-        RTC->BKP0R = MAGIC_CLCK_NUMBER; /* Store the new magic number */
+    if (!(RTC->ISR & RTC_ISR_INITS)) {
+        stmclk_dbp_unlock();
+    #if defined(CPU_FAM_STM32L0) || defined(CPU_FAM_STM32L1)
+        /* Compare the stored magic number with the current one. If it's different
+           it means the clock source has changed and thus a RTC reset is
+           required. */
+        if (RTC->BKP0R != MAGIC_CLCK_NUMBER) {
+            RCC->CSR |= RCC_CSR_RTCRST;
+            RCC->CSR &= ~RCC_CSR_RTCRST;
+            RTC->BKP0R = MAGIC_CLCK_NUMBER; /* Store the new magic number */
+        }
+    #endif
+        stmclk_dbp_lock();
+
+        /* enable low frequency clock */
+        stmclk_enable_lfclk();
+
+        /* select input clock and enable the RTC */
+        stmclk_dbp_unlock();
+        EN_REG &= ~(CLKSEL_MASK);
+    #if CLOCK_LSE
+        EN_REG |= (CLKSEL_LSE | EN_BIT);
+    #else
+        EN_REG |= (CLKSEL_LSI | EN_BIT);
+    #endif
+
+        rtc_unlock();
+        /* reset configuration */
+        RTC->CR = 0;
+        RTC->ISR = RTC_ISR_INIT;
+        /* configure prescaler (RTC PRER) */
+        RTC->PRER = (PRE_SYNC | (PRE_ASYNC << 16));
+        rtc_lock();
     }
-#endif
-    stmclk_dbp_lock();
-
-    /* enable low frequency clock */
-    stmclk_enable_lfclk();
-
-    /* select input clock and enable the RTC */
-    stmclk_dbp_unlock();
-    EN_REG &= ~(CLKSEL_MASK);
-#if CLOCK_LSE
-    EN_REG |= (CLKSEL_LSE | EN_BIT);
-#else
-    EN_REG |= (CLKSEL_LSI | EN_BIT);
-#endif
-
-    rtc_unlock();
-    /* reset configuration */
-    RTC->CR = 0;
-    RTC->ISR = RTC_ISR_INIT;
-    /* configure prescaler (RTC PRER) */
-    RTC->PRER = (PRE_SYNC | (PRE_ASYNC << 16));
-    rtc_lock();
 
     /* configure the EXTI channel, as RTC interrupts are routed through it.
      * Needs to be configured to trigger on rising edges. */
@@ -269,7 +271,9 @@ int rtc_get_time(struct tm *time)
 
 int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
 {
-    rtc_unlock();
+    stmclk_dbp_unlock();
+    RTC->WPR = WPK1;
+    RTC->WPR = WPK2;
 
     /* disable existing alarm (if enabled) */
     rtc_clear_alarm();
