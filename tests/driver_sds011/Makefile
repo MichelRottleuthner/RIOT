@@ -3,4 +3,10 @@ include ../Makefile.tests_common
 USEMODULE += sds011
 USEMODULE += xtimer
 
+CFLAGS += -DGP_PWR_VCC_SW_PIN=GPIO_PIN\(0,10\)
+CFLAGS += -DSDS011_PARAM_UART_DEV=\(UART_DEV\(1\)\)
+CFLAGS += -DSDS011_PARAM_PWR_PIN=GP_PWR_VCC_SW_PIN
+CFLAGS += -DSDS011_PARAM_PWR_PIN_AH=\(false\)
+
+
 include $(RIOTBASE)/Makefile.include
