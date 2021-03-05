@@ -71,6 +71,17 @@
 #endif
 #endif
 
+#ifndef PM_SHUTDOWN_CONFIG
+/**
+ * @brief Define config flags for shutdown mode
+ *
+ * Available values can be found in reference manual, PWR section, register CR.
+ */
+#if defined(CPU_FAM_STM32L4)
+#define PM_SHUTDOWN_CONFIG   (PWR_CR1_LPMS_SHUTDOWN)
+#endif
+#endif
+
 #if defined(CPU_FAM_STM32L4)
 #define PWR_CR_REG     PWR->CR1
 #define PWR_WUP_REG    PWR->CR3
@@ -92,9 +103,33 @@ void pm_set(unsigned mode)
     int deep;
 
     switch (mode) {
+#ifdef STM32_PM_SHUTDOWN
+        case STM32_PM_SHUTDOWN:
+            /* enable access to the RCC registers for enabling RTC and LSE*/
+            periph_clk_en(APB1, RCC_APB1ENR1_PWREN);
+            /* optionally enable RTC & LSE */
+            RCC->BDCR |= RCC_BDCR_RTCEN;
+            RCC->BDCR |= RCC_BDCR_LSEON;
+            //RCC->CSR |= RCC_CSR_LSION;
+            /* LPMS = “1XX” in PWR_CR1 */
+            PWR_CR_REG &= ~(PM_STOP_CONFIG | PM_STANDBY_CONFIG | PM_STANDBY_CONFIG);
+            PWR_CR_REG |= PM_SHUTDOWN_CONFIG;
+            /* Enable WKUP pin to use for wakeup from standby mode */
+            PWR_WUP_REG |= PM_EWUP_CONFIG;
+            periph_clk_dis(APB1, RCC_APB1ENR1_PWREN);
+            /* Set SLEEPDEEP bit of system control block */
+            deep = 1;
+            break;
+#endif
 #ifdef STM32_PM_STANDBY
         case STM32_PM_STANDBY:
-            PWR_CR_REG &= ~(PM_STOP_CONFIG | PM_STANDBY_CONFIG);
+            /* enable access to the RCC registers for enabling RTC and LSE*/
+            periph_clk_en(APB1, RCC_APB1ENR1_PWREN);
+            /* optionally enable RTC & LSE */
+            RCC->BDCR |= RCC_BDCR_RTCEN;
+            RCC->BDCR |= RCC_BDCR_LSEON;
+
+            PWR_CR_REG &= ~(PM_STOP_CONFIG | PM_STANDBY_CONFIG | PM_SHUTDOWN_CONFIG);
             PWR_CR_REG |= PM_STANDBY_CONFIG;
 #if defined(CPU_FAM_STM32L4)
 #if STM32L4_SRAM2_RETENTION
@@ -107,13 +142,14 @@ void pm_set(unsigned mode)
 #endif
             /* Enable WKUP pin to use for wakeup from standby mode */
             PWR_WUP_REG |= PM_EWUP_CONFIG;
+            periph_clk_dis(APB1, RCC_APB1ENR1_PWREN);
             /* Set SLEEPDEEP bit of system control block */
             deep = 1;
             break;
 #endif
 #ifdef STM32_PM_STOP
         case STM32_PM_STOP:
-            PWR_CR_REG &= ~(PM_STOP_CONFIG | PM_STANDBY_CONFIG);
+            PWR_CR_REG &= ~(PM_STANDBY_CONFIG | PM_SHUTDOWN_CONFIG);
             PWR_CR_REG |= PM_STOP_CONFIG;
             /* Set SLEEPDEEP bit of system control block */
             deep = 1;
