@@ -95,16 +95,16 @@ int sx127x_reset(const sx127x_t *dev)
     gpio_set(dev->params.rx_switch_pin);
 #endif
 
-    /* Set reset pin to 0 */
-    gpio_clear(dev->params.reset_pin);
+    /* Set reset pin to 1 for manual reset */
+    gpio_set(dev->params.reset_pin);
 
-    /* Wait 1 ms */
-    xtimer_usleep(1000);
+    /* Wait at least 100 us */
+    xtimer_usleep(200);
 
     /* Put reset pin in High-Z */
     gpio_init(dev->params.reset_pin, GPIO_IN);
 
-    /* Wait 10 ms */
+    /* Wait 10 ms (in case of POR) */
     xtimer_usleep(1000 * 10);
 
     return 0;
