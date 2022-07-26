@@ -163,7 +163,7 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
 
     uint8_t dregs[MKW2XDM_PHY_CTRL2 +1];
     _kw2xrf_read_dregs_from_sts1(kw_dev, dregs, ARRAY_SIZE(dregs));
-    //_print_sts1_state(dregs[MKW2XDM_IRQSTS1], dregs[MKW2XDM_PHY_CTRL2]);
+    _print_sts1_state(dregs[MKW2XDM_IRQSTS1], dregs[MKW2XDM_PHY_CTRL2]);
     LOG_DEBUG("0x%02X\n", dregs[MKW2XDM_IRQSTS1]);
 
     uint8_t sts1_clr = 0;
@@ -172,58 +172,60 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
 
     switch (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_XCVSEQ_MASK) {
         case XCVSEQ_RECEIVE:
-            LOG_DEBUG("[XCVSEQ_RECEIVE]\n");
-
-            if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_FILTERFAIL_IRQ) {
-                /* clear all pending IRQs and switch back to RX again */
-                kw2xrf_write_dreg(kw_dev, MKW2XDM_IRQSTS1,
-                                  dregs[MKW2XDM_IRQSTS1]);
-                _set_sequence(kw_dev, XCVSEQ_IDLE);
-                _set_sequence(kw_dev, XCVSEQ_RECEIVE);
-                LOG_DEBUG("IEEE802154_RADIO_INDICATION_RX_FAIL\n");
-                kw2xrf_enable_irq_b(kw_dev);
-                return;
-            }
+            printf("[XCVSEQ_RECEIVE]\n");
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXWTRMRKIRQ) {
                 sts1_clr |= MKW2XDM_IRQSTS1_RXWTRMRKIRQ;
                 hal_event = IEEE802154_RADIO_INDICATION_RX_START;
                 indicate_hal_event = true;
-                LOG_DEBUG("IEEE802154_RADIO_INDICATION_RX_START\n");
+                printf("IEEE802154_RADIO_INDICATION_RX_START\n");
+                //filter_failed = false;
                 break; /* don't process further events on RX_START */
             }
 
             /* SEQ assertion indicates TX_DONE */
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
                 /* clear all pending IRQs asserted during RX sequence */
-                sts1_clr |= (MKW2XDM_IRQSTS1_RXIRQ | MKW2XDM_IRQSTS1_TXIRQ |
-                             MKW2XDM_IRQSTS1_SEQIRQ);
-                hal_event = IEEE802154_RADIO_INDICATION_RX_DONE;
-                indicate_hal_event = true;
-                LOG_DEBUG("IEEE802154_RADIO_INDICATION_RX_DONE\n");
+                sts1_clr |= dregs[MKW2XDM_IRQSTS1];
+
+                if (!(dregs[MKW2XDM_IRQSTS2] & MKW2XDM_IRQSTS2_CRCVALID)) {
+                    /* TODO: travel in time an get future HAL version to enable this */
+                    //hal_event = IEEE802154_RADIO_INDICATION_CRC_ERROR;
+                    //indicate_hal_event = true;
+                }
+                
+                if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXIRQ) {
+                    sts1_clr |= MKW2XDM_IRQSTS1_RXIRQ;
+                    hal_event = IEEE802154_RADIO_INDICATION_RX_DONE;
+                    indicate_hal_event = true;
+                } else {
+                    _set_sequence(kw_dev, XCVSEQ_IDLE);
+                    _set_sequence(kw_dev, XCVSEQ_RECEIVE);
+                }
+                printf("IEEE802154_RADIO_INDICATION_RX_DONE\n");
             }
             break;
 
         case XCVSEQ_TRANSMIT:
-            LOG_DEBUG("[XCVSEQ_TRANSMIT]\n");
+            printf("[XCVSEQ_TRANSMIT]\n");
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                LOG_DEBUG("   TX\n");
+                printf("   TX\n");
                 sts1_clr |= MKW2XDM_IRQSTS1_TXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_DEBUG("   SEQ\n");
+                printf("   SEQ\n");
                 sts1_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
                 kw_dev->tx_done = true;
                 hal_event = IEEE802154_RADIO_CONFIRM_TX_DONE;
                 indicate_hal_event = true;
-                LOG_DEBUG("IEEE802154_RADIO_CONFIRM_TX_DONE (T)\n");
+                printf("IEEE802154_RADIO_CONFIRM_TX_DONE (T)\n");
             }
             break;
 
         case XCVSEQ_CCA:
-            LOG_DEBUG("[XCVSEQ_CCA]\n");
+            printf("[XCVSEQ_CCA]\n");
             /* handle after CCA *and* sequence (warmdown) finished */
             if ((dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) &&
                 (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ)) {
@@ -252,19 +254,19 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
                     }
                 }
 
-                LOG_DEBUG("IEEE802154_RADIO_CONFIRM_CCA\n");
+                printf("IEEE802154_RADIO_CONFIRM_CCA\n");
                 hal_event = IEEE802154_RADIO_CONFIRM_CCA;
                 indicate_hal_event = true;
             }
             break;
 
         case XCVSEQ_TX_RX:
-            LOG_DEBUG("[XCVSEQ_TX_RX]\n");
+            printf("[XCVSEQ_TX_RX]\n");
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_TXIRQ) {
-                LOG_DEBUG("   TXSEQ\n");
+                printf("   TXSEQ\n");
                 sts1_clr |= MKW2XDM_IRQSTS1_TXIRQ;
                 if (dregs[MKW2XDM_PHY_CTRL1] & MKW2XDM_PHY_CTRL1_RXACKRQD) {
-                    LOG_DEBUG("   setup ACK timeout\n");
+                    printf("   setup ACK timeout\n");
                     /* Allow TMR3IRQ to cancel RX operation */
                     kw2xrf_timer3_seq_abort_on(kw_dev);
                     /* Enable interrupt for TMR3 and set timer */
@@ -273,19 +275,19 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_RXIRQ) {
-                LOG_DEBUG("   RX\n");
+                printf("   RX\n");
                 sts1_clr |= MKW2XDM_IRQSTS1_RXIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_CCAIRQ) {
                 kw_dev->ch_clear = !(dregs[MKW2XDM_IRQSTS2] &
                                      MKW2XDM_IRQSTS2_CCA);
-                LOG_DEBUG("   CCA (%s)\n", kw_dev->ch_clear ? "CLEAR" : "BUSY");
+                printf("   CCA (%s)\n", kw_dev->ch_clear ? "CLEAR" : "BUSY");
                 sts1_clr |= MKW2XDM_IRQSTS1_CCAIRQ;
             }
 
             if (dregs[MKW2XDM_IRQSTS1] & MKW2XDM_IRQSTS1_SEQIRQ) {
-                LOG_DEBUG("   SEQ\n");
+                printf("   SEQ\n");
                 sts1_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
 
                 kw_dev->ack_rcvd = !(dregs[MKW2XDM_IRQSTS3] &
@@ -297,19 +299,19 @@ void kw2xrf_radio_hal_irq_handler(ieee802154_dev_t *dev)
                 kw2xrf_abort_rx_ops_disable(kw_dev);
 
                 kw_dev->tx_done = true;
-                LOG_WARNING("IEEE802154_RADIO_CONFIRM_TX_DONE (TR)\n");
+                printf("IEEE802154_RADIO_CONFIRM_TX_DONE (TR)\n");
                 hal_event = IEEE802154_RADIO_CONFIRM_TX_DONE;
                 indicate_hal_event = true;
             }
             break;
 
         case XCVSEQ_IDLE:
-            LOG_DEBUG("[XCVSEQ_IDLE]\n");
+            printf("[XCVSEQ_IDLE]\n");
             /* clear SEQ interrupt for explicit transitions to IDLE */
             sts1_clr |= MKW2XDM_IRQSTS1_SEQIRQ;
             break;
         default:
-            LOG_DEBUG("[Unsupported XCVSEQ state]\n");
+            printf("[Unsupported XCVSEQ state]\n");
             break;
     }
 
