@@ -1,0 +1,9 @@
+INCLUDES += -I$(CURDIR)/include
+
+ifneq (,$(filter backup_reg,$(USEMODULE)))
+  DIRS += backup_reg
+endif
+
+ifneq (,$(filter gpio_wakeup,$(USEMODULE)))
+  DIRS += gpio_wakeup
+endif

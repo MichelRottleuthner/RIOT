@@ -1,0 +1,72 @@
+// primitive control functions
+bool enabled = gclk_is_enabled(clk);
+unsigned factor = gclk_get_current_factor(clk);
+unsigned freq = gclk_get_current_freq(clk);
+const gclk_t *parent = gclk_get_current_parent(clk);
+
+// basic clock instance operations
+gclk_enable(clk);
+gclk_disable(clk);
+gclk_set_factor(clk, factor); 
+gclk_set_freq(clk, freq);
+gclk_set_parent(clk, pidx);
+
+gclk_manager_set_freq(clk, freq);
+
+gclk_get_name(clk)
+const gclk_t *clk = gclk_get_clk_by_name(argv[1]);
+
+// iterating clocks
+for (unsigned i = 0; i < gclk_get_cnt(); i++) {
+    const gclk_t *clk = gclk_get(i);
+}
+
+// get the core clock handle
+const gclk_t *clk = gclk_manager_get_core_clock_handle();
+uint32_t freq = gclk_get_current_freq(clk);
+
+// scale the core frequency to the given frequency
+gclk_manager_scale_core_freq(40000000);
+
+// manual core clock control
+uint32_t *freqs;
+unsigned int cnt = gclk_manager_get_dfs_freqs(&freqs);
+// iterate through available DFS frequencies
+for (unsigned i = 0; i < cnt; i++) {
+    gclk_manager_scale_core_freq(freqs[i]);
+}
+
+
+// preform online assessment of PU metric
+for (unsigned i = 0; i < thread_cnt; i++) {
+    gclk_manager_enable_pu_stat_request_for_thread(tids[i]);
+}
+gclk_manager_enable_pu_assessment(true);
+
+// perform frequency cycle to evaluate the PU characteristics running threads
+gclk_manager_start_freq_cycler(FC_MIN_DURATION_US, FC_MIN_SCHEDULE_CNT);
+for (unsigned i = 0; i < thread_cnt; i++) {
+    int pu = gclk_manager_calculate_pu_factor(tids[i]);
+    printf("performance util of thread %u: %d\n", tids[i], pu);
+}
+// enable DFS based on thread-specific PU-Value
+gclk_manager_enable_dynamic_frequency_scaling(true);
+
+
+//topology switching 
+uint32_t max_len = gclk_get_clk_subtree_max_depth(clk, 0);
+clk_topology_entry_t topology[max_len];
+topology[0].clk = clk;
+// match the closest frequency if no exact match is available
+gclk_cmp_func_t cmf_func = closest_leaf_freq;
+for (unsigned t = 0; t < gclk_get_topology_config_cnt(clk); t++) {
+    size_t size = gclk_get_nth_topology(topology, max_len, t);
+    printf("Topology variant %u:", t);
+    gclk_print_topology(topology, size);
+    uint32_t matched_freq = gclk_manager_switch_topology(clk, t, target_freq, cmp_func);
+    printf("running at %d Hz now.\n", matched_freq);  
+}
+
+uint32_t target_freq = 20000000;
+uint32_t closest_freq = gclk_manager_switch_topology(clk, t, target_freq, cmp_func) {
+

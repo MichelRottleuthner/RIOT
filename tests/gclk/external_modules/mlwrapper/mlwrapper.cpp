@@ -1,0 +1,45 @@
+#include <stdio.h>
+#include <inttypes.h>
+
+alignas(float)
+#include "blob/digit.h"         //contains a sample taken from the MNIST test set
+
+#include "deep_mlp.hpp"         //generated model file
+#include "tensor.hpp"           //useful tensor classes
+#include "periph/gpio.h"
+
+extern "C" {
+
+int ml_run(void)
+{
+	gpio_init(OSZI_DEBUG_PIN, GPIO_OUT);
+	gpio_set(OSZI_DEBUG_PIN);
+	//puts("Simple MNIST end-to-end uTensor cli example (device)\n");
+	gpio_clear(OSZI_DEBUG_PIN);
+	// create the context class, the stage where inferences take place
+	Context ctx;
+
+	// because we used alignas(float), we can rest assured that silencing
+	// -Wcast-align with an intermediate cast to uintptr_t is fine
+	float *digit_as_float = (float *)(uintptr_t)digit;
+
+	// wrap the input digit in a tensor class
+	auto input_x = new WrappedRamTensor<float>({1, digit_len >> 2}, digit_as_float);
+
+	// pass ownership of the tensor to the context
+	get_deep_mlp_ctx(ctx, input_x);
+
+	// get a reference to the output tensor
+	S_TENSOR pred_tensor = ctx.get("y_pred:0");
+	// trigger the inference
+	ctx.eval();
+
+	// get the result back and display it
+	uint8_t pred_label = *(pred_tensor->read<int>(0, 0));
+	gpio_set(OSZI_DEBUG_PIN);
+	(void)pred_label;
+	//printf("Predicted label: %d\r\n", pred_label);
+
+	return 0;
+}
+}
