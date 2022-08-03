@@ -8,7 +8,7 @@
 [![Twitter][twitter-badge]][twitter-link]
 [![Matrix][matrix-badge]][matrix-link]
 
-<p align="center"><img src="doc/doxygen/src/riot-logo.svg" width="66%"><!--
+<p align="center"><img src="doc/doxygen/src/riot-scaleclock-logo.svg" width="35%"><!--
                           ZZZZZZ
                         ZZZZZZZZZZZZ
                       ZZZZZZZZZZZZZZZZ
@@ -35,8 +35,271 @@
          ZZZZZZZZZZZ               Z
             ZZZZZ                                                           --></p>
 
-The friendly Operating System for IoT!
 
+# A ScaleClock Implementation for RIOT
+This RIOT fork implements the ScaleClock dynamic clock (re-)configuration module which helps your application to save the precious energy of your tiny IoT device.
+There are many features that are still under development and therefore contributions are very much welcome e.g., by porting it to more boards, extending its feature set or adding other improvements.
+Questions, discussion and any other remarks are of course also greatly appreciated :)
+If you think ScaleClock could be useful to you but lacks a certain feature or property feel free to contact us and tell us more about your use case.
+
+For the impatient reader who wants to dive right into the most relevant implementation parts, here are some quick reference pointers that should sound familiar if you already read the ScaleClock paper.
+
+## Platform-agnostic High-level Modules of the ScaleClock Implementation
+
+### Clock Configurator
+The clock configurator module is responsible for read and modify access of individual clock instances.
+Jump to [this file](sys/include/gclk.h) for its interface definition and [here](sys/gclk/gclk.c) for the implementation.
+
+### Clock Manager
+The clock manager module performs high-level operations on the clock tree, such as evaluation of topology configurations, performing complex transitions, and controlling DVFS. See [the interface definition](sys/include/gclk_manager.h) and [implementation](sys/gclk/gclk_manager.c) for all the details.
+
+### OS Integration Hooks
+The hook interface that is employed to feed information about thread schedule actions from the scheduler to ScaleClock which uses it for Performance Utilization assessment and DVFS.
+[OS-Hook Interface](sys/include/gclk_manager_os_hooks.h)
+
+### Generic Clock Base Types
+The generic clock base types provide a flexible interface that abstracts hardware level access into operations with unified high-level semantics.
+This includes gates muxes and scalers which can be found in below files.
+
+#### Gate
+The gate primitive implements a clock node that enables and disables a clock signal.
+You will find the interface [here](sys/include/gclk/generic_gate.h) and the corresponding implementation [here](sys/gclk/generic_gate.c).
+
+#### Mux
+The mux primitive implements a clock node that exclusively selects one clock signal out of multiple source options.
+There is again an [interface definition](sys/include/gclk/generic_mux.h) and a corresponding [implementation](sys/gclk/generic_mux.c).
+
+#### Scaler
+The last primitive called scaler implements a clock node that modifies (i.e., scales) the frequency of its input frequency to a different value on its output.
+The interface is located [here](sys/include/gclk/generic_scaler.h) and the implementation can be found in this [file](sys/gclk/generic_scaler.c)
+
+#### Additional Peripheral Modules
+In order to reach best performance and energy savings with ScaleClock there are two more peripheral abstractions that handle low level control of [Core Voltage](drivers/include/periph/core_voltage.h) and [Flash Memory Options](drivers/include/periph/flash_opt.h).
+
+
+## Hardware Specific Platform Integrations of ScaleClock
+
+The hardware specific platform code is split into the static tree model and platform specific clock manager configuration.
+The tree model maps memory mapped clock control registers onto the previously introduced generic clock types with reusable primitives for configuration register access.
+Whereas the hardware specific clock manager configuration file provides more high level platform data like constraints and rules for topology switching and frequency scaling.
+
+### Platform Clock Tree Models
+
+#### slstk3402a
++ EFM32-specific
+  + [Tree Model](cpu/efm32/gclk/gclk_efm32pg12b_all.c)
+  + [Manager Config](cpu/efm32/include/gclk_manager_conf.h)
+
+#### nucleo-476rg 
++ STM32-specific
+  + [Tree Model](cpu/stm32/gclk/gclk_stm32l4.c)
+  + [Manager Config](cpu/stm32/include/gclk_manager_conf.h)
+
+## Interactive Test Application for the ScaleClock Implementation
+
+The [ScaleClock Test Application](tests/gclk/main.c) can be found in the tests sub folder.
+
+It can be flashed by executing the following command from this source directory.
+```
+BUILD_IN_DOCKER=1 BOARD=board-name make -C tests/gclk all flash term
+```
+The `board-name` placeholder has to be replaced with either `nucleo-l476rg` or `slstk3402a`, depending on the platform you want to use.
+
+The app puts many things together for testing all functionality of ScaleClock.
+Its shell interface provides custom commands of the [test application](tests/gclk/main.c#L392) to evaluate manual and automatic test procedures and parametric task examples.
+The test application also exposes the default commands provided by the [ScaleClock shell module](sys/shell/commands/shell_commands.c#L416) which gives direct access to many ScaleClock primitives to directly interact with the clock tree configuration.
+Type `help` in the terminal to get a list of available commands. Each command provides usage strings when issued without or with wrong parameters.
+Further utility functions for evaluation can be found in the provided [eval_utils module](tests/gclk/eval_utils.c).
+Various workload types used to investigate the impact of dynamic clock (re-)configuration are defined in the respective [workloads utility module](tests/gclk/workloads.c).
+
+### Explore the Clock Tree and its Configuration Space
+Manual operations range from listing available clock nodes of the tree to displaying and modifying all properties of each individual clock instance during runtime.
+Automatic features allow to explore the configuration space and use the runtime assessment to derive task characteristics.
+Autonomous optimization features (like available frequency, topology, and policy settings) can be read out and runtime-configured via the `dvfs` shell command.
+Many features of the test application are meant for evaluation purposes of the approach and to perform fine grained parameterized benchmarks. While this extended set of features is not necessarily needed during production (i.e., in a product that uses ScaleClock) it is very helpful for testing different strategies and implementation variants that aim for the best possible solution of involved sub components given different optimization goals and design trade offs.
+
+
+# File-Level Contribution Overview
+
+To get a quick overview of all files that were touched for this implementation refer to the following list.
+
+## Modified Files
+
+[README.md](README.md)
+
+[boards/nucleo-l476rg/Makefile.features](boards/nucleo-l476rg/Makefile.features)
+
+[boards/slstk3402a/include/periph_conf.h](boards/slstk3402a/include/periph_conf.h)
+
+[core/lib/init.c](core/lib/init.c)
+
+[core/sched.c](core/sched.c)
+
+[cpu/cortexm_common/thread_arch.c](cpu/cortexm_common/thread_arch.c)
+
+[cpu/efm32/Makefile](cpu/efm32/Makefile)
+
+[cpu/efm32/Makefile.dep](cpu/efm32/Makefile.dep)
+
+[cpu/efm32/Makefile.features](cpu/efm32/Makefile.features)
+
+[cpu/efm32/periph/adc.c](cpu/efm32/periph/adc.c)
+
+[cpu/efm32/periph/rtt_series1.c](cpu/efm32/periph/rtt_series1.c)
+
+[cpu/efm32/periph/spi.c](cpu/efm32/periph/spi.c)
+
+[cpu/efm32/periph/timer.c](cpu/efm32/periph/timer.c)
+
+[cpu/stm32/Makefile](cpu/stm32/Makefile)
+
+[cpu/stm32/Makefile.dep](cpu/stm32/Makefile.dep)
+
+[cpu/stm32/Makefile.features](cpu/stm32/Makefile.features)
+
+[cpu/stm32/cpu_common.c](cpu/stm32/cpu_common.c)
+
+[cpu/stm32/cpu_init.c](cpu/stm32/cpu_init.c)
+
+[cpu/stm32/periph/adc_l4.c](cpu/stm32/periph/adc_l4.c)
+
+[cpu/stm32/periph/pm.c](cpu/stm32/periph/pm.c)
+
+[cpu/stm32/periph/spi.c](cpu/stm32/periph/spi.c)
+
+[cpu/stm32/periph/timer.c](cpu/stm32/periph/timer.c)
+
+[cpu/stm32/periph/uart.c](cpu/stm32/periph/uart.c)
+
+[sys/shell/commands/Makefile](sys/shell/commands/Makefile)
+
+[sys/shell/commands/shell_commands.c](sys/shell/commands/shell_commands.c)
+
+[sys/ztimer/init.c](sys/ztimer/init.c)
+
+[sys/ztimer/periph_timer.c](sys/ztimer/periph_timer.c)
+
+
+## New Files
+
+[cpu/efm32/gclk/Makefile](cpu/efm32/gclk/Makefile)
+
+[cpu/efm32/gclk/gclk_efm32pg12b.c](cpu/efm32/gclk/gclk_efm32pg12b.c)
+
+[cpu/efm32/gclk/gclk_efm32pg12b_all.c](cpu/efm32/gclk/gclk_efm32pg12b_all.c)
+
+[cpu/efm32/include/gclk_conf.h](cpu/efm32/include/gclk_conf.h)
+
+[cpu/efm32/include/gclk_efm32_common_conf_regs.h](cpu/efm32/include/gclk_efm32_common_conf_regs.h)
+
+[cpu/efm32/include/gclk_efm32_types.h](cpu/efm32/include/gclk_efm32_types.h)
+
+[cpu/efm32/include/gclk_manager_conf.h](cpu/efm32/include/gclk_manager_conf.h)
+
+[cpu/efm32/periph/core_voltage.c](cpu/efm32/periph/core_voltage.c)
+
+[cpu/efm32/periph/flash_opt.c](cpu/efm32/periph/flash_opt.c)
+
+[cpu/stm32/gclk/Makefile](cpu/stm32/gclk/Makefile)
+
+[cpu/stm32/gclk/gclk_stm32l4.c](cpu/stm32/gclk/gclk_stm32l4.c)
+
+[cpu/stm32/include/gclk_conf.h](cpu/stm32/include/gclk_conf.h)
+
+[cpu/stm32/include/gclk_manager_conf.h](cpu/stm32/include/gclk_manager_conf.h)
+
+[cpu/stm32/include/gclk_stm32_common_conf.h](cpu/stm32/include/gclk_stm32_common_conf.h)
+
+[cpu/stm32/periph/core_voltage.c](cpu/stm32/periph/core_voltage.c)
+
+[cpu/stm32/periph/flash_opt.c](cpu/stm32/periph/flash_opt.c)
+
+[drivers/include/periph/core_voltage.h](drivers/include/periph/core_voltage.h)
+
+[drivers/include/periph/flash_opt.h](drivers/include/periph/flash_opt.h)
+
+[sys/gclk/Makefile](sys/gclk/Makefile)
+
+[sys/gclk/gclk.c](sys/gclk/gclk.c)
+
+[sys/gclk/gclk_idle_timer.c](sys/gclk/gclk_idle_timer.c)
+
+[sys/gclk/gclk_manager.c](sys/gclk/gclk_manager.c)
+
+[sys/gclk/generic_gate.c](sys/gclk/generic_gate.c)
+
+[sys/gclk/generic_mux.c](sys/gclk/generic_mux.c)
+
+[sys/gclk/generic_scaler.c](sys/gclk/generic_scaler.c)
+
+[sys/include/gclk.h](sys/include/gclk.h)
+
+[sys/include/gclk/generic_gate.h](sys/include/gclk/generic_gate.h)
+
+[sys/include/gclk/generic_mux.h](sys/include/gclk/generic_mux.h)
+
+[sys/include/gclk/generic_scaler.h](sys/include/gclk/generic_scaler.h)
+
+[sys/include/gclk_idle_timer.h](sys/include/gclk_idle_timer.h)
+
+[sys/include/gclk_manager.h](sys/include/gclk_manager.h)
+
+[sys/include/gclk_manager_os_hooks.h](sys/include/gclk_manager_os_hooks.h)
+
+[sys/shell/commands/sc_gclk.c](sys/shell/commands/sc_gclk.c)
+
+[tests/gclk/Makefile](tests/gclk/Makefile)
+
+[tests/gclk/Makefile.ci](tests/gclk/Makefile.ci)
+
+[tests/gclk/Makefile.dep](tests/gclk/Makefile.dep)
+
+[tests/gclk/compression.c](tests/gclk/compression.c)
+
+[tests/gclk/dbg_control.c](tests/gclk/dbg_control.c)
+
+[tests/gclk/dbg_control.h](tests/gclk/dbg_control.h)
+
+[tests/gclk/digit](tests/gclk/digit)
+
+[tests/gclk/eval_utils.c](tests/gclk/eval_utils.c)
+
+[tests/gclk/eval_utils.h](tests/gclk/eval_utils.h)
+
+[tests/gclk/external_modules/mlwrapper/Makefile](tests/gclk/external_modules/mlwrapper/Makefile)
+
+[tests/gclk/external_modules/mlwrapper/mlwrapper.cpp](tests/gclk/external_modules/mlwrapper/mlwrapper.cpp)
+
+[tests/gclk/external_modules/models/Makefile](tests/gclk/external_modules/models/Makefile)
+
+[tests/gclk/external_modules/models/Makefile.include](tests/gclk/external_modules/models/Makefile.include)
+
+[tests/gclk/external_modules/models/deep_mlp.cpp](tests/gclk/external_modules/models/deep_mlp.cpp)
+
+[tests/gclk/external_modules/models/deep_mlp.hpp](tests/gclk/external_modules/models/deep_mlp.hpp)
+
+[tests/gclk/external_modules/models/deep_mlp_weight.hpp](tests/gclk/external_modules/models/deep_mlp_weight.hpp)
+
+[tests/gclk/gclock_hw_specific.h](tests/gclk/gclock_hw_specific.h)
+
+[tests/gclk/gpio_wakeup/Makefile](tests/gclk/gpio_wakeup/Makefile)
+
+[tests/gclk/gpio_wakeup/gpio_wakeup.c](tests/gclk/gpio_wakeup/gpio_wakeup.c)
+
+[tests/gclk/include/gpio_wakeup.h](tests/gclk/include/gpio_wakeup.h)
+
+[tests/gclk/main.c](tests/gclk/main.c)
+
+[tests/gclk/tests-crypto-aes.c](tests/gclk/tests-crypto-aes.c)
+
+[tests/gclk/udp.c](tests/gclk/udp.c)
+
+[tests/gclk/workloads.c](tests/gclk/workloads.c)
+
+[tests/gclk/workloads.h](tests/gclk/workloads.h)
+
+
+# Details about RIOT
 RIOT is a real-time multi-threading operating system that supports a range of
 devices that are typically found in the Internet of Things (IoT):
 8-bit, 16-bit and 32-bit microcontrollers.
