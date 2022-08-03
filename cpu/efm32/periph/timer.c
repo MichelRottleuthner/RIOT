@@ -251,6 +251,17 @@ unsigned int timer_read(tim_t dev)
     return (unsigned int) TIMER_CounterGet(timer_config[dev].timer.dev);
 }
 
+void timer_write(tim_t dev, unsigned int cnt)
+{
+#if LETIMER_COUNT
+    if (_is_letimer(dev)) {
+        /* LETIMER is countdown only, so we invert the value */
+        LETIMER_CounterSet(timer_config[dev].timer.dev, (unsigned int)0xffff - cnt);
+    }
+#endif
+    TIMER_CounterSet(timer_config[dev].timer.dev, cnt);
+}
+
 void timer_stop(tim_t dev)
 {
     if (_is_letimer(dev)) {
