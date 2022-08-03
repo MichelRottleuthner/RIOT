@@ -65,6 +65,35 @@
 /* The sampling time can be specified for each channel over SMPR1 and SMPR2.
    This specifies the first channel that goes to SMPR2 instead of SMPR1. */
 #define ADC_SMPR2_FIRST_CHAN (10)
+
+/* This is used to define the minimum smapling time required to properly sample the
+ * input signal. This will effectively dictated by the characteristics of the measured signal.
+ * I.e. the R_AIN external input resistance is defined to be at max 50kOhm.
+ * Table 77. of the datasheet shows a table on max R_AIN values for each Sampling time.
+ * ~8000 ns will result in the longest sampling time @80MHz.
+ */
+static uint32_t _min_sampling_time_ns = 1000;
+
+/* used to convert from SMP (sampling time register) value to clock adc cycles*10 */
+uint32_t smp2cycle10ths[] = {25, 65, 125, 245, 475, 925, 2475, 6405};
+
+uint32_t _smp_for_min_cycle_time_and_freq(uint32_t min_cycle_time_ns, uint32_t adcfreq){
+    uint32_t cycle_ns_10ths = 1000000000 / (adcfreq / 10);
+    for (unsigned i = 0; i < ARRAY_SIZE(smp2cycle10ths); i++) {
+        uint32_t sample_time_ns = (smp2cycle10ths[i] * cycle_ns_10ths) / 100;
+        if (sample_time_ns >= min_cycle_time_ns) {
+            return i;
+        }
+    }
+    return 7; /* 0b111*/
+}
+
+/* The API currently does not support explicit setting of different sample times.
+ * This custom helper is used to inject a minimum required sample time that will
+ * be used by the default init function */
+void _adc_custom_extension_set_min_sample_time(uint32_t ns) {
+    _min_sampling_time_ns = ns;
+}
 #endif
 
 /**
@@ -116,6 +145,19 @@ static inline int _pin_num(gpio_t pin)
 {
     return (pin & 0x0f);
 }
+
+#include "gclk/generic_mux.h"
+
+/* ADC clock source for async mode (CKMODE == 0)*/
+extern const gclk_mux_ll_t gclk_stm32_adc_mux;
+
+#include "gclk/generic_scaler.h"
+/* ADC clock for sync mode (CKMODE != 0) */
+extern const gclk_clk_scaler_ll_t gclk_stm32_ahb_scaler;
+
+/* as of now the ADC implementation only supports synchronous operation */
+const gclk_t *adc_clock_handle = &gclk_stm32_ahb_scaler.base;
+
 
 int adc_init(adc_t line)
 {
@@ -184,13 +226,20 @@ int adc_init(adc_t line)
         dev(line)->SQR1 |= (0 & ADC_SQR1_L);
     }
 
+    /* adapt the SMP value in oder to achive roughly a fixed sampling time of the sampling step
+     * (analog input charging ADC capacitors) across different frequencies. The ADC internal SAR step
+     * only depends on the resolution and therefore scales linarly with the frequency.
+     * i.e. at a lower frequency we do not need to wait as many ticks to get the same absolute sampling time */
+    uint32_t adc_freq = gclk_get_current_freq(adc_clock_handle);
+    uint32_t smp_val = _smp_for_min_cycle_time_and_freq(_min_sampling_time_ns, adc_freq);
+
     /* configure sampling time for the given channel */
     if (adc_config[line].chan < ADC_SMPR2_FIRST_CHAN) {
-        dev(line)->SMPR1 =  (ADC_SMP_MIN_VAL << (adc_config[line].chan *
+        dev(line)->SMPR1 =  (smp_val << (adc_config[line].chan *
                                                  ADC_SMP_BIT_WIDTH));
     }
     else {
-        dev(line)->SMPR2 =  (ADC_SMP_MIN_VAL << ((adc_config[line].chan -
+        dev(line)->SMPR2 =  (smp_val << ((adc_config[line].chan -
                                                   ADC_SMPR2_FIRST_CHAN)
                                                  * ADC_SMP_BIT_WIDTH));
     }
