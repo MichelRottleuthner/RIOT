@@ -43,10 +43,17 @@ extern int main(void);
 static char main_stack[THREAD_STACKSIZE_MAIN];
 static char idle_stack[THREAD_STACKSIZE_IDLE];
 
+#include "periph/gpio.h"
+
 static void *main_trampoline(void *arg)
 {
     (void)arg;
 
+#ifdef MODULE_GCLK
+    gpio_init(LOGIC_ANALYZER_PIN, GPIO_OUT);
+    gpio_clear(LOGIC_ANALYZER_PIN);
+#endif
+    
     if (IS_USED(MODULE_AUTO_INIT)) {
         auto_init();
     }
