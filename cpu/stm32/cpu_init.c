@@ -332,6 +332,8 @@ void _wlx5xx_init_subghz_debug_pins(void)
 #endif
 }
 
+#include "gclk.h"
+
 void cpu_init(void)
 {
     /* initialize the Cortex-M core */
@@ -343,6 +345,7 @@ void cpu_init(void)
     !defined(CPU_FAM_STM32WL)
     periph_clk_en(APB1, BIT_APB_PWREN);
 #endif
+    gclk_module_init();
 #if defined(CPU_FAM_STM32F0) || defined(CPU_FAM_STM32F1) || \
     defined(CPU_FAM_STM32F2) || defined(CPU_FAM_STM32F3) || \
     defined(CPU_FAM_STM32F4) || defined(CPU_FAM_STM32F7) || \
