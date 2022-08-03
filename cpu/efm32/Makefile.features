@@ -9,6 +9,7 @@ ifeq (,$(filter efm32zg efm32hg, $(CPU_FAM)))
 endif
 
 FEATURES_PROVIDED += arch_efm32
+FEATURES_PROVIDED += periph_core_voltage
 FEATURES_PROVIDED += periph_cpuid
 FEATURES_PROVIDED += periph_flashpage
 FEATURES_PROVIDED += periph_flashpage_in_address_space
