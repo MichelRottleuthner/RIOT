@@ -1,0 +1,542 @@
+/*
+ * Copyright (C) 2021 HAW Hamburg <michel.rottleuthner@haw-hamburg.de>
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
+ */
+/**
+ * @ingroup     sys_gclk
+ *
+ * @{
+ *
+ * @file
+ * @brief       Generic clock configuriton API
+ * @brief       Interface for high-level control of gclk and its interaction with related modules
+ *
+ * @author      Michel Rottleuthner <michel.rottleuthner@haw-hamburg.de>
+ */
+#ifndef GCLK_MANAGER_H
+#define GCLK_MANAGER_H
+
+#include "gclk.h"
+#include "list.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* below values define thresholds for when to consider collected thread stats data to be enough
+ * to calculate a valid PU metric properly */
+/* default minimum CPU time per thread to accumulate before PU calculation */
+#define GCLK_MANAGER_MIN_PU_STATS_CPU_TIME (32768)
+/* defualt minimum number of thread schedules that must have occured before PU calculation */
+#define GCLK_MANAGER_MIN_PU_STATS_SCHEDULES (10)
+
+/* This type sepcifies the interface to be used for pre- and post- clock change callback functions */
+typedef void (*clock_change_cb_t)(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
+
+/* Stores one entry of a callback that is executed once before and after a clock frequency change */
+typedef struct {
+    list_node_t      node;
+    clock_change_cb_t change_cb;
+} gclk_change_cb_list_t;
+
+/* Stores a clock and registered callbacks to be notified about its frequency change */
+typedef struct {
+    list_node_t          node;
+    const gclk_t          *clk;
+    gclk_change_cb_list_t change_cb_list;
+} gclk_clock_change_notify_list_t;
+
+/* Stores limits that apply to frequency, flash waitstates and core voltage */
+typedef struct {
+    uint32_t     freq_max;
+    uint8_t      vc_idx_min;
+    uint8_t      ws_min;
+} freq_conf_limit_t;
+
+typedef enum {
+    DVS_PREFER_LOW_VOLTAGE,
+    DVS_PREFER_FAST_FLASH,
+} gclk_manager_dvs_policy_t;
+
+/* Type to encode basic operations to be performed via the gclk API. */
+typedef enum {
+    CLK_SET_FREQ,       /*< set a predefined frequency (fixed value given by sequence step) */
+    CLK_SET_FACTOR,     /*< set a predefined factor (fixed value given by sequence step) */
+    CLK_SET_PARENT,     /*< set a predefined parent (fixed value given by sequence step) */
+    CLK_SET_PARENT_IDX, /*< set a predefined parent via index (fixed value given by sequence step) */
+    CLK_ENABLE,         /*< guess what ;) */
+    CLK_DISABLE,        /*< guess what ;) */
+    CLK_CONFIG_TARGET,  /*< this is a placeholder operation to express the clock that this
+                            sequence step is operating on, shall be set to the value it holds
+                            in the target config.
+                            Note: only sets parent/factor configs whereas enable/disable operations
+                            must be encoded explicitly */
+    /* only for debugging purposes */
+    BUSY_SPIN,          /*< does some busy CPU spinning to delay further execution */
+    SET_LED,            /*< enables /disables the debug led based on numval (1/0) */
+} gclk_manager_op_id_t;
+
+/* This descriptor is meant to be used to build more complex high-level transition patterns
+ * on top of the low-level API e.g. to express a specific configuration step that involves
+ * multiple topology and frequency configuration cahnges.
+ * Further it may be used to store (cache) automatically detected transition steps that are
+ * expensive to discover but otherwise fast to execute */
+typedef struct {
+    gclk_manager_op_id_t op;    /**< the operation to execute in this step */
+    const gclk_t *clk;          /**< the clock to operate on or NULL if not needed for op*/
+    /* depending on the operation there is only one possible argument */
+    union {
+        gclk_t const *clk_arg;  /**< points to a clock if op needs a clock as input */
+        uint32_t num_arg; /**< points to a number if op needs a number (e.g. a frequency/factor/idx) as input */
+    };
+} gclk_manager_sequence_step_t;
+
+/* For now it is intended to be used only for the core clock so it does not hold a clock reference
+ * and the topology ids always refer to the core-clock specific topology ids */
+typedef struct {
+    const gclk_manager_sequence_step_t *steps;
+    uint8_t src_topo_id;
+    uint8_t dst_topo_id;
+    uint8_t step_cnt;
+} gclk_manager_topo_switch_desc_t;
+
+/* TODO: conclude what kind of these we would need to be expressive enough.
+ * Type to encode templated transition steps that will be used to deduce actual sequence steps at runtime. */
+typedef enum {
+    SEQ_UPDATE_LEAF,
+    SEQ_SET_TARGET_CONFIG,
+    SEQ_DISABLE_PARTIAL_TARGET,
+} gclk_template_op_id_t;
+
+/* Encodes how a clock can be scaled */
+typedef enum {
+    SCALE_DIRECT,            /**< clock can be scaled by changing a single scale factor of a clock instance directly. */
+    SCALE_UPTREE_RELATIVE,   /**< clock can only be scaled indirectly by changing a single clock scaler up the tree,
+                                  where the scaled clock frequency is not the same as the frequency at the output clock.
+                                  I.e., the scaled clock is still subject to some sort of scaling before feeding the output clock. */
+    //TODO: for predefined sequences it could make sense to provide one for up and down, or even a list/LUT for a set of target frequencies
+    SCALE_SEQUENCE,          /**< clock can be scaled by a predefined multi-step sequence */
+    SCALE_INTERMEDIATE_TOPO_AUTO,  /**< clock can be scaled by temporarily changing to another topology before
+                                        adapting the current one and switching back to it. AUTO refers to the
+                                        fact that not a fixed intermediate topology must be used but instead the most
+                                        viable option can be selected at runtime, depending on active constraints */
+    //TODO: another feasible approach would be to do a plain mux between preconfigured HF and LF clocks
+} gclk_scale_approach_t;
+
+/* Defines for one clock instance how it can be scaled
+ * TODO: the scaling methods should define for which topology this applies.
+ *       E.g., in case of nucleo-l476rg SYSCLK may be scaled by a direct change of MSIRANGE in case of topology 1 ([SYSCLK]-->[MSI]-->[MSIMUX]-->[MSIRANGE]-->[MSI_BASE]),
+ *       but in case of topology 6 ([SYSCLK]-->[PLL_R]-->[PLL_VCO]-->[PLL_M]-->[PLL_PREDIV_MUX]-->[MSI]-->[MSIMUX]-->[MSIRANGE]-->[MSI_BASE]) it is only possible to update it indirectly.
+ *       Overall it seems more applicable to define scale settings per topology of the clock handle.
+ *       */
+typedef struct {
+    const gclk_t *output_clk;   /**< the clock that we want to update to a new frequency (i.e. the core clock in most cases) */
+    int topology_id;            /**< the topology (of the core clock handle) at which this scaling method is applicable */
+    gclk_scale_approach_t approach;
+    union {
+        const gclk_t *scale_clk; /**< in case it is a direct or uptree scale operation: the output_clock is scaled by only changing this node */
+        gclk_manager_sequence_step_t *sequence;
+    };
+    size_t sequence_len;
+} gclk_scale_setting_t;
+
+/* Wait state value to indicate a don't care condition for a frequency conf limit */
+#define GCLK_WS_NOSPEC (255)
+
+typedef struct {
+    const freq_conf_limit_t *limits; /* Core voltage and Wait state limits that apply to a clock */
+    const size_t            len;     /* The number of limits pointed to by limits */
+    const gclk_t            *clk;    /* The clock instance these limits apply to */
+} clock_freq_conf_limits_t;
+
+/* stores data of the physical clock property model which is used to calculate the
+ * power consumption for different frequency configurations. */
+typedef struct {
+    const gclk_t *clk;   /* The clock handle this data refers to */
+    uint32_t P_en_nW;    /* The static power this clock node draws when enabled (i.e. F(clk) > 0).
+                            May be 0 for clocks that are not gateable. */
+    uint32_t C_fF;       /* The (equivalent) capacitance of the clock node in femto Farad.
+                            This value affects the dynamic (frequency dependent) consumption.
+                            May be 0 for clocks that only suport a fixed frequency. */
+} gclk_manager_power_properties_t;
+
+/* Callback type used to return configurations found during exploration.
+ * This is helpful to directly use each individual result of a full exploration run 
+ * (e.g. for immediate output) instead of repeating the same exploration multiple times
+ * to eventually query all configs via separate query-response calls */
+typedef void (*gclk_exploration_result_cb_t)(clk_topology_entry_t *conf, size_t len, gclk_cmp_result_t res, unsigned valid_idx, void *ctx);
+
+typedef enum {
+    CB_ON_VALID,     /*< cb is executed for every valid configuration found */
+    CB_ON_BEST_ONLY, /*< cb is executed only for the best configuration found */
+    CB_ON_BETTER,    /*< cb is executed everytime a better configuration is found 
+                         Note: this is mainly useful for debugging (observing the exploration) */
+} gclk_exploration_result_cb_mode_t;
+
+typedef struct gclk_exploration_result_cb_conf {
+    gclk_exploration_result_cb_t valid_conf_found_cb;
+    void *ctx;
+    gclk_exploration_result_cb_mode_t cb_mode;
+} gclk_exploration_result_cb_conf_t;
+
+typedef struct {
+    gclk_cmp_func_t func;
+    const char *name;
+} topology_cmp_func_names_t;
+
+/* a compare function that only considers exact frequency matches valid and prefers configurations
+ * with a lower power consumption. The consumption is calculated with the clock power model that is
+ * parameterized with platform-specific power properties for relevant clock nodes. */
+gclk_cmp_result_t gclk_manager_cmp_topology_exact_leaf_freq_pmin(clk_topology_entry_t *topo_best, size_t len1,
+                                                         clk_topology_entry_t *topo_cmp, size_t len2,
+                                                         void *arg);
+
+static const topology_cmp_func_names_t topology_cmp_funcs[] = {
+    { .func = gclk_cmp_topology_for_closest_leaf_freq,         .name = "closest_leaf" },
+    { .func = gclk_cmp_topology_for_closest_leaf_freq_min_sum, .name = "min_sum" },
+    { .func = gclk_cmp_topology_for_closest_leaf_freq_max_sum, .name = "max_sum" },
+    { .func = gclk_cmp_topology_for_closest_leaf_freq_min_max, .name = "min_max" },
+    { .func = gclk_cmp_topology_for_closest_leaf_freq_max_max, .name = "max_max" },
+    { .func = gclk_cmp_topology_for_exact_leaf_freq,           .name = "exact_leaf" },
+    { .func = gclk_manager_cmp_topology_exact_leaf_freq_pmin,  .name = "fexact_pmin" },
+};
+
+typedef struct {
+    gclk_factor_match_func_t func;
+    const char *name;
+} factor_match_func_names_t;
+
+static const factor_match_func_names_t factor_match_funcs[] = {
+    { .func = gclk_match_iter_mul_recurse_div,   .name = "iter_mul_recurse_div" },
+    { .func = gclk_match_iter_mul_factorize_div, .name = "iter_mul_factorize_div" },
+    { .func = gclk_match_exact_full_iter,        .name = "exact_full_iter" },
+    { .func = gclk_match_closest_full_iter,      .name = "closest_full_iter" },
+};
+
+/* @brief perform initialization operations of the clock manager
+ * @return 0 on success */
+int gclk_manager_init(void);
+
+/*
+ * @brief execute a sequence of clock operations
+ *
+ * @param steps    list of sequence steps to execute
+ * @param step_cnt number of steps @steps contains
+ */
+void gclk_manager_run_sequence(gclk_manager_sequence_step_t *steps, size_t step_cnt);
+
+void gclk_manager_notify_multi_clk_change(gclk_manager_sequence_step_t *seq, size_t seq_len,
+                                          clk_topology_entry_t *old_topo, size_t old_topo_len,
+                                          clk_topology_entry_t *new_topo, size_t new_topo_len,
+                                          bool post_change);
+
+void gclk_manager_run_sequence_with_notify(gclk_manager_sequence_step_t *seq, size_t seq_len, bool print_only);
+
+/* @brief Register a callback for notification of a clock frequency change.
+ *
+ * @param clk  Reference to the clock to register a notification for.
+ * @param nle  Storage that will hold the registration data.
+ * @param cb   Callback that will be executed before and after the frequency of clk is changed */
+void gclk_manager_register_clk_change_cb(const gclk_t *clk, gclk_clock_change_notify_list_t *nle,
+                                   clock_change_cb_t cb);
+
+/* @brief Unregister a callback for notification of a clock frequency change.
+ *
+ * @param nle  The previously registered notification entry.
+ */
+void gclk_manager_unregister_clk_change_cb(gclk_clock_change_notify_list_t *nle);
+
+void gclk_manager_notify_clk_change(const gclk_t *clk, uint32_t f_old, uint32_t f_new, bool post_change);
+
+/**
+ * @TODO: this should also be removed. As a replacement the transition manager should
+ *        use information provided by this files interface to register hooks that automatically
+ *        call functions to setup the required voltage(s?) by also considering other
+ *        depenencies (such as flash waitstates, peripheral use etc..).
+ * @brief get the available options for parents that can be configured
+ *
+ * @note  There are two cases to consider:
+ *        (A): virtual/logical parent association (some node is the source, but it can not be changed, nor read from HW)
+ *        (B): runtime-dynamic config (selecting one of multiple parents), can (and must be) read/written from/to HW
+ *
+ * @param[in] f_core_old_hz   the current core frequency
+ * @param[in] f_core_new_hz   the new wanted core frequency
+ *
+ * @return    f_core_new_hz    If the new frequency can now be set up
+ *            < f_core_new_hz  If the transition is not possible in one step
+ *                              That means at least one intermediate frequency step is required at maximum the returned
+ *                              frequency. After that was performed, this function can be called again with the new
+ *                              value for f_core_old_hz. Repeat this till the transition is completed.
+ *            -1               If updating the core voltage was not possible.
+ */
+uint32_t core_voltage_pre_change_hook(uint32_t f_core_old_hz, uint32_t f_core_new_hz, void *ctx);
+
+const freq_conf_limit_t *gclk_manager_get_freq_conf_limit(const gclk_t *clk, uint32_t freq, bool optimize_ws);
+
+/**
+ * @brief Enable/disable automatic switching of voltage range on clock changes
+ *
+ * TODO: Even though the capabilities DVS, DFS, WSA and the LowVoltage/FastFlash policy can be controlled independently
+ *       (because that is nice for detailed evaluation purposes), in reality, this is most likely not how these parameters
+ *       are expected to work. The policy should actually only matter if both DVS *and* WSA are enabled because
+ *       disabling one of them removes interdependencies to the other. I.e. there is no reason for the policy to favor
+ *       LowVoltage if DVS is disabled (as we can then always further optimize the flash access speed instead).
+ *       One exception to this might be scenarios where the decision whether to prefer DVS/WSA would change depending on other aspects.
+ *       I.e. a fast rate of voltage changes may not be wanted due to its time overhead.
+ */
+void gclk_manager_enable_voltage_auto_scale(bool on);
+
+/**
+ * @brief Enable/disable automatic adaptation of flash waitstates on clock changes
+ */
+void gclk_manager_enable_flashws_auto_update(bool on);
+
+/**
+ * @brief Enable/disable automatic adaptation of core frequency
+ */
+void gclk_manager_enable_dynamic_frequency_scaling(bool enable);
+
+/**
+ * @brief Enable/disable automatic assessment of performance utilizaiton of threads
+ */
+void gclk_manager_enable_pu_assessment(bool enable);
+
+/**
+ * @brief Returns the current DVS adaptation policy.
+ *
+ */
+gclk_manager_dvs_policy_t gclk_manager_get_dvs_policy(void);
+
+/**
+ * @brief Set policy on how to adapt DVS settings.
+ *
+ * @param policy  Policy that defines which optimization to prefer
+ */
+void gclk_manager_set_dvs_policy(gclk_manager_dvs_policy_t policy);
+
+/* @brief print thread/CPU utilization metrics
+ * @note For debug/testing purposes
+ */
+void gclk_manager_print_util_metrics(void);
+
+/* @brief print topology configuration with some matadata
+ */
+void gclk_manager_print_topology_conf(clk_topology_entry_t *topology, uint32_t size, bool min_max, bool factors);
+
+/* @brief clear performance util data
+ *
+ * This resets all threads performance metrics collected at scheduling events
+ */
+void gclk_manager_clear_performance_util_data(void);
+
+/* @brief calculate performance utilization factor for the given task id */
+int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print);
+
+/* @brief set parameters that control Performance Utilization-based DVFS
+ *
+ * @param fboost           The frequency that is set up if the PU of a thread that is about to be scheduled is above fboost_pu_th
+ * @param fthrottle        The frequency that is set up if the PU of a thread that is about to be scheduled is below fthrottle_pu_thesh
+ * @param fboost_pu_th     The minimum PU threshold a thread must have to setup fboost before scheduling
+ * @param fthrottle_pu_th  The max PU threshold a thread must have to setup fthrottle before scheduling
+ */
+void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fboost_pu_th, int fthrottle_pu_thesh);
+
+/* @brief Start thread to cycle through different core frequencies
+ *
+ * The call will block till the cycling is complete. Currently there is no way to change the
+ * frequencies used for the cycle and static configuration is used for that instead.
+ *
+ * @param cycle_us the cycle time each frequency stays active in us.
+ * @param min_schedules the min number of schedules to accumulate per thread.
+ */
+void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedules);
+
+/* @brief Try to setup clocks as close as possible to their preferred frequency
+ *
+ * @todo this should be replaced by proper dynamic locks/constraints (ranges) to give the clock manger a more
+ *       global view on what it is allowed to configure.
+ *
+ * @note this is legacy thing refactored out from the transition command. Its intention was to act as a basic replacement for proper
+ *       dynamic requirements/constraints put onto clocks at runtime. Since RIOT at the moment does not have any dynamic clock
+ *       requirements this basically tries to keep the clocks as close as possible to their static configuration counterparts throughout
+ *       different clock changing interactions.
+ *       It is basically just an ad hoc quick fix to add some form of clock frequency configuration that is persistent across
+ *       interactions that intermediately change clock frequencies. If this is not in place and we change a frequency to
+ *       a value different to its initial configuration this error will accumulate with every following transaction.
+ */
+void gclk_manager_setup_preferred_freqs(void);
+
+/* @brief Do a complex transition a clock to a new frequency
+ *
+ * @note This may temporariy switch the clock to another topology before setting up the final configuration in cases
+ *       that prohibit changing the clock while being used
+ *
+ * @param clk  The clock tansitioned to a new frequency
+ * @param freq The new target frequency
+ */
+void gclk_manager_transition(const gclk_t *clk, uint32_t freq);
+
+/* @brief Set clock to the given frequency
+ * @note this is a high level set frequency function that also handles pre- / and post-processing
+ *       to notify clocks about the change */
+bool gclk_manager_set_freq(const gclk_t *clk, uint32_t freq);
+
+/* @brief Set clock to the given factor
+ * @note this is a high level set frequency function that also handles pre- / and post-processing
+ *       to notify clocks about the change */
+bool gclk_manager_set_factor(const gclk_t *clk, uint32_t factor);
+
+/* @brief Set the core clock to the given frequency using the currently active scale setting.
+ * @note this is a high level set frequency function that also handles pre- / and post-processing
+ *       to notify clocks about the change. It might intermediately alter topology settings */
+bool gclk_manager_scale_core_freq(uint32_t freq);
+
+/* @brief Set the topology of the given clock from the currently active setting to a new topology.
+ * @note this is a high level set frequency function that also handles pre- / and post-processing
+ *       to notify clocks about the change.
+ *
+ * @param[in] clk              The clock instance that will be switched to another topology.
+ * @param[in] target_topology  The zero based id of the topology that the clock is switched to.
+ * @param[in] target_freq      The frequency that is aimed for with the new topology,
+ *                             GCLK_INVALID_FREQ if current frequency should be used.
+ * @param[in] cmp_func         The compare function that will be used to find the most suitable topology config.
+ *
+ * @return   The new frequency of clk.
+ **/
+uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, uint32_t target_freq, gclk_cmp_func_t cmp_func);
+
+/* @brief Set clock instance that is used for dynamic frequency scaling
+ */
+void gclk_manager_set_dfs_clock_handle(const gclk_t *clk);
+
+/* @brief Set the frequency values that will be allowed for DFS and PU assessment
+ */
+int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt);
+
+const gclk_scale_setting_t* gclk_mananger_get_active_scale_setting(void);
+
+/* @brief sets up a number of frequecies based on the capabilities of the selected clock handle and its
+ * current parent configuration */
+int gclk_mananger_set_default_dfs_frequencies(void);
+
+/* @brief Return the clock handle that is currently used for automatic DVFS
+ */
+const gclk_t* gclk_manager_get_dfs_clock_handle(void);
+
+/* @brief Return the clock handle that directly drives the CPU
+ **/
+const gclk_t* gclk_manager_get_core_clock_handle(void);
+
+/* @brief Disable clocks that are currently not being used by other active clocks
+ * @note Currently this does not consider 'invisible' dependencies. I.e. if an intermediate clock
+ *       (one that is not a leaf) is indeeed needed for operations even if the clock is not used
+ *       by other clock instances. One way to handle this is to integrate simple resource allocation
+ *       to respective peripherl drivers or other code that e.g. needs clocks tof specific bus access.
+ */
+void gclk_manager_disable_unused(void);
+
+/* @brief Get clock freqs used for DFS and freq cycle thread
+ *
+ * @param[out] pointer that will point to an array of frequency values
+ * @return number of elements contained in the frequency array
+ */
+unsigned int gclk_manager_get_dfs_freqs(uint32_t **freqs);
+
+/* @brief get available options for automatic scaling
+ *
+ * @param s pointer that will point to the array of scale settings after return
+ * @return number of scale settings entries
+ * */
+int gclk_manager_get_scale_settings(const gclk_scale_setting_t **s);
+
+/* @brief set request flag for PU stat collection for a given thread
+ *
+ * @param tid  the thread PU data will be collected for
+ * */
+void gclk_manager_enable_pu_stat_request_for_thread(kernel_pid_t tid);
+
+/* @brief set the active scale setting to the given index if applicable
+ *
+ * @param i   index of the scale setting that will be set active
+ * @return    true if applied, fasle if not appliccable
+ * */
+bool gclk_mananger_set_active_scale_setting(unsigned i);
+
+/* @brief get sources that are allowed to drive the core clock
+ *
+ * @param clks pointer that will point to the array of clocks after return
+ * @return number of clocks
+ * */
+int gclk_manager_get_allowed_core_clock_sources(const gclk_t ***clks);
+
+void gclk_manager_execute_sequence_step(gclk_manager_sequence_step_t *step);
+
+int gclk_manager_derive_sequence(const clk_topology_entry_t *src_topo, uint32_t src_len,
+                                 const clk_topology_entry_t *target_topo, uint32_t target_len, gclk_manager_sequence_step_t *out_seq, unsigned max_seq_steps);
+
+/* NOTE: This is only meant to be used to establish baselines for fine grained evaluation of respective impact of waitstates and voltage settings.
+ * ONLY use this function directly if you know EXACTLY what you are doing!
+ * i.e. it is not safe to call this for a new smaller frequency when this frequency is not yet set up.
+ * similarly performing manual freq changes after this has been called manually can lead to prohibited state
+ * as there is no hook in place that takes care of raising voltages/waitstates again.*/
+void gclk_manger_update_vcore_and_ws_config(bool optimize_flash, bool enable_vscale, bool fup);
+
+/* @brief returns the min required flash waitstates and core voltage required for the given tree conf
+ *
+ * @param[in] tree_conf              tree configuration as a list of arbitrarily sorted clock nodes.
+ * @param[in] tree_size              number of clocks in the given tree i.e., the length.
+ * @param[out] min_ws                variable that will be set to the minimum required flash wait states.
+ * @param[out] min_vc_idx            variable that will be set to the minimum required core voltage index.
+ * @param[in]  dvspolicy             the policy that determines how mutually exlusive optimizations to wait states or core voltage are resolved.
+ *                                   In case either voltage can be reduced or flash access can be sped up, this defines which of both options
+ *                                   will be prefered.
+ */
+void gclk_get_min_required_ws_vc_from_tree_config(clk_topology_entry_t *tree_conf, size_t tree_size, unsigned *min_ws, unsigned *min_vc_idx,
+                                                  gclk_manager_dvs_policy_t dvspolicy);
+
+/* @brief simulates a reconfiguration step on a tree configuration model
+ *
+ * @param[in] step                   the reconfiguration step to apply.
+ * @param[in] tree_conf              tree configuration as a list of arbitrarily sorted clock nodes.
+ * @param[in] tree_size              number of clocks in the given tree i.e., the length.
+ *
+ */
+void gclk_manager_simulate_seq_step_on_tree_conf(gclk_manager_sequence_step_t *step, clk_topology_entry_t *tree_conf, size_t tree_size);
+
+/* @brief bruteforces the best frequency configuration based on a given compare function
+ *
+ * @param[in]  clk                        the clock instance a topology config is searched for.
+ * @param[out] best_topology              pointer to the topology config where the result will be stored.
+ * @param[in,out] topo_len                in: max length of best_topology, out: the actual length of the topology config found.
+ * @param[in,out] topo_idx                in: GCLK_UNDEFINED_TOPOLOGY if any topology is fine,
+ *                                            the 0 based topology index of the given clk used to find a topology config,
+ *                                        out: the topology idx that was chosen.
+ * @param[out] ret_n_valid                out: if force_nth < 0 this will indicate the number of configurations that are
+ *                                             considered valid by the given compare function. Set to NULL for don't care.
+ * @param[in]  force_nth                  for when multiple configurations are valid / applicable this forces the function
+ *                                        to return the nth valid config (zero based).
+ * @param[in]  valid_conf_found_cb_conf   Config struct for a callback that will be executed once for each valid config found,
+ *                                        or NULL if not needed. If force_nth is < 0 it is only called for the specific index given.
+ *
+ * @param[in] cmp_func         compare function that is used to diceide which topology config is best.
+ * @param[in] cmp_func_ctx     optional context variable handed to each call of cmp_func. */
+uint32_t gclk_manager_brute_force_freq_conf(const gclk_t *clk, clk_topology_entry_t *best_topology, uint32_t *topo_len,
+                                            int *topo_idx, gclk_cmp_func_t cmp_func, void *cmp_func_ctx, size_t *ret_n_valid, int force_nth,
+                                            gclk_exploration_result_cb_conf_t *valid_conf_found_cb_conf);
+
+void gclk_manager_print_step_sequence(gclk_manager_sequence_step_t *seq, size_t len);
+
+void gclk_manager_default_stdio_reinit_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
+void gclk_manager_default_timer_reinit_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* GCLK_MANAGER_H */
+/**
+ * @}
+ */
