@@ -144,6 +144,10 @@ static void _unschedule(thread_t *active_thread)
 #endif
 }
 
+#if MODULE_GCLK
+#include "gclk_manager_os_hooks.h"
+#endif
+
 thread_t *__attribute__((used)) sched_run(void)
 {
     thread_t *active_thread = thread_get_active();
@@ -156,7 +160,13 @@ thread_t *__attribute__((used)) sched_run(void)
         }
 
         do {
+#ifdef MODULE_GCLK
+            gclk_manager_on_idle_hook();
+#endif 
             sched_arch_idle();
+#ifdef MODULE_GCLK
+            gclk_manager_post_idle_hook();
+#endif 
         } while (!runqueue_bitcache);
     }
 
@@ -195,12 +205,18 @@ thread_t *__attribute__((used)) sched_run(void)
     }
     else {
         if (active_thread) {
+#ifdef MODULE_GCLK
+            gclk_manager_post_sched_hook(active_thread->pid);
+#endif
             _unschedule(active_thread);
         }
 
         sched_active_pid = next_thread->pid;
         sched_active_thread = next_thread;
 
+#ifdef MODULE_GCLK
+        gclk_manager_pre_sched_hook(next_thread->pid);
+#endif
 #ifdef MODULE_SCHED_CB
         if (sched_cb) {
             sched_cb(KERNEL_PID_UNDEF, next_thread->pid);
