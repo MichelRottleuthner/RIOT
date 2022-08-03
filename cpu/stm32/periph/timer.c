@@ -193,6 +193,11 @@ int timer_clear(tim_t tim, int channel)
     return 0;
 }
 
+void timer_write(tim_t tim, unsigned int cnt)
+{
+    dev(tim)->CNT = cnt;
+}
+
 unsigned int timer_read(tim_t tim)
 {
     return (unsigned int)dev(tim)->CNT;
