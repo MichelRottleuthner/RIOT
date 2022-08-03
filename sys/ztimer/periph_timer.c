@@ -77,6 +77,7 @@ static void _ztimer_periph_timer_callback(void *arg, int channel)
     (void)channel;
     ztimer_handler((ztimer_clock_t *)arg);
 }
+timer_cb_t __ztimer_perph_timer_cb = _ztimer_periph_timer_callback;
 
 static const ztimer_ops_t _ztimer_periph_timer_ops = {
     .set = _ztimer_periph_timer_set,

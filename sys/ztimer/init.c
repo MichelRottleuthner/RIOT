@@ -187,6 +187,7 @@
 static ztimer_periph_timer_t ZTIMER_TIMER = {
     .min = CONFIG_ZTIMER_USEC_MIN
 };
+ztimer_periph_timer_t *___ztimer_periph_timer_instance = &ZTIMER_TIMER;
 #endif
 
 #if INIT_ZTIMER_LPTIMER
