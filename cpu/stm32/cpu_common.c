@@ -33,6 +33,7 @@
  *
  * See reference manuals section 'reset and clock control'.
  */
+/*
 static const uint8_t apbmul[] = {
 #if (CLOCK_APB1 < CLOCK_CORECLOCK)
     [APB1] = 2,
@@ -60,19 +61,76 @@ static const uint8_t apbmul[] = {
 
 uint32_t periph_apb_clk(uint8_t bus)
 {
-#ifdef CLOCK_APB2
-    if (bus == APB2) {
+    if (bus == APB1) {
+        return CLOCK_APB1;
+    }
+#if defined (CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB)
+    else if (bus == APB12) {
+        return CLOCK_APB1;
+    }
+#endif
+    else {
         return CLOCK_APB2;
     }
-#else
-    (void)bus;
+}
+*/
+
+#include "gclk.h"
+#include "gclk_stm32_common_conf.h" /* pulls in definitions of the clock instances */
+
+bool apb_clk_cached[3] = { false };
+uint32_t clk_cache[3];
+uint32_t periph_apb_clk(uint8_t bus)
+{
+#ifdef CLOCK_APB2
+    if (bus == APB2) {
+        if (apb_clk_cached[APB2]) {
+            return clk_cache[APB2];
+        } else {
+            clk_cache[APB2] = gclk_get_current_freq(&gclk_stm32_apb2_scaler.base);
+            apb_clk_cached[APB2] = true;
+            return clk_cache[APB2];
+        }
+    }
 #endif
-    return CLOCK_APB1;
+#if defined (CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB)
+    else if (bus == APB12) {
+        if (apb_clk_cached[APB12]) {
+            return clk_cache[APB12];
+        } else {
+            clk_cache[APB12] = gclk_get_current_freq(&gclk_stm32_apb1_scaler.base);
+            apb_clk_cached[APB12] = true;
+            return clk_cache[APB12];
+        }
+    }
+#endif
+    if (apb_clk_cached[APB1]) {
+        return clk_cache[APB1];
+    } else {
+        clk_cache[APB1] = gclk_get_current_freq(&gclk_stm32_apb1_scaler.base);
+        apb_clk_cached[APB1] = true;
+        return clk_cache[APB1];
+    }
+}
+
+uint32_t _get_current_timer_input_clock(uint8_t bus) {
+#ifdef CLOCK_APB2
+    if (bus == APB2) {
+        return gclk_get_current_freq(&gclk_apb2_tim_mul_scaler.base);
+    }
+#endif
+#if defined (CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB)
+    else if (bus == APB12) {
+        return gclk_get_current_freq(&gclk_apb1_tim_mul_scaler.base);
+    }
+#endif
+    return gclk_get_current_freq(&gclk_apb1_tim_mul_scaler.base);
 }
 
 uint32_t periph_timer_clk(uint8_t bus)
 {
-    return periph_apb_clk(bus) * apbmul[bus];
+    return _get_current_timer_input_clock(bus);
+    //return periph_apb_clk(bus) * apbmul[bus];
 }
 
 void periph_clk_en(bus_t bus, uint32_t mask)
