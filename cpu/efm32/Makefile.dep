@@ -1,3 +1,7 @@
+ifneq (,$(filter gclk,$(USEMODULE)))
+  USEMODULE += efm32_gclk
+endif
+
 # include Gecko SDK package
 USEPKG += gecko_sdk
 
