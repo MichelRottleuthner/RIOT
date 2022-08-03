@@ -294,6 +294,24 @@ int uart_mode(uart_t uart, uart_data_bits_t data_bits, uart_parity_t parity,
 }
 #endif /* MODULE_PERIPH_UART_MODECFG */
 
+#include "gclk_stm32_common_conf.h" /* pulls in definitions of the clock instances */
+
+static const gclk_t *_get_gclk_of_uart(uart_t uart) {
+    switch (uart) {
+        case 0: return &gclk_stm32_usart2_mux.base;
+#if defined(CPU_FAM_STM32L0)
+        case 1: return &gclk_stm32_usart1_mux.base;
+        case 2: return &gclk_stm32_lpuart1_mux.base;
+#elif defined(CPU_FAM_STM32L4)
+        case 1: return &gclk_stm32_usart3_mux.base;
+        case 2: return &gclk_stm32_usart1_mux.base;
+#else
+#error "gclk not integrated into the uart driver for this MCU!"
+#endif
+        default: return NULL;
+    }
+}
+
 static inline void uart_init_usart(uart_t uart, uint32_t baudrate)
 {
     uint16_t mantissa;
@@ -317,7 +335,11 @@ static inline void uart_init_usart(uart_t uart, uint32_t baudrate)
 
     clk /= baudrate;
 #else
+#ifdef MODULE_GCLK
+    clk = gclk_get_current_freq(_get_gclk_of_uart(uart)) / baudrate;
+#else
     clk = periph_apb_clk(uart_config[uart].bus) / baudrate;
+#endif
 #endif
     mantissa = (uint16_t)(clk / 16);
     fraction = (uint8_t)(clk - (mantissa * 16));
