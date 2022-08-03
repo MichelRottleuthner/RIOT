@@ -82,7 +82,11 @@ void rtt_init(void)
     RTCC_Init_TypeDef init = RTCC_INIT_DEFAULT;
 
     init.enable = false;
-    init.presc = RTT_CMU_CLK_DIV;
+    /* TODO: for the PU assessment of gclk a timer resolution of 1 second is most likely not 
+     * working as expected (the standard 32k is already rather slow for very fast operations). 
+     * Since there is no clean way to overwrite this, it is just changed here for now.
+     * The original value of this was rtccCntPresc_32768 */
+    init.presc = rtccCntPresc_1;
 
     RTCC_Reset();
     RTCC_Init(&init);
