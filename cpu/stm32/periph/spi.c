@@ -89,14 +89,18 @@ static inline bool _use_dma(const spi_conf_t *conf)
 #define SPI_APB_CLOCK_SHIFT          (4U)
 #define SPI_APB_CLOCK_MULT           (1U << SPI_APB_CLOCK_SHIFT)
 
-static uint8_t _get_clkdiv(const spi_conf_t *conf, uint32_t clock)
+int actual_spi_speeds[SPI_NUMOF];
+static uint8_t _get_clkdiv(spi_t bus, uint32_t clock)
 {
+    const spi_conf_t *conf = &spi_config[bus];
     uint32_t bus_clock = periph_apb_clk(conf->apbbus);
+    DEBUG("\nspiclk: %ld (busclk: %ld)\n", clock, bus_clock);
     /* Shift bus_clock with SPI_APB_CLOCK_SHIFT to create a fixed point int */
     uint32_t div = (bus_clock << SPI_APB_CLOCK_SHIFT) / (2 * clock);
     DEBUG("[spi] clock: divider: %"PRIu32"\n", div);
     /* Test if the divider is 2 or smaller, keeping the fixed point in mind */
     if (div <= SPI_APB_CLOCK_MULT) {
+        actual_spi_speeds[bus] = bus_clock/(1 << 1);
         return 0;
     }
     /* determine MSB and compensate back for the fixed point int shift */
@@ -107,7 +111,10 @@ static uint8_t _get_clkdiv(const spi_conf_t *conf, uint32_t clock)
          * requested clock speed */
         rounded_div++;
     }
-    return rounded_div > BR_MAX ? BR_MAX : rounded_div;
+
+    uint8_t br = rounded_div > BR_MAX ? BR_MAX : rounded_div;
+    actual_spi_speeds[bus] = bus_clock / (1 << (br + 1));
+    return br;
 }
 
 void spi_init(spi_t bus)
@@ -220,12 +227,16 @@ int spi_init_with_gpio_mode(spi_t bus, const spi_gpio_mode_t* mode)
 #endif
 }
 #endif
+extern mutex_t clock_conf_mutex;
 
+int actual_spi_speeds[SPI_NUMOF];
 void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
 {
     assert((unsigned)bus < SPI_NUMOF);
-
+    //TODO: assess how valuable this would be as a feedback mechanism for DVFS/PU-Assessment
+    //spi_aq_cnt++;
     /* lock bus */
+    mutex_lock(&clock_conf_mutex);
     mutex_lock(&locks[bus]);
 #ifdef STM32_PM_STOP
     /* block STOP mode */
@@ -234,18 +245,18 @@ void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
     /* enable SPI device clock */
     periph_clk_en(spi_config[bus].apbbus, spi_config[bus].rccmask);
     /* enable device */
-    if (clk != clocks[bus]) {
-        dividers[bus] = _get_clkdiv(&spi_config[bus], clk);
+    //if (clk != clocks[bus]) {
+        dividers[bus] = _get_clkdiv(bus, clk);
         clocks[bus] = clk;
-    }
+    //}
     uint8_t br = dividers[bus];
-
     DEBUG("[spi] acquire: requested clock: %"PRIu32", resulting clock: %"PRIu32
           " BR divider: %u\n",
           clk,
           periph_apb_clk(spi_config[bus].apbbus)/(1 << (br + 1)),
           br);
-
+    DEBUG("APB speed: %lu\n", periph_apb_clk(spi_config[bus].apbbus));
+    DEBUG("actual_speed: %d\n", actual_spi_speeds[bus]);
     uint16_t cr1_settings = ((br << BR_SHIFT) | mode | SPI_CR1_MSTR);
     /* Settings to add to CR2 in addition to SPI_CR2_SETTINGS */
     uint16_t cr2_extra_settings = 0;
@@ -301,6 +312,7 @@ void spi_release(spi_t bus)
     pm_unblock(STM32_PM_STOP);
 #endif
     mutex_unlock(&locks[bus]);
+    mutex_unlock(&clock_conf_mutex);
 }
 
 static inline void _wait_for_end(spi_t bus)
