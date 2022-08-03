@@ -111,9 +111,14 @@
 #define PWR_WUP_REG    PWR->CSR
 #endif
 
+#include "periph/gpio.h"
 void pm_set(unsigned mode)
 {
     int deep;
+
+    
+    //printf("pm_set\n");
+    //gpio_clear(DBG_GPIO_WFI);
 
     switch (mode) {
 #if !defined(CPU_FAM_STM32MP1)
@@ -153,6 +158,8 @@ void pm_set(unsigned mode)
     }
 
     cortexm_sleep(deep);
+
+    gpio_clear(DBG_GPIO_WFI);
 
     if (deep) {
         /* Re-init clock after STOP */
