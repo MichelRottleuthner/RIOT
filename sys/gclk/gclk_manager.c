@@ -696,7 +696,217 @@ void _get_equivalent_factors_after_source(const gclk_t *source, clk_topology_ent
     *div = d;
 }
 
+void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len,
+                                         uint32_t *mul, uint32_t *div) {
+    uint32_t m = 1;
+    uint32_t d = 1;
+
+    for (unsigned i = 0; i < topo_len; i++) {
+        if (gclk_is_divider(topo[i].clk)) {
+            d *= topo[i].factor;
+        } else if (gclk_is_multiplier(topo[i].clk)) {
+            m *= topo[i].factor;
+        }
+    }
+
+    *mul = m;
+    *div = d;
+}
+
+typedef struct {
+    const uint32_t *freqs;
+    size_t target_freqs_cnt;
+    size_t match_freqs_cnt;
+    uint32_t lowest_err;
+    const gclk_t *scale_clk;
+} lflae_cmp_fun_ctx_t;
+
+int _clk_to_entry_idx(clk_topology_entry_t *topo, size_t len, const gclk_t *clk) {
+    for (unsigned i = 0; i < len; i++) {
+        if (topo[i].clk == clk) {
+            return i; 
+        }
+    }
+    return -1;
+}
+
+/* returns the equivalent factors */
+void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, uint32_t *mul, uint32_t *div, bool incl_src) {
+    int idx = _clk_to_entry_idx(topo, len, src);
+    if (idx > 0) {
+        _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), mul, div);
+    } else {
+        printf("given src is not in topology!\n");
+    }
+}
+
+gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t *topo_best, size_t len1,
+                                                            clk_topology_entry_t *topo_cmp, size_t len2,
+                                                            void *arg) {
+    lflae_cmp_fun_ctx_t *ctx = (lflae_cmp_fun_ctx_t*)arg;
+
+    //uint32_t bmul;
+    //uint32_t bdiv;
+    //_get_equivalent_dt_factors(topo_best, len1, ctx->scale_clk, &bmul, &bdiv, false);
+    (void)topo_best;
+    (void)len1;
+
+    uint32_t cmul;
+    uint32_t cdiv;
+    _get_equivalent_dt_factors(topo_cmp, len2, ctx->scale_clk, &cmul, &cdiv, false);
+
+    uint32_t abs_err = 0; 
+    size_t possible_freq_cnt = gclk_factor_cnt(ctx->scale_clk);
+
+    int srcidx = _clk_to_entry_idx(topo_cmp, len2, ctx->scale_clk);
+
+    uint32_t input_freq = topo_cmp[srcidx+1].clk_freq;
+    uint32_t possible_freqs[possible_freq_cnt];
+
+    for (unsigned i = 0; i < possible_freq_cnt; i++) {
+        uint32_t factor = gclk_idx2factor(ctx->scale_clk, i);
+        if (gclk_is_multiplier(ctx->scale_clk)) {
+            possible_freqs[i] =  input_freq * cmul * factor / cdiv;
+        } else {
+            possible_freqs[i] =  input_freq * cmul / (factor * cdiv);
+        }
+    }
+
+    uint32_t prev_freq = 0;
+    for (unsigned i = 0; i < ctx->match_freqs_cnt; i++) {
+        uint32_t min_diff = 0xFFFFFFFF;
+        uint32_t best_freq = 0; 
+        for (unsigned x = 0; x < possible_freq_cnt; x++) {
+            uint32_t diff = (ctx->freqs[i] >= possible_freqs[x]) ? (ctx->freqs[i] - possible_freqs[x]) : (possible_freqs[x] - ctx->freqs[i]);
+            if (diff < min_diff) {
+                min_diff = diff;
+                best_freq = possible_freqs[x];
+                //printf("matched freq for %lu: %lu\n", ctx->freqs[i], possible_freqs[x]);
+                //ctx->matched_freqs[i] = possible_freqs[x]; 
+            }
+        }
+
+        /* only consider errors of frequencies that are not filtered out as duplicate anyway */
+        if (!((i > 0) && (prev_freq == best_freq))) {
+            abs_err += min_diff;
+        } 
+        prev_freq = best_freq;
+    }    
+
+    if (abs_err < ctx->lowest_err) {
+        ctx->lowest_err = abs_err;
+        return GCLK_CONF_BETTER;
+    } else if (abs_err == ctx->lowest_err) {
+        return GCLK_CONF_EQUAL;
+    } else {
+        return GCLK_CONF_WORSE;
+    }
+}
+
+
+int _populate_dfs_freqs_bf(const uint32_t *freqs, size_t cnt) {
+
+    /* Currently there are two different approaches that adapt the frequency via only a single clock instance (scaler)
+     * I.e., SCALE_DIRECT and SCALE_UPTREE_RELATIVE. To come up with configurations that are feasible for both configs
+     * an exploration must be performed that matches the given set of target frequencies only via the single scaled clock.
+     * One way to do this is to just assume the current (default) config of the topology and select the factors
+     * that match the given freqs as close as possible.
+     * A more comprehensive (and complex) approach derives the best combination of other involved factors that then 
+     * match the given frequencies best via the single adapted scaler.
+     * */
+    clk_topology_entry_t *topology = &topology_conf_cache[dfs_frequencies_cnt][0];
+    uint32_t max_involved_clks = max_clocks_in_core_topology;
+    memset(topology, 0, sizeof(clk_topology_entry_t) * max_involved_clks);
+    topology[0].clk = gclock_core_clock_handle;
+    topology[0].clk_freq = GCLK_INVALID_FREQ;
+    
+    int tid = active_core_scale_setting->topology_id;
+    size_t valid_cnt = 0;
+    int force_nth = -1;
+
+    size_t possible_freq_cnt = gclk_factor_cnt(active_core_scale_setting->scale_clk);
+    size_t matched_freq_cnt = cnt <= possible_freq_cnt ? cnt : possible_freq_cnt;
+
+    lflae_cmp_fun_ctx_t ctx = {
+        .freqs = freqs,
+        .target_freqs_cnt = cnt,
+        .match_freqs_cnt = matched_freq_cnt,
+        .lowest_err = 0xFFFFFFFF,
+        .scale_clk = active_core_scale_setting->scale_clk,
+    };
+
+    uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
+                                                            &tid, gclk_manager_cmp_lowest_freq_list_abs_err, (void*)&ctx, &valid_cnt, force_nth, NULL);
+    (void)leaf_freq;
+
+    uint32_t mul;
+    uint32_t div;
+    _get_equivalent_dt_factors(topology, max_involved_clks, ctx.scale_clk, &mul, &div, false);
+
+    //printf("matched downtree factors: mul=%lu div=%lu\n", mul, div);
+
+    int srcidx = _clk_to_entry_idx(topology, max_involved_clks, ctx.scale_clk);
+    uint32_t input_freq = topology[srcidx+1].clk_freq;
+    
+    uint32_t matched_freqs[matched_freq_cnt];
+    uint32_t matched_facts[matched_freq_cnt];
+    
+    unsigned skipped = 0;
+    for (unsigned m = 0; m < matched_freq_cnt; m++) {
+        uint32_t min_diff = 0xFFFFFFFF;
+        for (unsigned p = 0; p < possible_freq_cnt; p++) {
+            uint32_t fact = gclk_idx2factor(ctx.scale_clk, p);
+            uint32_t possible_freq;
+            if (gclk_is_multiplier(ctx.scale_clk)) {
+                possible_freq = (uint64_t)input_freq * (uint64_t)mul * (uint64_t)fact / (uint64_t)div; 
+            } else {
+                possible_freq = (uint64_t)input_freq * (uint64_t)mul / ((uint64_t)fact * (uint64_t)div); 
+            }
+            uint32_t diff = possible_freq >= freqs[m] ? (possible_freq - freqs[m]) : (freqs[m] - possible_freq);
+            if (diff < min_diff) {
+                min_diff = diff;
+                matched_freqs[m - skipped] = possible_freq;
+                matched_facts[m - skipped] = fact;
+            }
+        }
+
+        /* filter out duplicates on the fly */
+        if (m > 0) {
+            if (matched_freqs[m - skipped] == matched_freqs[m - skipped - 1]) {
+                skipped++;
+            }
+        }
+    }
+    
+    matched_freq_cnt -= skipped;
+    if (matched_freq_cnt > 0) {
+        dfs_frequencies_cnt = 0;
+        
+        for (unsigned i = 0; i < matched_freq_cnt; i++) {
+            //printf("matched %u:  %lu @factor %lu\n", i, matched_freqs[i], matched_facts[i]); 
+            _append_dfs_cache_entry(dfs_frequencies_cnt++, matched_freqs[i], matched_facts[i]);
+        }
+    }
+
+    return matched_freq_cnt;
+}
+
 int _populate_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
+
+    /* come up with a list of reasonable frequencies */
+    if (freqs == NULL || cnt == 0) {
+        return -1;    
+    } else if (cnt > MAX_DFS_FREQ_VALUES_NUM) {
+        return -2;
+    }
+
+    if (!active_core_scale_setting) {
+        printf("no active core scale setting defined\n");
+        return -3;
+    }
+
+    /* reset dfs count before setting new values */
+    dfs_frequencies_cnt = 0;
 
     /* come up with a list of reasonable frequencies */
     if (freqs == NULL || cnt == 0) {
@@ -718,7 +928,15 @@ int _populate_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
      * scaler instances to a single value */
     if (active_core_scale_setting->approach == SCALE_DIRECT ||
         active_core_scale_setting->approach == SCALE_UPTREE_RELATIVE) {
+        int res = _populate_dfs_freqs_bf(freqs, cnt);
+        return res;
+#if 0
         /* in case the scaling operation just adapts a single node we can use direct factor access to
+         * come up with valid freq settings */
+        uint32_t input_freq = gclk_get_input_freq(active_core_scale_setting->scale_clk);
+
+        uint32_t equivalent_downtree_mul = 1;
+        uint32_t equivalent_downtree_div = 1node we can use direct factor access to
          * come up with valid freq settings */
         uint32_t input_freq = gclk_get_input_freq(active_core_scale_setting->scale_clk);
 
@@ -759,6 +977,7 @@ int _populate_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
             }
         }
         return dfs_frequencies_cnt;
+#endif
     } else if (active_core_scale_setting->approach == SCALE_INTERMEDIATE_TOPO_AUTO) {
         gclk_cmp_func_t cmp_func = gclk_manager_cmp_topology_exact_leaf_freq_pmin;
 
@@ -787,8 +1006,8 @@ int _populate_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
             if (seq_size > 0) {
                 prepared_rescale_sequence_lengths[dfs_frequencies_cnt] = seq_size;
                 dfs_frequencies_cnt++;
-            } else {
-                LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), current_core_topo_id, current_core_topo_id);
+            } else {       
+                LOG_DEBUG("_%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), current_core_topo_id, current_core_topo_id);
             }
         }
 
