@@ -792,12 +792,23 @@ typedef struct gclk_in_out_clock_constraint {
 typedef enum {
     GCLK_ENSURE_MIN_FREQ,
     GCLK_ENSURE_MAX_FREQ,
+    GCLK_ENSURE_EXACT_FREQ,
+    GCLK_ENSURE_MIN_FACT,
+    GCLK_ENSURE_MAX_FACT,
+    GCLK_ENSURE_EXACT_FACT,
+    GCLK_ENSURE_EXACT_PARENT,
+    GCLK_ENSURE_FIXED_CONF,
 } gclk_constraint_type_t;
 
 typedef struct {
     gclk_constraint_type_t type;
     const gclk_t *clk;
-    uint32_t freq;
+    union {
+        uint32_t freq;
+        uint32_t fact;
+        const gclk_t *parent_clk;
+        const clk_topology_entry_t *confs;
+    };
 } gclk_freq_constraint_t;
 
 /* the below probably has to go to a separate DVFS implementation file */
