@@ -179,7 +179,12 @@ static const freq_conf_limit_t ahb_freq_vc_ws_limits[] = {
  *   - 8Mhz is added as slowest possible Frequency for PLL topologies
  *   - 4Mhz is added as highest possible freq that allows 0 WS and 0 VC operation (only with MSI topology)
  *  */
-static const uint32_t gclk_manager_preferred_freqs[] = { 80000000, 64000000, 48000000, 32000000, 26000000, 18000000, 16000000, 12000000, 8000000, 4000000};
+//static const uint32_t gclk_manager_preferred_freqs[] = { 4000000, 8000000, 12000000, 16000000, 18000000, 26000000, 32000000, 48000000, 64000000, 80000000};
+static const uint32_t _prefered_freqs_with_pll[] = { 8000000, 12000000, 16000000, 18000000, 26000000, 32000000, 48000000, 64000000, 80000000};
+static const uint32_t _prefered_direct_scale_freqs[] = { 13333333, 26666666, 40000000, 53333333, 80000000 };
+static const uint32_t _prefered_direct_scale_freqs_even[] = { 12000000, 24000000, 36000000, 48000000, 72000000 };
+
+#define MAX_PREFERRED_FREQS_NUM (ARRAY_SIZE(_prefered_freqs_with_pll))
 
 //gclk_stm32_pllsai1_p_scaler.base,
 //gclk_stm32_pllsai2_p_scaler.base,
@@ -263,6 +268,8 @@ gclk_scale_setting_t scale_settings[] = {
       .output_clk = &gclk_stm32_sysclk_mux.base,
       .scale_clk = &gclk_stm32_msirange_scaler.base,
       .topology_id = STM32_L476RG_SYSCLK_TOPO_ID_MSI,
+      .default_freqs = NULL,
+      .default_freqs_cnt = 0,
       /* since there is no additional scaling happening inbetween the scaler and the core handle (only muxing)
        * the approach that applies here is SCALE_DIRECT instead of SCALE_UPTREE_RELATIVE */
       .approach = SCALE_DIRECT, },
@@ -270,6 +277,8 @@ gclk_scale_setting_t scale_settings[] = {
       .output_clk = &gclk_stm32_sysclk_mux.base,
       .scale_clk = &gclk_stm32_msirange_scaler.base,
       .topology_id = STM32_L476RG_SYSCLK_TOPO_ID_PLL_MSI,
+      .default_freqs = _prefered_direct_scale_freqs,
+      .default_freqs_cnt = ARRAY_SIZE(_prefered_direct_scale_freqs),
       .approach = SCALE_UPTREE_RELATIVE,
     },
     /* in below cases scaling is not done via a single scaler but instead updating multiple clock instances by automatically
@@ -277,11 +286,15 @@ gclk_scale_setting_t scale_settings[] = {
     {
       .output_clk = &gclk_stm32_sysclk_mux.base,
       .topology_id = STM32_L476RG_SYSCLK_TOPO_ID_PLL_MSI,
+      .default_freqs = _prefered_freqs_with_pll,
+      .default_freqs_cnt = ARRAY_SIZE(_prefered_freqs_with_pll),
       .approach = SCALE_INTERMEDIATE_TOPO_AUTO,
     },
     {
       .output_clk = &gclk_stm32_sysclk_mux.base,
       .topology_id = STM32_L476RG_SYSCLK_TOPO_ID_PLL_HSI,
+      .default_freqs = NULL,
+      .default_freqs_cnt = 0,
       .approach = SCALE_INTERMEDIATE_TOPO_AUTO,
     },
 };
@@ -524,7 +537,9 @@ const gclk_manager_power_properties_t clock_power_model[] = {
 
 /* Defines the maximum number of discrete frequency steps that are used for dynamic frequency scaling
  * and PU metric assessment */
-#define MAX_DFS_FREQ_VALUES_NUM (ARRAY_SIZE(gclk_manager_preferred_freqs))
+//#define MAX_DFS_FREQ_VALUES_NUM (ARRAY_SIZE(gclk_manager_preferred_freqs))
+#define MAX_DFS_FREQ_VALUES_NUM (MAX_PREFERRED_FREQS_NUM)
+
 
 #define DFS_CYCLER_MIN_FREQ (8000000)
 //#define DFS_CYCLER_MIN_FREQ (100000)
