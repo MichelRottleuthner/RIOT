@@ -281,7 +281,8 @@ int gclk_mananger_set_default_dfs_frequencies(void) {
         printf("no active core scale setting defined\n");
         return 0;
     }
-    int res = gclk_mananger_set_dfs_frequencies(gclk_manager_preferred_freqs, ARRAY_SIZE(gclk_manager_preferred_freqs));
+    int res = gclk_mananger_set_dfs_frequencies(active_core_scale_setting->default_freqs, active_core_scale_setting->default_freqs_cnt);
+    //int res = gclk_mananger_set_dfs_frequencies(gclk_manager_preferred_freqs, ARRAY_SIZE(gclk_manager_preferred_freqs));
     return res;
 #if 0
     if (active_core_scale_setting->approach == SCALE_DIRECT ||
@@ -772,25 +773,30 @@ gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t
         }
     }
 
-    uint32_t prev_freq = 0;
+    //uint32_t prev_freq = 0;
     for (unsigned i = 0; i < ctx->match_freqs_cnt; i++) {
         uint32_t min_diff = 0xFFFFFFFF;
-        uint32_t best_freq = 0; 
+        //uint32_t best_freq = 0; 
         for (unsigned x = 0; x < possible_freq_cnt; x++) {
             uint32_t diff = (ctx->freqs[i] >= possible_freqs[x]) ? (ctx->freqs[i] - possible_freqs[x]) : (possible_freqs[x] - ctx->freqs[i]);
             if (diff < min_diff) {
                 min_diff = diff;
-                best_freq = possible_freqs[x];
+                //best_freq = possible_freqs[x];
                 //printf("matched freq for %lu: %lu\n", ctx->freqs[i], possible_freqs[x]);
                 //ctx->matched_freqs[i] = possible_freqs[x]; 
             }
         }
 
+        abs_err += min_diff;
         /* only consider errors of frequencies that are not filtered out as duplicate anyway */
-        if (!((i > 0) && (prev_freq == best_freq))) {
-            abs_err += min_diff;
-        } 
-        prev_freq = best_freq;
+        //if (i > 0) {
+        //    if (prev_freq != best_freq) {
+        //        abs_err += min_diff;
+        //    }
+        //}  else {
+        //    abs_err += min_diff;
+        //}
+        //prev_freq = best_freq;
     }    
 
     if (abs_err < ctx->lowest_err) {
@@ -826,7 +832,7 @@ int _populate_dfs_freqs_bf(const uint32_t *freqs, size_t cnt) {
 
     size_t possible_freq_cnt = gclk_factor_cnt(active_core_scale_setting->scale_clk);
     size_t matched_freq_cnt = cnt <= possible_freq_cnt ? cnt : possible_freq_cnt;
-
+    printf("trying to match %d frequencies\n", matched_freq_cnt);
     lflae_cmp_fun_ctx_t ctx = {
         .freqs = freqs,
         .target_freqs_cnt = cnt,
@@ -870,9 +876,11 @@ int _populate_dfs_freqs_bf(const uint32_t *freqs, size_t cnt) {
             }
         }
 
+        printf("possible %u: %lu @ %lu\n", m - skipped, matched_freqs[m - skipped], matched_facts[m - skipped]);
         /* filter out duplicates on the fly */
         if (m > 0) {
             if (matched_freqs[m - skipped] == matched_freqs[m - skipped - 1]) {
+                printf("skip %u: %lu\n", m - skipped, matched_freqs[m - skipped]);
                 skipped++;
             }
         }
@@ -883,7 +891,7 @@ int _populate_dfs_freqs_bf(const uint32_t *freqs, size_t cnt) {
         dfs_frequencies_cnt = 0;
         
         for (unsigned i = 0; i < matched_freq_cnt; i++) {
-            //printf("matched %u:  %lu @factor %lu\n", i, matched_freqs[i], matched_facts[i]); 
+            printf("matched %u:  %lu @factor %lu\n", i, matched_freqs[i], matched_facts[i]); 
             _append_dfs_cache_entry(dfs_frequencies_cnt++, matched_freqs[i], matched_facts[i]);
         }
     }
