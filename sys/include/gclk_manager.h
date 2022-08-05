@@ -134,13 +134,15 @@ typedef enum {
  *       */
 typedef struct {
     const gclk_t *output_clk;   /**< the clock that we want to update to a new frequency (i.e. the core clock in most cases) */
-    int topology_id;            /**< the topology (of the core clock handle) at which this scaling method is applicable */
-    gclk_scale_approach_t approach;
     union {
         const gclk_t *scale_clk; /**< in case it is a direct or uptree scale operation: the output_clock is scaled by only changing this node */
         gclk_manager_sequence_step_t *sequence;
     };
     size_t sequence_len;
+    const uint32_t *default_freqs;       /**< preferable default frequencies for this scale setting (NULL tells the manager to derive frequencies dynamically) */
+    int topology_id: 8;            /**< the topology (of the core clock handle) at which this scaling method is applicable */
+    int default_freqs_cnt: 8;      /**< number of default frequencies for this scale setting */
+    gclk_scale_approach_t approach: 8;
 } gclk_scale_setting_t;
 
 /* Wait state value to indicate a don't care condition for a frequency conf limit */
