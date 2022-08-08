@@ -182,7 +182,8 @@ static const freq_conf_limit_t ahb_freq_vc_ws_limits[] = {
 //static const uint32_t gclk_manager_preferred_freqs[] = { 4000000, 8000000, 12000000, 16000000, 18000000, 26000000, 32000000, 48000000, 64000000, 80000000};
 static const uint32_t _prefered_freqs_with_pll[] = { 8000000, 12000000, 16000000, 18000000, 26000000, 32000000, 48000000, 64000000, 80000000};
 static const uint32_t _prefered_direct_scale_freqs[] = { 13333333, 26666666, 40000000, 53333333, 80000000 };
-static const uint32_t _prefered_direct_scale_freqs_even[] = { 12000000, 24000000, 36000000, 48000000, 72000000 };
+/* would be an alternative to the above list but is not able to reach max freq */
+//static const uint32_t _prefered_direct_scale_freqs_even[] = { 6000000, 12000000, 24000000, 36000000, 48000000, 72000000 };
 
 #define MAX_PREFERRED_FREQS_NUM (ARRAY_SIZE(_prefered_freqs_with_pll))
 
@@ -293,8 +294,8 @@ gclk_scale_setting_t scale_settings[] = {
     {
       .output_clk = &gclk_stm32_sysclk_mux.base,
       .topology_id = STM32_L476RG_SYSCLK_TOPO_ID_PLL_HSI,
-      .default_freqs = NULL,
-      .default_freqs_cnt = 0,
+      .default_freqs = _prefered_freqs_with_pll,
+      .default_freqs_cnt = ARRAY_SIZE(_prefered_freqs_with_pll),
       .approach = SCALE_INTERMEDIATE_TOPO_AUTO,
     },
 };
