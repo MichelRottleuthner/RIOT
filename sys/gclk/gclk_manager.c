@@ -282,147 +282,7 @@ int gclk_mananger_set_default_dfs_frequencies(void) {
         return 0;
     }
     int res = gclk_mananger_set_dfs_frequencies(active_core_scale_setting->default_freqs, active_core_scale_setting->default_freqs_cnt);
-    //int res = gclk_mananger_set_dfs_frequencies(gclk_manager_preferred_freqs, ARRAY_SIZE(gclk_manager_preferred_freqs));
     return res;
-#if 0
-    if (active_core_scale_setting->approach == SCALE_DIRECT ||
-        active_core_scale_setting->approach == SCALE_UPTREE_RELATIVE) {
-        /* in case the scaling operation just adapts a single node we can use direct factor access to
-         * come up with valid freq settings */
-        uint32_t input_freq = gclk_get_input_freq(active_core_scale_setting->scale_clk);
-
-        uint32_t equivalent_downtree_mul = 1;
-        uint32_t equivalent_downtree_div = 1;
-
-        if (active_core_scale_setting->approach == SCALE_UPTREE_RELATIVE) {
-            uint32_t max_involved_clks = gclk_get_clk_subtree_max_depth(gclock_core_clock_handle, 0);
-            clk_topology_entry_t topology[max_involved_clks];
-            memset(topology, 0, sizeof(clk_topology_entry_t) * max_involved_clks);
-            topology[0].clk = gclock_core_clock_handle;
-            size_t size = gclk_get_nth_topology(topology, max_involved_clks, active_core_scale_setting->topology_id);
-            for (unsigned i = 0; i < size; i++) {
-                /* only consider factors after the scaled clock till the output clock */
-                if (topology[i].clk == active_core_scale_setting->scale_clk) {
-                    break;
-                }
-                if (gclk_is_divider(topology[i].clk)) {
-                    equivalent_downtree_div *= gclk_get_current_factor(topology[i].clk);
-                } else if (gclk_is_multiplier(topology[i].clk)) {
-                    equivalent_downtree_mul *= gclk_get_current_factor(topology[i].clk);
-                }
-            }
-        }
-
-        LOG_DEBUG("%s: equivalent downtree mul: %lu div: %lu\n", __FUNCTION__, equivalent_downtree_mul, equivalent_downtree_div);
-        /* TODO: this exploration can probably be implemented more efficiently but for now we don't care
-         *       as this is only done during setup of the wanted scaling topology/setting */
-        /* first check how many applicable configurations are left of the available configuration space
-         * when the constraining limits are considered */
-        uint32_t min_fact;
-        uint32_t max_fact;
-
-        bool is_divider = gclk_is_divider(active_core_scale_setting->scale_clk);
-        if (is_divider) {
-            min_fact = DFS_CYCLER_MAX_FREQ / (input_freq * equivalent_downtree_mul / equivalent_downtree_div);
-            max_fact = (input_freq * equivalent_downtree_mul / equivalent_downtree_div) / DFS_CYCLER_MIN_FREQ;
-        } else {
-            min_fact = DFS_CYCLER_MIN_FREQ / (input_freq * equivalent_downtree_mul / equivalent_downtree_div);
-            max_fact = DFS_CYCLER_MAX_FREQ / (input_freq * equivalent_downtree_mul / equivalent_downtree_div);
-        }
-
-        /* match the calculated bounds against actually possible values */
-        uint32_t minidx = 0;
-        uint32_t maxidx = 0;
-        unsigned valid_cnt = _get_closest_min_max_factors(active_core_scale_setting->scale_clk, min_fact, &minidx, max_fact, &maxidx);
-
-        dfs_frequencies_cnt = 0;
-
-        if (valid_cnt < 2) {
-            printf("error: not at least two frequencies fulfill constraints -> DFS not possible!\n");
-        } else {
-            /* number of freqs to populate is limited by storage or valid configs, whichever comes first */
-            unsigned dfs_cnt = MAX_DFS_FREQ_VALUES_NUM >= valid_cnt ? valid_cnt : MAX_DFS_FREQ_VALUES_NUM;
-
-            /* if only a subset of frequency confs can be cached it must be decided which.
-             * we want to ensure the following:
-             *  - include at least the one for lowest frequency, highest frequency, each one
-             *    that fits counting down from highest freq towards lowest */
-            unsigned skip_after_first = dfs_cnt < valid_cnt ? valid_cnt - dfs_cnt : 0;
-
-            for (unsigned i = 0; i < dfs_cnt; i++) {
-                uint32_t tmp_fact = 0;
-                uint32_t tmp_freq = 0;
-
-                /* populating the configs always starts with lower frequencies. In case not all of them fit
-                 * this skips ahead till all remaining frequencies (including the highest one) fit */
-                unsigned skip = i > 0 ? skip_after_first : 0;
-                /* factors are exposed in ascending order so reverse the order for dividers to
-                 * ensure frequencies are stored in ascending order too */
-                unsigned idx = is_divider ? maxidx - (i + skip) : minidx + i + skip;
-
-                tmp_fact = gclk_idx2factor(active_core_scale_setting->scale_clk, idx);
-
-                if (is_divider) {
-                    tmp_freq = input_freq * equivalent_downtree_mul / (tmp_fact * equivalent_downtree_div);
-                } else {
-                    tmp_freq = input_freq * equivalent_downtree_mul * tmp_fact / equivalent_downtree_div;
-                }
-
-                _append_dfs_cache_entry(dfs_frequencies_cnt++, tmp_freq, tmp_fact);
-            }
-        }
-
-        return dfs_frequencies_cnt;
-    } else if (active_core_scale_setting->approach == SCALE_INTERMEDIATE_TOPO_AUTO) {
-        /* This uses a simplified method to get a somewhat linear distribution within the allowed DFS frequency range.
-         * In case the topology only supports a very limited number of frequencies or unequally distributed frequencies it
-         * is possilbe that this approach returns overlapping frequencies (i.e. if the brute force gives the same matched
-         * frequency for differend aimed-for-frequencies). Therefore we simply drop duplicates.*/
-        gclk_cmp_func_t cmp_func = gclk_cmp_topology_for_closest_leaf_freq;
-
-        uint32_t max_involved_clks = max_clocks_in_core_topology;
-        dfs_frequencies_cnt = 0;
-        uint32_t freq_step = (DFS_CYCLER_MAX_FREQ - DFS_CYCLER_MIN_FREQ) / (MAX_DFS_FREQ_VALUES_NUM - 1);
-        for (int i = 0; i < MAX_DFS_FREQ_VALUES_NUM; i++) {
-            clk_topology_entry_t *topology = &topology_conf_cache[dfs_frequencies_cnt][0];
-            memset(topology, 0, sizeof(clk_topology_entry_t) * max_involved_clks);
-            topology[0].clk = gclock_core_clock_handle;
-            topology[0].clk_freq = GCLK_INVALID_FREQ;
-            uint32_t target_freq = DFS_CYCLER_MIN_FREQ + i * freq_step;
-            int tid = active_core_scale_setting->topology_id;
-            size_t valid_cnt = 0;
-            int force_nth = -1;
-            uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
-                                                                    &tid, cmp_func, (void*)&target_freq, &valid_cnt, force_nth, NULL);
-
-            LOG_DEBUG("%s: Matched frequency for %s: %lu Hz\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), leaf_freq);
-            LOG_DEBUG("%s: Obtainable by using the following topology:\n", __FUNCTION__);
-            //gclk_print_topology_freq_conf(topology, max_involved_clks);
-            /* ignore duplicates on the fly */
-            if ((!i) || (topology_conf_cache[i-1][0].clk_freq != leaf_freq)) {
-                dfs_frequencies[dfs_frequencies_cnt] = leaf_freq;
-                gclk_manager_sequence_step_t *seq = &prepared_rescale_sequences[dfs_frequencies_cnt][0];
-                int seq_size = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
-                                                            topology, max_involved_clks, seq, MAX_PREPARED_SEQUENCE_LEN);
-
-                if (seq_size > 0) {
-                    LOG_DEBUG("%s: sequence for %lu Hz:\n", __FUNCTION__, leaf_freq);
-                    //gclk_manager_print_step_sequence(seq, seq_size);
-                    prepared_rescale_sequence_lengths[dfs_frequencies_cnt] = seq_size;
-                    dfs_frequencies_cnt++;
-                    //_gclk_manager_run_sequence__dyn_freq(out_seq, seq_size, freq);
-                    //new_freq = gclk_get_current_freq(gclock_core_clock_handle);
-                } else {
-                    LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), current_core_topo_id, current_core_topo_id);
-                }
-            }
-        }
-
-        return dfs_frequencies_cnt;
-    }
-
-    return 0;
-#endif
 }
 
 const gclk_t* gclk_manager_get_core_clock_handle(void) {
@@ -809,228 +669,207 @@ gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t
     }
 }
 
-
-int _populate_dfs_freqs_bf(const uint32_t *freqs, size_t cnt) {
-
-    /* Currently there are two different approaches that adapt the frequency via only a single clock instance (scaler)
-     * I.e., SCALE_DIRECT and SCALE_UPTREE_RELATIVE. To come up with configurations that are feasible for both configs
-     * an exploration must be performed that matches the given set of target frequencies only via the single scaled clock.
-     * One way to do this is to just assume the current (default) config of the topology and select the factors
-     * that match the given freqs as close as possible.
-     * A more comprehensive (and complex) approach derives the best combination of other involved factors that then 
-     * match the given frequencies best via the single adapted scaler.
-     * */
-    clk_topology_entry_t *topology = &topology_conf_cache[dfs_frequencies_cnt][0];
-    uint32_t max_involved_clks = max_clocks_in_core_topology;
-    memset(topology, 0, sizeof(clk_topology_entry_t) * max_involved_clks);
-    topology[0].clk = gclock_core_clock_handle;
-    topology[0].clk_freq = GCLK_INVALID_FREQ;
-    
-    int tid = active_core_scale_setting->topology_id;
-    size_t valid_cnt = 0;
-    int force_nth = -1;
-
-    size_t possible_freq_cnt = gclk_factor_cnt(active_core_scale_setting->scale_clk);
-    size_t matched_freq_cnt = cnt <= possible_freq_cnt ? cnt : possible_freq_cnt;
-    printf("trying to match %d frequencies\n", matched_freq_cnt);
-    lflae_cmp_fun_ctx_t ctx = {
-        .freqs = freqs,
-        .target_freqs_cnt = cnt,
-        .match_freqs_cnt = matched_freq_cnt,
-        .lowest_err = 0xFFFFFFFF,
-        .scale_clk = active_core_scale_setting->scale_clk,
-    };
-
-    uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
-                                                            &tid, gclk_manager_cmp_lowest_freq_list_abs_err, (void*)&ctx, &valid_cnt, force_nth, NULL);
-    (void)leaf_freq;
-
-    uint32_t mul;
-    uint32_t div;
-    _get_equivalent_dt_factors(topology, max_involved_clks, ctx.scale_clk, &mul, &div, false);
-
-    //printf("matched downtree factors: mul=%lu div=%lu\n", mul, div);
-
-    int srcidx = _clk_to_entry_idx(topology, max_involved_clks, ctx.scale_clk);
-    uint32_t input_freq = topology[srcidx+1].clk_freq;
-    
-    uint32_t matched_freqs[matched_freq_cnt];
-    uint32_t matched_facts[matched_freq_cnt];
-    
-    unsigned skipped = 0;
-    for (unsigned m = 0; m < matched_freq_cnt; m++) {
-        uint32_t min_diff = 0xFFFFFFFF;
-        for (unsigned p = 0; p < possible_freq_cnt; p++) {
-            uint32_t fact = gclk_idx2factor(ctx.scale_clk, p);
-            uint32_t possible_freq;
-            if (gclk_is_multiplier(ctx.scale_clk)) {
-                possible_freq = (uint64_t)input_freq * (uint64_t)mul * (uint64_t)fact / (uint64_t)div; 
-            } else {
-                possible_freq = (uint64_t)input_freq * (uint64_t)mul / ((uint64_t)fact * (uint64_t)div); 
-            }
-            uint32_t diff = possible_freq >= freqs[m] ? (possible_freq - freqs[m]) : (freqs[m] - possible_freq);
-            if (diff < min_diff) {
-                min_diff = diff;
-                matched_freqs[m - skipped] = possible_freq;
-                matched_facts[m - skipped] = fact;
-            }
-        }
-
-        printf("possible %u: %lu @ %lu\n", m - skipped, matched_freqs[m - skipped], matched_facts[m - skipped]);
-        /* filter out duplicates on the fly */
-        if (m > 0) {
-            if (matched_freqs[m - skipped] == matched_freqs[m - skipped - 1]) {
-                printf("skip %u: %lu\n", m - skipped, matched_freqs[m - skipped]);
-                skipped++;
-            }
-        }
+bool _within_dfs_range(uint32_t freq) {
+    if ((freq < DFS_CYCLER_MIN_FREQ) || (freq > DFS_CYCLER_MAX_FREQ)) {
+        return false;
     }
-    
-    matched_freq_cnt -= skipped;
-    if (matched_freq_cnt > 0) {
-        dfs_frequencies_cnt = 0;
-        
-        for (unsigned i = 0; i < matched_freq_cnt; i++) {
-            printf("matched %u:  %lu @factor %lu\n", i, matched_freqs[i], matched_facts[i]); 
-            _append_dfs_cache_entry(dfs_frequencies_cnt++, matched_freqs[i], matched_facts[i]);
-        }
-    }
-
-    return matched_freq_cnt;
+    return true;
 }
 
-int _populate_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
-
-    /* come up with a list of reasonable frequencies */
-    if (freqs == NULL || cnt == 0) {
-        return -1;    
-    } else if (cnt > MAX_DFS_FREQ_VALUES_NUM) {
-        return -2;
+uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, uint32_t dt_mul, uint32_t dt_div, uint32_t fact) {
+    if (gclk_is_multiplier(clk)) {
+        return (uint64_t)f_in * (uint64_t)dt_mul * (uint64_t)fact / (uint64_t)dt_div; 
+    } else {
+        return (uint64_t)f_in * (uint64_t)dt_mul / ((uint64_t)fact * (uint64_t)dt_div); 
     }
+}
 
-    if (!active_core_scale_setting) {
-        printf("no active core scale setting defined\n");
-        return -3;
-    }
-
-    /* reset dfs count before setting new values */
-    dfs_frequencies_cnt = 0;
-
-    /* come up with a list of reasonable frequencies */
-    if (freqs == NULL || cnt == 0) {
-        return -1;    
-    } else if (cnt > MAX_DFS_FREQ_VALUES_NUM) {
-        return -2;
-    }
-
-    if (!active_core_scale_setting) {
-        printf("no active core scale setting defined\n");
-        return -3;
-    }
-
-    /* reset dfs count before setting new values */
-    dfs_frequencies_cnt = 0;
-
-    /* another generic way to explore applicable frequencies for those two approaches
-     * would be to just use the brute-force method with a list of constraints that fix all other
-     * scaler instances to a single value */
-    if (active_core_scale_setting->approach == SCALE_DIRECT ||
-        active_core_scale_setting->approach == SCALE_UPTREE_RELATIVE) {
-        int res = _populate_dfs_freqs_bf(freqs, cnt);
-        return res;
-#if 0
-        /* in case the scaling operation just adapts a single node we can use direct factor access to
-         * come up with valid freq settings */
-        uint32_t input_freq = gclk_get_input_freq(active_core_scale_setting->scale_clk);
-
-        uint32_t equivalent_downtree_mul = 1;
-        uint32_t equivalent_downtree_div = 1node we can use direct factor access to
-         * come up with valid freq settings */
-        uint32_t input_freq = gclk_get_input_freq(active_core_scale_setting->scale_clk);
-
-        uint32_t equivalent_downtree_mul = 1;
-        uint32_t equivalent_downtree_div = 1;
-
-        if (active_core_scale_setting->approach == SCALE_UPTREE_RELATIVE) {
-            uint32_t max_involved_clks = gclk_get_clk_subtree_max_depth(gclock_core_clock_handle, 0);
-            clk_topology_entry_t topology[max_involved_clks];
-            memset(topology, 0, sizeof(clk_topology_entry_t) * max_involved_clks);
-            topology[0].clk = gclock_core_clock_handle;
-            size_t size = gclk_get_nth_topology(topology, max_involved_clks, active_core_scale_setting->topology_id);
-            _get_equivalent_factors_after_source(active_core_scale_setting->scale_clk, topology, size,
-                                                 &equivalent_downtree_mul, &equivalent_downtree_div);
+static uint32_t _get_best_factor(const gclk_t *clk, uint32_t f_in, uint32_t target_freq, uint32_t dt_mul, uint32_t dt_div) {
+    uint32_t min_diff = 0xFFFFFFFF;
+    uint32_t factor_cnt = gclk_factor_cnt(clk);
+    uint32_t best_factor = 0;
+    for (unsigned i = 0; i < factor_cnt; i++) {
+        uint32_t factor = gclk_idx2factor(clk, i);
+        uint32_t f = _get_freq_for_factors(clk, f_in, dt_mul, dt_div, factor);
+        uint32_t diff = f >= target_freq ? (f - target_freq) : (target_freq - f);
+        if (diff < min_diff) {
+            min_diff = diff;
+            best_factor = factor;
         }
+    }
+    return best_factor;
+}
 
-        printf("%s: equivalent downtree mul: %lu div: %lu\n", __FUNCTION__, equivalent_downtree_mul, equivalent_downtree_div);
+clk_topology_entry_t *_clear_core_topology_cache(clk_topology_entry_t *cacheloc) {
+    clk_topology_entry_t *topology = cacheloc;
+    memset(topology, 0, sizeof(clk_topology_entry_t) * max_clocks_in_core_topology);
+    topology[0].clk = gclock_core_clock_handle;
+    topology[0].clk_freq = GCLK_INVALID_FREQ;
+    return topology;
+}
+
+
+int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freqs, size_t cnt) {
+    size_t match_freq_cnt = 0;
+    unsigned matched = 0; 
+         
+    if (scs->approach == SCALE_DIRECT ||
+        scs->approach == SCALE_UPTREE_RELATIVE) {
+        /* Currently there are two different approaches that adapt the frequency via only a single clock instance (scaler)
+         * I.e., SCALE_DIRECT and SCALE_UPTREE_RELATIVE. To come up with configurations that are feasible for both configs
+         * an exploration must be performed that matches the given set of target frequencies only via the single scaled clock.
+         * One way to do this is to just assume the current (default) config of the topology and select the factors
+         * that match the given freqs as close as possible.
+         * A more comprehensive (and complex) approach derives the best combination of other involved factors that then 
+         * match the given frequencies best via the single adapted scaler.
+         * */
+        uint32_t max_involved_clks = max_clocks_in_core_topology;
+        clk_topology_entry_t *topology = _clear_core_topology_cache(&topology_conf_cache[0][0]);
         
-        bool is_divider = gclk_is_divider(active_core_scale_setting->scale_clk);
+        int tid = scs->topology_id;
+        size_t valid_cnt = 0;
+        int force_nth = -1;
+        
+        size_t possible_freq_cnt = gclk_factor_cnt(scs->scale_clk);
 
-        for (unsigned i = 0; i < cnt; i++) {
-            uint32_t tmp_fact = 0;
-            uint32_t tmp_freq = 0;
+        /* if no freq values are provided explicitly, derive the target frequencies from the 
+         * highest possible frequency at its minimal power configuration and using the available factors
+         * of the scaled clock */
+        if (freqs == NULL || cnt == 0) {
+            match_freq_cnt = MAX_DFS_FREQ_VALUES_NUM <= possible_freq_cnt ? MAX_DFS_FREQ_VALUES_NUM : possible_freq_cnt;
+            /* determine target frequencies by running bf for pmin of fmax config and then just use the list of possible factors
+             * with the derived conf */
+            uint32_t target_freq = DFS_CYCLER_MAX_FREQ;
+            uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
+                                                                    &tid, gclk_cmp_topology_for_closest_leaf_freq, (void*)&target_freq, &valid_cnt, force_nth, NULL);
+
+            if (leaf_freq != GCLK_INVALID_FREQ) {
+                target_freq = leaf_freq;
+                uint32_t max_involved_clks = max_clocks_in_core_topology;
+                clk_topology_entry_t *topology = _clear_core_topology_cache(&topology_conf_cache[0][0]);
+
+                uint32_t pmin_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
+                                                                        &tid, gclk_manager_cmp_topology_exact_leaf_freq_pmin, (void*)&target_freq, &valid_cnt, force_nth, NULL); 
+                if (pmin_freq == GCLK_INVALID_FREQ) {
+                    printf("ERROR: couldn't derive pmin config for %lu Hz\n", leaf_freq); 
+                    return -2;
+                }
+                gclk_manager_print_topology_conf(topology, max_involved_clks, false, true);
+            } else {
+                return -1;
+            }
             
-            for (unsigned f = 0; f < gclk_factor_cnt(active_core_scale_setting->scale_clk); f++) {
-                tmp_fact = gclk_idx2factor(active_core_scale_setting->scale_clk, f);
+        } else {
+            match_freq_cnt = cnt <= possible_freq_cnt ? cnt : possible_freq_cnt;
 
-                if (is_divider) {
-                    tmp_freq = input_freq * equivalent_downtree_mul / (tmp_fact * equivalent_downtree_div);
-                } else {
-                    tmp_freq = input_freq * equivalent_downtree_mul * tmp_fact / equivalent_downtree_div;
-                }
+            lflae_cmp_fun_ctx_t ctx = {
+                .freqs = freqs,
+                .target_freqs_cnt = cnt,
+                .match_freqs_cnt = match_freq_cnt,
+                .lowest_err = 0xFFFFFFFF,
+                .scale_clk = scs->scale_clk,
+            };
 
-                if (tmp_freq == freqs[i]) {
-                    _append_dfs_cache_entry(dfs_frequencies_cnt++, tmp_freq, tmp_fact);
-                    break;
-                }
+            uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
+                                                                    &tid, gclk_manager_cmp_lowest_freq_list_abs_err, (void*)&ctx, &valid_cnt, force_nth, NULL);
+            if (leaf_freq == GCLK_INVALID_FREQ) {
+               return -1;
             }
         }
-        return dfs_frequencies_cnt;
-#endif
-    } else if (active_core_scale_setting->approach == SCALE_INTERMEDIATE_TOPO_AUTO) {
+
+        uint32_t mul;
+        uint32_t div;
+        _get_equivalent_dt_factors(topology, max_involved_clks, scs->scale_clk, &mul, &div, false);
+
+        int srcidx = _clk_to_entry_idx(topology, max_involved_clks, scs->scale_clk);
+        /* TODO: replace this with a utility function that returns the the input freq
+         * (for cases where the source itself is scalable) */
+        uint32_t input_freq = topology[srcidx+1].clk_freq;
+        
+        uint32_t prev_freq = 0;
+
+        for (unsigned i = 0; (i < possible_freq_cnt) && (matched < match_freq_cnt); i++) {
+            uint32_t factor;
+            /* if a set of specific target freqs was provided match them.
+             * if not, just scale down the max freq via available factors */
+            if (cnt > 0) {
+                factor = _get_best_factor(scs->scale_clk, input_freq, freqs[i], mul, div);
+            } else {
+                factor = gclk_idx2factor(scs->scale_clk, i);
+            }
+            uint32_t possible_freq = _get_freq_for_factors(scs->scale_clk, input_freq, mul, div, factor);
+
+            /* filter out duplicates and invalids on the fly */
+            if (_within_dfs_range(possible_freq) && ((matched == 0) || (prev_freq != possible_freq))) {
+                _append_dfs_cache_entry(matched++, possible_freq, factor);
+                prev_freq = possible_freq;
+            }
+        }
+        match_freq_cnt = matched;
+    } else if (scs->approach == SCALE_INTERMEDIATE_TOPO_AUTO) {
         gclk_cmp_func_t cmp_func = gclk_manager_cmp_topology_exact_leaf_freq_pmin;
 
-        uint32_t max_involved_clks = max_clocks_in_core_topology;
-
+        uint32_t freq_step = (DFS_CYCLER_MAX_FREQ - DFS_CYCLER_MIN_FREQ) / (cnt - 1);
+         
         for (unsigned i = 0; i < cnt; i++) {
-            clk_topology_entry_t *topology = &topology_conf_cache[dfs_frequencies_cnt][0];
-            memset(topology, 0, sizeof(clk_topology_entry_t) * max_involved_clks);
-            topology[0].clk = gclock_core_clock_handle;
-            topology[0].clk_freq = GCLK_INVALID_FREQ;
+            uint32_t max_involved_clks = max_clocks_in_core_topology;
+            clk_topology_entry_t *topology = _clear_core_topology_cache(&topology_conf_cache[matched][0]);
+
+            uint32_t target_freq;
+            /* either use provided freq values or spread them across allowed range */
+            if (freqs == NULL) {
+                /* This uses a simplified method to get a somewhat linear distribution within the allowed DFS frequency range.
+                 * In case the topology only supports a very limited number of frequencies or unequally distributed frequencies it
+                 * is possilbe that this approach returns overlapping frequencies (i.e. if the brute force gives the same matched
+                 * frequency for differend aimed-for-frequencies). Therefore we simply drop duplicates.*/
+                target_freq = DFS_CYCLER_MIN_FREQ + i * freq_step;
+            } else {
+                target_freq = freqs[i];
+            }
 
             int tid = active_core_scale_setting->topology_id;
             size_t valid_cnt = 0;
             int force_nth = -1;
-            
-            uint32_t target_freq = freqs[i];
-
             uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
                                                                     &tid, cmp_func, (void*)&target_freq, &valid_cnt, force_nth, NULL);
-
-            dfs_frequencies[dfs_frequencies_cnt] = leaf_freq;
-            gclk_manager_sequence_step_t *seq = &prepared_rescale_sequences[dfs_frequencies_cnt][0];
-            int seq_size = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
-                                                        topology, max_involved_clks, seq, MAX_PREPARED_SEQUENCE_LEN);
-
-            if (seq_size > 0) {
-                prepared_rescale_sequence_lengths[dfs_frequencies_cnt] = seq_size;
-                dfs_frequencies_cnt++;
-            } else {       
-                LOG_DEBUG("_%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), current_core_topo_id, current_core_topo_id);
+            if (leaf_freq != GCLK_INVALID_FREQ) {
+                /* ignore duplicates on the fly */
+                if ((!matched) || (topology_conf_cache[matched-1][0].clk_freq != leaf_freq)) {
+                    dfs_frequencies[matched] = leaf_freq;
+                    gclk_manager_sequence_step_t *seq = &prepared_rescale_sequences[matched][0];
+                    int seq_size = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
+                                                                topology, max_involved_clks, seq, MAX_PREPARED_SEQUENCE_LEN);
+                    if (seq_size > 0) {
+                        prepared_rescale_sequence_lengths[matched] = seq_size;
+                        matched++;
+                    } else {
+                        LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), current_core_topo_id, current_core_topo_id);
+                    }
+                }
             }
         }
-
-        return dfs_frequencies_cnt;
+        match_freq_cnt = matched;
     }
 
-    return 0;
+    return match_freq_cnt;
 }
 
 int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
-    if (cnt > MAX_DFS_FREQ_VALUES_NUM) {
+    /* reset dfs count before setting new values */
+    dfs_frequencies_cnt = 0;
+
+    if (!active_core_scale_setting) {
+        printf("no active core scale setting defined\n");
         return -1;
     }
 
-    int res = _populate_dfs_frequencies(freqs, cnt);
+    if (cnt > MAX_DFS_FREQ_VALUES_NUM) {
+        printf("Warning: can not cache %u frequency configs, will limit to at most %u entries\n",
+                cnt, MAX_DFS_FREQ_VALUES_NUM);
+    }
+    
+    int res = _populate_dfs_freqs_bf(active_core_scale_setting, freqs, cnt);
+
     if (res > 0) {
         dfs_frequencies_cnt = res;
     }
