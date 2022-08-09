@@ -55,6 +55,13 @@ extern void timer_write(tim_t tim, unsigned int cnt);
 
 extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
 
+/* a function to set up a configuration that works well with the given scale setting */
+static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs);
+
+static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *acc, clk_topology_entry_t *topo, uint32_t topo_len);
+static bool _breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo_conf, uint32_t topo_len);
+static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size);
+
 uint8_t active_freq_constraints[GCLK_FREQ_LIMIT_CLKS_NUMOF];
 
 static bool auto_vscale_enabled = false;
