@@ -140,8 +140,8 @@ typedef struct {
     };
     size_t sequence_len;
     const uint32_t *default_freqs;       /**< preferable default frequencies for this scale setting (NULL tells the manager to derive frequencies dynamically) */
-    int topology_id: 8;            /**< the topology (of the core clock handle) at which this scaling method is applicable */
-    int default_freqs_cnt: 8;      /**< number of default frequencies for this scale setting */
+    unsigned topology_id: 8;            /**< the topology (of the core clock handle) at which this scaling method is applicable */
+    unsigned default_freqs_cnt: 8;      /**< number of default frequencies for this scale setting */
     gclk_scale_approach_t approach: 8;
 } gclk_scale_setting_t;
 
@@ -195,6 +195,12 @@ typedef struct {
 gclk_cmp_result_t gclk_manager_cmp_topology_exact_leaf_freq_pmin(clk_topology_entry_t *topo_best, size_t len1,
                                                          clk_topology_entry_t *topo_cmp, size_t len2,
                                                          void *arg);
+
+/* a compare function that prioritizes to match the frequency as close as possible but prefers
+ * configurations with a lower power consumption if possible. (calculated via clock tree power model) */
+gclk_cmp_result_t gclk_manager_cmp_topology_closest_leaf_freq_pmin(clk_topology_entry_t *topo_best, size_t len1,
+                                                                   clk_topology_entry_t *topo_cmp, size_t len2,
+                                                                   void *arg);
 
 static const topology_cmp_func_names_t topology_cmp_funcs[] = {
     { .func = gclk_cmp_topology_for_closest_leaf_freq,         .name = "closest_leaf" },
