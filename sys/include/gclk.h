@@ -900,8 +900,6 @@ uint32_t gclk_get_max_freq_of_current_topology(const gclk_t *gclk);
 /* topology[size - 1] must point to the source */
 bool gclk_init_topology_freqs(clk_topology_entry_t *topology, int size);
 
-void gclk_print_topology_conf(clk_topology_entry_t *topology, uint32_t size, bool min_max, bool factors);
-
 void gclk_enable(const gclk_t *gclk);
 
 void gclk_disable(const gclk_t *gclk);
