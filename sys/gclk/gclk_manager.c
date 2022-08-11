@@ -653,10 +653,19 @@ int _clk_to_entry_idx(clk_topology_entry_t *topo, size_t len, const gclk_t *clk)
 }
 
 /* returns the equivalent factors */
-void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, uint32_t *mul, uint32_t *div, bool incl_src) {
+static void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, uint32_t *mul, uint32_t *div, bool incl_src) {
     int idx = _clk_to_entry_idx(topo, len, src);
     if (idx > 0) {
         _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), mul, div);
+    } else {
+        printf("given src is not in topology!\n");
+    }
+}
+
+static void _get_equivalent_dt_fraction(clk_topology_entry_t *topo, size_t len, const gclk_t *src, gclk_fraction_t *dtf, bool incl_src) {
+    int idx = _clk_to_entry_idx(topo, len, src);
+    if (idx > 0) {
+        _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), &dtf->n, &dtf->d);
     } else {
         printf("given src is not in topology!\n");
     }
@@ -700,7 +709,10 @@ static bool _get_minmax_constraint(const gclk_t *clk, uint32_t *f_min, uint32_t 
     return is_constrained;
 }
 
-void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, size_t len, uint32_t *f_min, uint32_t *f_max) {
+/* combines all constraints put up by clocks in the given topology into an absolute min/max frequency requirement
+ * of the topology. The returned limits indicate that it is not allowed to feed the topology with
+ * a frequency that is lower than f_min or higher than f_max */
+void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, size_t len, gclk_freq_limit_t *freq_limits) {
 
     uint32_t fmin = 0;
     uint32_t fmax = 0xFFFFFFFF;
@@ -766,21 +778,8 @@ void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, size_t l
         fmax = fin_max;
     }
 
-    *f_min = fmin;
-    *f_max = fmax;
-}
-
-/* @brief compares two fractions, each represented by separate nominator denominator
- *
- * returns <0 if mul1/div1 is smaller than mul2/div2
- * returns 0  if mul1/div1 is equal to mul2/div2
- * returns >0 if mul1/div1 is greater to mul2/div2
- */
-int _compare_equivalent_factors(uint32_t mul1, uint32_t div1, uint32_t mul2, uint32_t div2) {
-    uint32_t m1 = mul1 * div2;
-    uint32_t m2 = mul2 * div1;
-
-    return m1 - m2;
+    freq_limits->min = fmin;
+    freq_limits->max = fmax;
 }
 
 typedef struct {
@@ -789,9 +788,10 @@ typedef struct {
     uint32_t target_freq;
     uint32_t scaler_f_min;
     uint32_t scaler_f_max;
-    uint32_t scaler_factor_min;
-    uint32_t scaler_factor_max;
+    //uint32_t scaler_factor_min;
+    //uint32_t scaler_factor_max;
     uint32_t scaler_factor_target;
+    gclk_factor_limit_t scaler_factor_limits;
     uint32_t min_error;
     //unsigned scale_clk_topo_idx;
     gclk_fraction_t dt_min;
@@ -820,17 +820,16 @@ gclk_cmp_result_t gclk_manager_cmp_range_limit(clk_topology_entry_t *topo_best, 
         return GCLK_CONF_INVALID;
     }
 
-    uint32_t cmul;
-    uint32_t cdiv;
-    _get_equivalent_dt_factors(topo_cmp, len2, ctx->scale_clk, &cmul, &cdiv, false);
+    gclk_fraction_t dtf;
+    _get_equivalent_dt_fraction(topo_cmp, len2, ctx->scale_clk, &dtf, false);
 
-    int cmp_max = _compare_equivalent_factors(cmul, cdiv, ctx->dt_max.n, ctx->dt_max.d);
-    if (cmp_max > 0) { /* if greater than max dt factor, this is an invalid config */
+    if (gclk_compare_fraction(&dtf, &ctx->dt_max) > 0) {
+        /* if greater than max dt factor, this is an invalid config */
         return GCLK_CONF_INVALID;
     }
 
-    int cmp_min = _compare_equivalent_factors(cmul, cdiv, ctx->dt_min.n, ctx->dt_min.d);
-    if (cmp_min < 0) { /* if smaller than min dt factor, this is an invalid config */
+    if (gclk_compare_fraction(&dtf, &ctx->dt_min) < 0) {
+        /* if smaller than min dt factor, this is an invalid config */
         return GCLK_CONF_INVALID;
     }
 
@@ -853,18 +852,15 @@ gclk_cmp_result_t gclk_manager_cmp_range_limit(clk_topology_entry_t *topo_best, 
 
         for (unsigned i = 0; i < gclk_factor_cnt(ctx->scale_clk); i++) {
             uint32_t factor = gclk_idx2factor(ctx->scale_clk,i);
-            if ((factor >= ctx->scaler_factor_min) &&
-                (factor <= ctx->scaler_factor_max)) {
+            if ((factor >= ctx->scaler_factor_limits.min) &&
+                (factor <= ctx->scaler_factor_limits.max)) {
 
-                //uint32_t fsys;
                 uint32_t f_sclr;
 
                 if (gclk_is_multiplier(ctx->scale_clk)) {
-                    //f = topo_cmp[scale_clk_topo_idx + 1].clk_freq * factor * cmul / cdiv;
                     f_sclr = topo_cmp[ctx->scale_clk_topo_idx + 1].clk_freq * factor;
                 } else {
                     f_sclr = topo_cmp[ctx->scale_clk_topo_idx + 1].clk_freq / factor;
-                    //f = topo_cmp[scale_clk_topo_idx + 1].clk_freq * cmul / (cdiv * factor);
                 }
 
                 /* update the proposed topology config at the scaler clock position to determine the scaling effects
@@ -1038,6 +1034,67 @@ static const char* _approach2_str(gclk_scale_approach_t approach) {
     }
 }
 
+//static uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in) {
+//    if (gclk_is_multiplier(scaler)) {
+//        return f_in * factor;
+//    }
+//
+//    return f_in / factor;
+//}
+
+static void _get_scaler_min_max_freq(const gclk_t *scaler, uint32_t factor, gclk_freq_limit_t *fi_limits, gclk_freq_limit_t *fo_limits) {
+    /* get the minimum and maximum frequency possible with this factor */
+    if (gclk_is_multiplier(scaler)) {
+        fo_limits->min = fi_limits->min * factor;
+        fo_limits->max = fi_limits->max * factor;
+    } else {
+        fo_limits->min = fi_limits->min / factor;
+        fo_limits->max = fi_limits->max / factor;
+    }
+}
+
+static void _get_scale_factor_limits(const gclk_t *scaler, gclk_freq_limit_t *f_in, gclk_freq_limit_t *f_out, gclk_factor_limit_t *factor_limits) {
+    /* initialize to opposite extremes before searching for actual min max */
+    factor_limits->min = 0xFFFFFFFF;
+    factor_limits->max = 1;
+
+    size_t fact_cnt = gclk_factor_cnt(scaler);
+    /* rule out factors that will never yield a feasible configuration based on the up- and down-tree boundaries*/
+    for (unsigned i = 0; i < fact_cnt; i++) {
+        uint32_t factor = gclk_idx2factor(scaler, i);
+        //uint32_t fact_fmin;
+        //uint32_t fact_fmax;
+        ///* get the minimum and maximum frequency possible with this factor */
+        //if (gclk_is_multiplier(scs->scale_clk)) {
+        //    fact_fmin = src_topo_fmin * factor;
+        //    fact_fmax = src_topo_fmax * factor;
+        //} else {
+        //    fact_fmin = src_topo_fmin / factor;
+        //    fact_fmax = src_topo_fmax / factor;
+        //}
+        gclk_freq_limit_t limits_at_this_factor;
+        _get_scaler_min_max_freq(scaler, factor, f_in, &limits_at_this_factor);
+
+        /* check if this factor can be ignored completely as it will never give a valid frequency */
+        if (limits_at_this_factor.max < f_out->min) {
+            printf("factor %lu is invalid (max freq of %lu Hz where %lu Hz are needed)\n",
+                   factor, limits_at_this_factor.max, f_out->min);
+        }
+        if (limits_at_this_factor.min > f_out->max) {
+            printf("factor %lu is invalid (min freq of %lu Hz where max %lu Hz is allowed)\n",
+                   factor, limits_at_this_factor.min, f_out->max);
+        }
+        if (! ((limits_at_this_factor.max < f_out->min) || (limits_at_this_factor.min > f_out->max))) {
+            printf("factor %lu is considered valid\n", factor);
+            if (factor < factor_limits->min) {
+                factor_limits->min = factor;
+            }
+            if (factor > factor_limits->max) {
+                factor_limits->max = factor;
+            }
+        }
+    }
+}
 
 // TODO: place those variables in heap for now to avoid stack overflows
 /* only required in case a DIRECT or UPTREE_RELATIVE approach is used and a specific set of default freqs is defined */
@@ -1110,73 +1167,49 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
 
             int srcidx = _clk_to_entry_idx(current_core_topology, current_core_topolen, scs->scale_clk);
 
-            uint32_t f_scaler_min;
-            uint32_t f_scaler_max;
+            //uint32_t f_scaler_min;
+            //uint32_t f_scaler_max;
+            gclk_freq_limit_t scaler_f_out_limits;
+
+            /* get absolute input requirements for the topology fed by the scaled clock instance */
             _get_minmax_applicable_topo_input_freq(current_core_topology,
                                                    current_core_topolen - (current_core_topolen - srcidx),
-                                                   &f_scaler_min, &f_scaler_max);
-            printf("combined global downtree constraints: f_scaler_min = %lu ; f_scaler_max = %lu\n", f_scaler_min, f_scaler_max);
+                                                   &scaler_f_out_limits);
+            printf("combined global downtree constraints: min = %lu ; max = %lu\n", scaler_f_out_limits.min, scaler_f_out_limits.max);
 
-            gclk_fraction_t minfact;
-            gclk_fraction_t maxfact;
+            /* factor limits of the uptree topology */
+            gclk_fraction_t utf_min;
+            gclk_fraction_t utf_max;
 
-            /* get min max factor of scaler input topology */
+            /* get min max factors of the topology that feeds the scaler instance */
             _get_minmax_equivalent_factors_of_topology(&current_core_topology[srcidx + 1], current_core_topolen - (srcidx + 1),
-                                                       &minfact, &maxfact);
+                                                       &utf_min, &utf_max);
 
             uint32_t root_freq = current_core_topology[current_core_topolen-1].clk_freq;
-            uint32_t src_topo_fmin = root_freq * minfact.n / minfact.d;
-            uint32_t src_topo_fmax = root_freq * maxfact.n / maxfact.d;
+            /* determine frequency boundaries of the uptree topology */
+            //uint32_t src_topo_fmin = root_freq * utf_min.n / utf_min.d;
+            //uint32_t src_topo_fmax = root_freq * utf_max.n / utf_max.d;
+            gclk_freq_limit_t scaler_f_in_limits = {
+                .min = root_freq * utf_min.n / utf_min.d,
+                .max = root_freq * utf_max.n / utf_max.d,
+            };
 
-            range_limit_ctx.scaler_factor_min = 0xFFFFFFFF;
-            range_limit_ctx.scaler_factor_max = 1;
-
-            for (unsigned i = 0; i < possible_freq_cnt; i++) {
-                uint32_t factor = gclk_idx2factor(scs->scale_clk, i);
-                uint32_t fact_fmin;
-                uint32_t fact_fmax;
-
-                /* get the minimum and maximum frequency possible with this factor */
-                if (gclk_is_multiplier(scs->scale_clk)) {
-                    fact_fmin = src_topo_fmin * factor;
-                    fact_fmax = src_topo_fmax * factor;
-                } else {
-                    fact_fmin = src_topo_fmin / factor;
-                    fact_fmax = src_topo_fmax / factor;
-                }
-
-                /* check if this factor can be ignored completely as it will never give a valid frequency */
-                if (fact_fmax < f_scaler_min) {
-                    printf("factor %lu is invalid (max freq of %lu Hz where %lu Hz are needed)\n", factor, fact_fmax, f_scaler_min);
-                }
-                if (fact_fmin > f_scaler_max) {
-                    printf("factor %lu is invalid (min freq of %lu Hz where max %lu Hz is allowed)\n", factor, fact_fmin, f_scaler_max);
-                }
-                if (! ((fact_fmax < f_scaler_min) || (fact_fmin > f_scaler_max))) {
-                    printf("factor %lu is considered valid\n", factor);
-                    if (factor < range_limit_ctx.scaler_factor_min) {
-                        range_limit_ctx.scaler_factor_min = factor;
-                    }
-                    if (factor > range_limit_ctx.scaler_factor_max) {
-                        range_limit_ctx.scaler_factor_max = factor;
-                    }
-                }
-            }
+            /* rule out factors that will never yield a feasible configuration based on the up- and down-tree boundaries*/
+            _get_scale_factor_limits(scs->scale_clk, &scaler_f_in_limits, &scaler_f_out_limits, &range_limit_ctx.scaler_factor_limits);
 
             /* the start configuration of the scale-via-single-clock approach is selected
              * by maxing out the frequency range (so that the remaining factors are still able to scale the frequency) */
             if (gclk_is_multiplier(scs->scale_clk)) {
-                range_limit_ctx.scaler_factor_target = range_limit_ctx.scaler_factor_max;
+                range_limit_ctx.scaler_factor_target = range_limit_ctx.scaler_factor_limits.max;
             } else {
-                range_limit_ctx.scaler_factor_target = range_limit_ctx.scaler_factor_min;
+                range_limit_ctx.scaler_factor_target = range_limit_ctx.scaler_factor_limits.min;
             }
-
 
             range_limit_ctx.dt_min = dtf_min;
             range_limit_ctx.dt_max = dtf_max;
 
-            range_limit_ctx.scaler_f_min = f_scaler_min;
-            range_limit_ctx.scaler_f_max = f_scaler_max;
+            range_limit_ctx.scaler_f_min = scaler_f_out_limits.min;
+            range_limit_ctx.scaler_f_max = scaler_f_out_limits.max;
             range_limit_ctx.scale_clk_topo_idx = srcidx;
             range_limit_ctx.min_infeasible_cnt = 0xFFFFFFFF;
 
