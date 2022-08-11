@@ -607,8 +607,7 @@ void _get_minmax_factors(const gclk_t *clk, uint32_t *min, uint32_t *max) {
 }
 
 void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len,
-                                                uint32_t *minfact_mul, uint32_t *minfact_div,
-                                                uint32_t *maxfact_mul, uint32_t *maxfact_div) {
+                                                gclk_fraction_t *min, gclk_fraction_t *max) {
     uint32_t minfm = 1;
     uint32_t minfd = 1;
 
@@ -616,24 +615,24 @@ void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *topo, size
     uint32_t maxfd = 1;
 
     for (unsigned i = 0; i < topo_len; i++) {
-        uint32_t min;
-        uint32_t max;
+        uint32_t mi;
+        uint32_t ma;
 
-        _get_minmax_factors(topo[i].clk, &min, &max);
+        _get_minmax_factors(topo[i].clk, &mi, &ma);
 
         if (gclk_is_divider(topo[i].clk)) {
-            minfd *= max;
-            maxfd *= min;
+            minfd *= ma;
+            maxfd *= mi;
         } else if (gclk_is_multiplier(topo[i].clk)) {
-            maxfm *= max;
-            minfm *= min;
+            maxfm *= ma;
+            minfm *= mi;
         }
     }
 
-    *minfact_mul = minfm;
-    *minfact_div = minfd;
-    *maxfact_mul = maxfm;
-    *maxfact_div = maxfd;
+    min->n = minfm;
+    min->d = minfd;
+    max->n = maxfm;
+    max->d = maxfd;
 }
 
 typedef struct {
@@ -663,13 +662,12 @@ void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gc
     }
 }
 
-void _get_minmax_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, uint32_t *minfmul, uint32_t *minfdiv,
-                                       uint32_t *maxfmul, uint32_t *maxfdiv,
+void _get_minmax_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, gclk_fraction_t *min, gclk_fraction_t *max,
                                        bool incl_src) {
     int idx = _clk_to_entry_idx(topo, len, src);
     if (idx > 0) {
         _get_minmax_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0),
-                                                   minfmul, minfdiv, maxfmul, maxfdiv);
+                                                   min, max);
     } else {
         printf("given src is not in topology!\n");
     }
@@ -796,10 +794,9 @@ typedef struct {
     uint32_t scaler_factor_target;
     uint32_t min_error;
     //unsigned scale_clk_topo_idx;
-    uint32_t dt_max_mul;
-    uint32_t dt_max_div;
-    uint32_t dt_min_mul;
-    uint32_t dt_min_div;
+    gclk_fraction_t dt_min;
+    gclk_fraction_t dt_max;
+    uint32_t min_infeasible_cnt;
 } range_limit_cmp_fun_ctx_t;
 
 static uint32_t _abs_diff(uint32_t a, uint32_t b) {
@@ -827,12 +824,12 @@ gclk_cmp_result_t gclk_manager_cmp_range_limit(clk_topology_entry_t *topo_best, 
     uint32_t cdiv;
     _get_equivalent_dt_factors(topo_cmp, len2, ctx->scale_clk, &cmul, &cdiv, false);
 
-    int cmp_max = _compare_equivalent_factors(cmul, cdiv, ctx->dt_max_mul, ctx->dt_max_div);
+    int cmp_max = _compare_equivalent_factors(cmul, cdiv, ctx->dt_max.n, ctx->dt_max.d);
     if (cmp_max > 0) { /* if greater than max dt factor, this is an invalid config */
         return GCLK_CONF_INVALID;
     }
 
-    int cmp_min = _compare_equivalent_factors(cmul, cdiv, ctx->dt_min_mul, ctx->dt_min_div);
+    int cmp_min = _compare_equivalent_factors(cmul, cdiv, ctx->dt_min.n, ctx->dt_min.d);
     if (cmp_min < 0) { /* if smaller than min dt factor, this is an invalid config */
         return GCLK_CONF_INVALID;
     }
@@ -847,9 +844,53 @@ gclk_cmp_result_t gclk_manager_cmp_range_limit(clk_topology_entry_t *topo_best, 
     //       factors. Even though the invalid ones get ruled out during the DFS populate stage, it might be benefition to include
     //       more of them from the beginning.
 
-    if (err < ctx->min_error) {
+    if(err <= ctx->min_error) {
         ctx->min_error = err;
-        return GCLK_CONF_BETTER;
+
+        uint32_t infeasible = 0;
+        uint32_t sc_backup_freq = topo_cmp[ctx->scale_clk_topo_idx].clk_freq;
+        uint32_t sc_backup_factor = topo_cmp[ctx->scale_clk_topo_idx].factor;
+
+        for (unsigned i = 0; i < gclk_factor_cnt(ctx->scale_clk); i++) {
+            uint32_t factor = gclk_idx2factor(ctx->scale_clk,i);
+            if ((factor >= ctx->scaler_factor_min) &&
+                (factor <= ctx->scaler_factor_max)) {
+
+                //uint32_t fsys;
+                uint32_t f_sclr;
+
+                if (gclk_is_multiplier(ctx->scale_clk)) {
+                    //f = topo_cmp[scale_clk_topo_idx + 1].clk_freq * factor * cmul / cdiv;
+                    f_sclr = topo_cmp[ctx->scale_clk_topo_idx + 1].clk_freq * factor;
+                } else {
+                    f_sclr = topo_cmp[ctx->scale_clk_topo_idx + 1].clk_freq / factor;
+                    //f = topo_cmp[scale_clk_topo_idx + 1].clk_freq * cmul / (cdiv * factor);
+                }
+
+                /* update the proposed topology config at the scaler clock position to determine the scaling effects
+                 * NOTE: this must be undone before returning! */
+                topo_cmp[ctx->scale_clk_topo_idx].clk_freq = f_sclr;
+                topo_cmp[ctx->scale_clk_topo_idx].factor = factor;
+                _model_propagate_conf_change_downtree(&topo_cmp[ctx->scale_clk_topo_idx], topo_cmp, len2);
+
+                for (unsigned c = 0; c < len2; c++) {
+                    if (_breaks_constraint(global_clock_constraints, GLOBAL_CLOCK_CONSTRAINTS_NUMOF, topo_cmp, len2)) {
+                        infeasible++;
+                    }
+                }
+            }
+        }
+
+        /* resotre state before feasibility check */
+        topo_cmp[ctx->scale_clk_topo_idx].clk_freq = sc_backup_freq;
+        topo_cmp[ctx->scale_clk_topo_idx].factor = sc_backup_factor;
+        _model_propagate_conf_change_downtree(&topo_cmp[ctx->scale_clk_topo_idx], topo_cmp, len2);
+
+        if (infeasible < ctx->min_infeasible_cnt) {
+            printf("infeasible: %lu\n", infeasible);
+            ctx->min_infeasible_cnt = infeasible;
+            return GCLK_CONF_BETTER;
+        }
     }
 
     return GCLK_CONF_WORSE;
@@ -1007,7 +1048,6 @@ range_limit_cmp_fun_ctx_t range_limit_ctx;
 /* only required in case SCALE_INTERMEDIATE_TOPO_AUTO approach is used */
 gclk_manager_sequence_step_t tmp_seq[MAX_PREPARED_SEQUENCE_LEN];
 
-
 static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) {
     /* params needed to run config exploration */
     uint32_t max_involved_clks = max_clocks_in_core_topology;
@@ -1061,19 +1101,12 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
             //cmp_func = gclk_manager_cmp_topology_closest_leaf_freq_pmin;
             //cmpctx = &target_freq;
 
-            uint32_t minfmul;
-            uint32_t minfdiv;
-            uint32_t maxfmul;
-            uint32_t maxfdiv;
+            gclk_fraction_t dtf_min;
+            gclk_fraction_t dtf_max;
 
-            gclk_manager_print_topology_conf(current_core_topology, current_core_topolen, false, true);
+            /* determine the absolute limits of the downtree topology */
             _get_minmax_equivalent_dt_factors(current_core_topology, current_core_topolen, scs->scale_clk,
-                                              &minfmul, &minfdiv, &maxfmul, &maxfdiv, false);
-
-            printf("minfmul: %lu\n", minfmul);
-            printf("minfdiv: %lu\n", minfdiv);
-            printf("maxfmul: %lu\n", maxfmul);
-            printf("maxfdiv: %lu\n", maxfdiv);
+                                              &dtf_min, &dtf_max, false);
 
             int srcidx = _clk_to_entry_idx(current_core_topology, current_core_topolen, scs->scale_clk);
 
@@ -1084,18 +1117,16 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
                                                    &f_scaler_min, &f_scaler_max);
             printf("combined global downtree constraints: f_scaler_min = %lu ; f_scaler_max = %lu\n", f_scaler_min, f_scaler_max);
 
-            uint32_t minfact_mul;
-            uint32_t minfact_div;
-            uint32_t maxfact_mul;
-            uint32_t maxfact_div;
+            gclk_fraction_t minfact;
+            gclk_fraction_t maxfact;
 
             /* get min max factor of scaler input topology */
             _get_minmax_equivalent_factors_of_topology(&current_core_topology[srcidx + 1], current_core_topolen - (srcidx + 1),
-                                                       &minfact_mul, &minfact_div, &maxfact_mul, &maxfact_div);
+                                                       &minfact, &maxfact);
 
             uint32_t root_freq = current_core_topology[current_core_topolen-1].clk_freq;
-            uint32_t src_topo_fmin = root_freq * minfact_mul / minfact_div;
-            uint32_t src_topo_fmax = root_freq * maxfact_mul / maxfact_div;
+            uint32_t src_topo_fmin = root_freq * minfact.n / minfact.d;
+            uint32_t src_topo_fmax = root_freq * maxfact.n / maxfact.d;
 
             range_limit_ctx.scaler_factor_min = 0xFFFFFFFF;
             range_limit_ctx.scaler_factor_max = 1;
@@ -1140,14 +1171,14 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
                 range_limit_ctx.scaler_factor_target = range_limit_ctx.scaler_factor_min;
             }
 
-            range_limit_ctx.dt_max_mul = maxfmul;
-            range_limit_ctx.dt_max_div = maxfdiv;
-            range_limit_ctx.dt_min_mul = minfmul;
-            range_limit_ctx.dt_min_div = minfdiv;
+
+            range_limit_ctx.dt_min = dtf_min;
+            range_limit_ctx.dt_max = dtf_max;
 
             range_limit_ctx.scaler_f_min = f_scaler_min;
             range_limit_ctx.scaler_f_max = f_scaler_max;
             range_limit_ctx.scale_clk_topo_idx = srcidx;
+            range_limit_ctx.min_infeasible_cnt = 0xFFFFFFFF;
 
             cmp_func = gclk_manager_cmp_range_limit;
             cmpctx = &range_limit_ctx;
