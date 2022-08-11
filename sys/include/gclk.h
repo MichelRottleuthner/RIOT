@@ -838,6 +838,12 @@ enum {
     ENABLE_PIN_OUTPUT_INVALID_PIN,
 };
 
+/* a type to represent a factional number in form of n/d */
+typedef struct {
+    uint32_t n;
+    uint32_t d;
+} gclk_fraction_t;
+
 //TODO: do we need a global state object for the gclk module itself?
 
 int gclk_module_init(void);
