@@ -572,8 +572,7 @@ void _get_equivalent_factors_after_source(const gclk_t *source, clk_topology_ent
     *div = d;
 }
 
-void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len,
-                                         uint32_t *mul, uint32_t *div) {
+void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *dtf) {
     uint32_t m = 1;
     uint32_t d = 1;
 
@@ -585,8 +584,8 @@ void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo
         }
     }
 
-    *mul = m;
-    *div = d;
+    dtf->n = m;
+    dtf->d = d;
 }
 
 void _get_minmax_factors(const gclk_t *clk, gclk_factor_limit_t *limits) {
@@ -653,10 +652,10 @@ int _clk_to_entry_idx(clk_topology_entry_t *topo, size_t len, const gclk_t *clk)
 }
 
 /* returns the equivalent factors */
-static void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, uint32_t *mul, uint32_t *div, bool incl_src) {
+static void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, gclk_fraction_t *dtf, bool incl_src) {
     int idx = _clk_to_entry_idx(topo, len, src);
     if (idx > 0) {
-        _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), mul, div);
+        _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), dtf);
     } else {
         printf("given src is not in topology!\n");
     }
@@ -665,7 +664,7 @@ static void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, c
 static void _get_equivalent_dt_fraction(clk_topology_entry_t *topo, size_t len, const gclk_t *src, gclk_fraction_t *dtf, bool incl_src) {
     int idx = _clk_to_entry_idx(topo, len, src);
     if (idx > 0) {
-        _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), &dtf->n, &dtf->d);
+        _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), dtf);
     } else {
         printf("given src is not in topology!\n");
     }
@@ -911,9 +910,8 @@ gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t
     (void)topo_best;
     (void)len1;
 
-    uint32_t cmul;
-    uint32_t cdiv;
-    _get_equivalent_dt_factors(topo_cmp, len2, ctx->scale_clk, &cmul, &cdiv, false);
+    gclk_fraction_t dtf;
+    _get_equivalent_dt_factors(topo_cmp, len2, ctx->scale_clk, &dtf, false);
 
     uint32_t abs_err = 0;
     size_t possible_freq_cnt = gclk_factor_cnt(ctx->scale_clk);
@@ -925,7 +923,7 @@ gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t
 
     for (unsigned i = 0; i < possible_freq_cnt; i++) {
         uint32_t factor = gclk_idx2factor(ctx->scale_clk, i);
-        possible_freqs[i] = _get_freq_for_factors(ctx->scale_clk, input_freq, cmul, cdiv, factor);
+        possible_freqs[i] = _get_freq_for_factors(ctx->scale_clk, input_freq, dtf.n, dtf.d, factor);
     }
 
     //uint32_t prev_freq = 0;
@@ -1285,9 +1283,8 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
             match_freq_cnt = cnt <= possible_freq_cnt ? cnt : possible_freq_cnt;
         }
 
-        uint32_t mul;
-        uint32_t div;
-        _get_equivalent_dt_factors(current_core_topology, current_core_topolen, scs->scale_clk, &mul, &div, false);
+        gclk_fraction_t dtf;
+        _get_equivalent_dt_factors(current_core_topology, current_core_topolen, scs->scale_clk, &dtf, false);
 
         int srcidx = _clk_to_entry_idx(current_core_topology, max_involved_clks, scs->scale_clk);
         /* TODO: replace this with a utility function that returns the the input freq
@@ -1301,11 +1298,11 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
             /* if a set of specific target freqs was provided match them.
              * if not, just scale down the max freq via available factors */
             if (cnt > 0) {
-                factor = _get_best_factor(scs->scale_clk, input_freq, freqs[i], mul, div);
+                factor = _get_best_factor(scs->scale_clk, input_freq, freqs[i], dtf.n, dtf.d);
             } else {
                 factor = gclk_idx2factor(scs->scale_clk, i);
             }
-            uint32_t possible_freq = _get_freq_for_factors(scs->scale_clk, input_freq, mul, div, factor);
+            uint32_t possible_freq = _get_freq_for_factors(scs->scale_clk, input_freq, dtf.n, dtf.d, factor);
 
             /* filter out duplicates and invalids on the fly */
             if (_within_dfs_range(possible_freq) && ((matched == 0) || (prev_freq != possible_freq))) {
