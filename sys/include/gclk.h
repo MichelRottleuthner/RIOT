@@ -844,6 +844,19 @@ typedef struct {
     uint32_t d;
 } gclk_fraction_t;
 
+/* a type to represent a frequency limit via a min/max value */
+typedef struct {
+    uint32_t min;
+    uint32_t max;
+} gclk_freq_limit_t;
+
+/* a type to represent a factor limit via a min/max value */
+typedef struct {
+    uint32_t min;
+    uint32_t max;
+} gclk_factor_limit_t;
+
+
 //TODO: do we need a global state object for the gclk module itself?
 
 int gclk_module_init(void);
