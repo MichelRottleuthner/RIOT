@@ -283,6 +283,13 @@ unsigned int gclk_get_current_factor(const gclk_t *clk) {
    return 1;
 }
 
+int gclk_compare_fraction(gclk_fraction_t *a, gclk_fraction_t *b) {
+    uint32_t m1 = a->n * b->d;
+    uint32_t m2 = b->n * a->d;
+
+    return m1 - m2;
+}
+
 unsigned int gclk_get_uptree_dependent_factor(const gclk_t *gclk, const clk_topology_entry_t *tree_confs, unsigned int conf_cnt) {
     for (unsigned i = 0; i < conf_cnt; i++) {
         if (tree_confs[i].clk == gclk->factor_mapping.cross_ref->ref_clk) {

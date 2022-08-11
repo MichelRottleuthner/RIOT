@@ -850,6 +850,14 @@ int gclk_module_init(void);
 const char *gclk_get_name(const gclk_t *clk);
 const gclk_t* gclk_get_clk_by_name(const char *name);
 
+/* @brief compares two fractions
+ *
+ * returns <0 if mul1/div1 is smaller than mul2/div2
+ * returns 0  if mul1/div1 is equal to mul2/div2
+ * returns >0 if mul1/div1 is greater to mul2/div2
+ */
+int gclk_compare_fraction(gclk_fraction_t *a, gclk_fraction_t *b);
+
 /**
  * @brief get the current frequency of this clock
  */
