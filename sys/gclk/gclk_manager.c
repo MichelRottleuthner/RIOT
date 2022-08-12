@@ -2852,18 +2852,15 @@ static const gclk_freq_constraint_t* _breaks_constraint(const gclk_freq_constrai
                 if ((constraints[c].type == GCLK_ENSURE_MIN_FREQ) &&
                     (topo_conf[t].clk_freq < constraints[c].freq)) {
                     return &constraints[c];
-                    //return true;
                 }
                 if ((constraints[c].type == GCLK_ENSURE_MAX_FREQ) &&
                     (topo_conf[t].clk_freq > constraints[c].freq)) {
                     return &constraints[c];
-                    //return true;
                 }
             }
         }
     }
     return NULL;
-    //return false;
 }
 
 uint32_t gclk_manager_brute_force_freq_conf(const gclk_t *clk, clk_topology_entry_t *best_topology, uint32_t *topo_len,
@@ -3423,23 +3420,6 @@ extern int _derive_sequence_chain(int stid, int ttid, unsigned *seq_chain, size_
             }
         }
     }
-
-    //// print graph matrix
-    //printf("   ");
-    //for (unsigned i = 0; i < unique_tids; i++) {
-    //    printf("%2d ", tidx_tid[i]);
-    //}
-    //printf("\n");
-    //for (unsigned i = 0; i < unique_tids; i++) {
-    //    printf("%d: ", tidx_tid[i]);
-    //    for (unsigned j = 0; j < unique_tids; j++) {
-    //        printf("%2d ", tid_graph[i][j]);
-    //    }
-    //    printf("\n");
-    //}
-    //printf("\n");
-
-
 
     /* distance form start topology to each other topology */
     unsigned dist[unique_tids];
