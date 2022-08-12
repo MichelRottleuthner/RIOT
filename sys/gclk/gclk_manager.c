@@ -773,19 +773,6 @@ void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, size_t l
     freq_limits->max = fmax;
 }
 
-typedef struct {
-    const gclk_t *scale_clk;
-    unsigned scale_clk_topo_idx;
-    uint32_t target_freq;
-    gclk_freq_limit_t scaler_fo_limits; /*< absolute limits for the output freq. at the scaled clock */
-    uint32_t scaler_factor_target;
-    gclk_factor_limit_t scaler_factor_limits;
-    uint32_t min_error;
-    gclk_fraction_t dt_min;
-    gclk_fraction_t dt_max;
-    uint32_t min_infeasible_cnt;
-} range_limit_cmp_fun_ctx_t;
-
 static uint32_t _abs_diff(uint32_t a, uint32_t b) {
     return (a > b) ? (a - b) : (b - a);
 }
@@ -794,14 +781,13 @@ static bool _freq_within_limit(uint32_t freq, gclk_freq_limit_t *limit) {
     return (freq < limit->max) && (freq > limit->min);
 }
 
-gclk_cmp_result_t gclk_manager_cmp_range_limit(clk_topology_entry_t *topo_best, size_t len1,
-                                               clk_topology_entry_t *topo_cmp, size_t len2,
-                                               void *arg) {
+gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entry_t *topo_best,
+                            size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg) {
     range_limit_cmp_fun_ctx_t *ctx = (range_limit_cmp_fun_ctx_t*)arg;
 
     (void)topo_best;
     (void)len1;
-    
+
     /* the particular factor of the scaled clock is not really relevant in this context since the search
      * is not for a single factor (but a range of factors which should all apply to the given config).
      * Further down there is a check that considers all appliccable factors so skip all but one factor
@@ -838,7 +824,7 @@ gclk_cmp_result_t gclk_manager_cmp_range_limit(clk_topology_entry_t *topo_best, 
                 topo_cmp[ctx->scale_clk_topo_idx].clk_freq = f_sclr;
                 topo_cmp[ctx->scale_clk_topo_idx].factor = factor;
                 _model_propagate_conf_change_downtree(&topo_cmp[ctx->scale_clk_topo_idx], topo_cmp, len2);
-                
+
                 if (_breaks_constraint(global_clock_constraints, GLOBAL_CLOCK_CONSTRAINTS_NUMOF, topo_cmp, len2)) {
                     infeasible++;
                 }
@@ -853,7 +839,7 @@ gclk_cmp_result_t gclk_manager_cmp_range_limit(clk_topology_entry_t *topo_best, 
         if (infeasible < ctx->min_infeasible_cnt) {
             ctx->min_infeasible_cnt = infeasible;
             return GCLK_CONF_BETTER;
-       } else if (infeasible == ctx->min_infeasible_cnt) {
+        } else if (infeasible == ctx->min_infeasible_cnt) {
             gclk_cmp_result_t pmin_res = gclk_manager_cmp_topology_closest_leaf_freq_pmin(topo_best, len1,
                                                                                           topo_cmp, len2, &ctx->target_freq);
             if (pmin_res == GCLK_CONF_BETTER) {
@@ -1096,16 +1082,6 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
          * highest possible frequency at its minimal power configuration and using the available factors
          * of the single scaled clock */
         if (scs->default_freqs == NULL || scs->default_freqs_cnt == 0) {
-            //TODO extend the cmp_fun context/ or the brute-force exploration to take an optional list of constraints
-            // This could also be done with a decorated compare function that returns invalid for configs that violate
-            // the constraint.
-            // The constraint we need in this case is that we want to ensure the setup config still provides enough configuration
-            // freedom to make use of (a good part of) the scaled clocks factor range.
-            // TODO:
-            // - get a feasibility set
-            //  - rule out any factors that are not applicable at all
-            //  - take the remaining factors and derive the (pmin?) config that applies to all of them
-
             int srcidx = _clk_to_entry_idx(current_core_topology, current_core_topolen, scs->scale_clk);
 
             /* get absolute input requirements for the topology fed by the scaled clock instance
@@ -1143,19 +1119,14 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
                 range_limit_ctx.scaler_factor_target = range_limit_ctx.scaler_factor_limits.min;
             }
 
-            //TODO: check if we can derive a more strict limit of the dtf before startig the exploration (for faster filtering of invalids)
-            //gclk_fraction_t dtf_min;
-            //gclk_fraction_t dtf_max;
-            ///* determine the absolute limits of the downtree topology */
-            //_get_minmax_equivalent_dt_factors(current_core_topology, current_core_topolen, scs->scale_clk,
-            //                                  &dtf_min, &dtf_max, false);
-            //range_limit_ctx.dt_min = dtf_min;
-            //range_limit_ctx.dt_max = dtf_max;
+            /* NOTE: another check could use similar 'symbolic calculation' steps as above to pre-determine
+             *       additional downtree limits per involved clock instance based on the determined limits
+             *       at the input side. */
 
             range_limit_ctx.scale_clk_topo_idx = srcidx;
             range_limit_ctx.min_infeasible_cnt = 0xFFFFFFFF;
 
-            cmp_func = gclk_manager_cmp_range_limit;
+            cmp_func = gclk_manager_cmp_single_scaler_range_limited;
             cmpctx = &range_limit_ctx;
         } else {
             cmp_func = gclk_manager_cmp_lowest_freq_list_abs_err;

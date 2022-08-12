@@ -189,6 +189,39 @@ typedef struct {
     const char *name;
 } topology_cmp_func_names_t;
 
+/* Context data used by the required gclk_manager_cmp_single_scaler_range_limited compare function */
+typedef struct {
+    const gclk_t *scale_clk;      /*< the single clock scaler that will be used for DFS adaptations */
+    unsigned scale_clk_topo_idx;  /*< the topology entry index that refers to the above clock.
+                                      Note: this must be valid for all calls of the compare function.
+                                            I.e. the compare function is not suitable for comparing different
+                                            topologies (but different factor configs of the same topology). */
+    uint32_t target_freq;               /*< The target frequency of the last clock in the topology. This usually
+                                            refers to the core clock */
+    gclk_freq_limit_t scaler_fo_limits; /*< absolute limits for the output freq. at the scaled clock */
+    uint32_t scaler_factor_target; /*< one specific factor of the scaled clock instance that defines the subset
+                                       of configurations that will be evaluated in more detail.
+                                       Used to skip the more complex comparison step for all other factors 
+                                       (because every comparison step always considers every possible factor anyway) */ 
+    gclk_factor_limit_t scaler_factor_limits; /*< factor limits for the scaled clock instance. Every config that is out
+                                                  of this limits could already be predetermined to be invalid. */ 
+    uint32_t min_error; /*< cached value of the minimum target frequency error found during previous comparisons.
+                            Should be initialized to the highest value possible before starting comparison. */
+    uint32_t min_infeasible_cnt; /*< cached count of infeasible scale factors of previous comparisons.
+                                     The lower this value, the more frequency steps were found  */
+} range_limit_cmp_fun_ctx_t;
+
+/* a compare function that evaluates how well a configuration is suitable for DFS when using a single scaler
+ * for the frequency adaptation.
+ * A pointer to a properly initialized @range_limit_cmp_fun_ctx_t struct must be given as context.
+ * Configurations are compared regarding the following aspects (in descending priority):
+ * - Configs that result in a frequency that is closer to the target frequency are better
+ * - Configs enabling more frequency steps are better
+ * - Configs that result in lower power consumption are better */ 
+gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entry_t *topo_best, size_t len1,
+                                                               clk_topology_entry_t *topo_cmp, size_t len2,
+                                                               void *arg);
+
 /* a compare function that only considers exact frequency matches valid and prefers configurations
  * with a lower power consumption. The consumption is calculated with the clock power model that is
  * parameterized with platform-specific power properties for relevant clock nodes. */
