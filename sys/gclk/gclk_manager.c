@@ -2503,9 +2503,6 @@ gclk_manager_dvs_policy_t gclk_manager_get_dvs_policy(void) {
     return dvs_policy;
 }
 
-/* TODO: relocate from test app to gclk */
-extern bool _set_freq(const gclk_t *clk, uint32_t freq);
-
 void gclk_manager_disable_unused(void) {
     for (unsigned i = 0; i < gclk_get_cnt(); i++) {
         const gclk_t *clk = gclk_get(i);
