@@ -743,7 +743,7 @@ void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, size_t l
         /* if this clock puts up a constraint check if it is more severe than the
          * constraint put up by any children before */
         if (is_constrained) {
-            _print_constraint(topo[i].clk, &fo_lim);
+            //_print_constraint(topo[i].clk, &fo_lim);
             /* in case this clock requires a higher minimum freq than its children,
              * update the absolute constraint accordingly */
             if (fo_lim.min > fmin) {
@@ -764,8 +764,6 @@ void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, size_t l
         /* calculate the input constraint for this clock
          * (considering the worst case of either this clocks limits or the potentially even stricter limits
          * put p by children) */
-        //uint32_t fact_min = 1;
-        //uint32_t fact_max = 1;
         gclk_factor_limit_t fact_lim;
         if (gclk_is_scalable(topo[i].clk)) {
             _get_minmax_factors(topo[i].clk, &fact_lim);
@@ -804,12 +802,9 @@ typedef struct {
     uint32_t target_freq;
     uint32_t scaler_f_min;
     uint32_t scaler_f_max;
-    //uint32_t scaler_factor_min;
-    //uint32_t scaler_factor_max;
     uint32_t scaler_factor_target;
     gclk_factor_limit_t scaler_factor_limits;
     uint32_t min_error;
-    //unsigned scale_clk_topo_idx;
     gclk_fraction_t dt_min;
     gclk_fraction_t dt_max;
     uint32_t min_infeasible_cnt;
@@ -1122,7 +1117,6 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
     /* used if no default freqs are specified and available factors must be matched
      * to a set of actually feasible configs */
     range_limit_ctx.scale_clk = scs->scale_clk;
-    //range_limit_ctx.target_freq = DFS_CYCLER_MAX_FREQ;
     range_limit_ctx.target_freq = DFS_CYCLER_MAX_FREQ;
     range_limit_ctx.min_error = 0xFFFFFFFF;
 
@@ -1134,8 +1128,6 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
          * highest possible frequency at its minimal power configuration and using the available factors
          * of the single scaled clock */
         if (scs->default_freqs == NULL || scs->default_freqs_cnt == 0) {
-            /* determine target frequencies by running bf for pmin of fmax config and then just use the list of possible factors
-             * with the derived conf */
             //TODO extend the cmp_fun context/ or the brute-force exploration to take an optional list of constraints
             // This could also be done with a decorated compare function that returns invalid for configs that violate
             // the constraint.
@@ -1145,39 +1137,30 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
             // - get a feasibility set
             //  - rule out any factors that are not applicable at all
             //  - take the remaining factors and derive the (pmin?) config that applies to all of them
-            //target_freq = DFS_CYCLER_MAX_FREQ;
-            //cmp_func = gclk_manager_cmp_topology_closest_leaf_freq_pmin;
-            //cmpctx = &target_freq;
-
-            gclk_fraction_t dtf_min;
-            gclk_fraction_t dtf_max;
-
-            /* determine the absolute limits of the downtree topology */
-            _get_minmax_equivalent_dt_factors(current_core_topology, current_core_topolen, scs->scale_clk,
-                                              &dtf_min, &dtf_max, false);
 
             int srcidx = _clk_to_entry_idx(current_core_topology, current_core_topolen, scs->scale_clk);
 
-            //uint32_t f_scaler_min;
-            //uint32_t f_scaler_max;
             gclk_freq_limit_t scaler_f_out_limits;
 
-            /* get absolute input requirements for the topology fed by the scaled clock instance */
+            /* get absolute input requirements for the topology fed by the scaled clock instance
+             * This data is then used to rule out any configs for the input side (the scaler) that wont be able
+             * to operate within these limits. */
             _get_minmax_applicable_topo_input_freq(current_core_topology,
                                                    current_core_topolen - (current_core_topolen - srcidx),
                                                    &scaler_f_out_limits);
-            printf("combined global downtree constraints: min = %lu ; max = %lu\n", scaler_f_out_limits.min, scaler_f_out_limits.max);
 
             /* factor limits of the uptree topology */
             gclk_fraction_t utf_min;
             gclk_fraction_t utf_max;
 
-            /* get min max factors of the topology that feeds the scaler instance */
+            /* get min max factors of the topology that feeds the scaler instance. In case any additional scalers
+             * sit before the scaler which is used for dfs, the full operational range of the input side must be considered too,
+             * before ruling out factors of the dfs scaler as infeasible */
             _get_minmax_equivalent_factors_of_topology(&current_core_topology[srcidx + 1], current_core_topolen - (srcidx + 1),
                                                        &utf_min, &utf_max);
 
-            uint32_t root_freq = current_core_topology[current_core_topolen-1].clk_freq;
             /* determine frequency boundaries of the uptree topology */
+            uint32_t root_freq = current_core_topology[current_core_topolen-1].clk_freq;
             gclk_freq_limit_t scaler_f_in_limits = {
                 .min = root_freq * utf_min.n / utf_min.d,
                 .max = root_freq * utf_max.n / utf_max.d,
@@ -1194,6 +1177,12 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
                 range_limit_ctx.scaler_factor_target = range_limit_ctx.scaler_factor_limits.min;
             }
 
+            gclk_fraction_t dtf_min;
+            gclk_fraction_t dtf_max;
+
+            /* determine the absolute limits of the downtree topology */
+            _get_minmax_equivalent_dt_factors(current_core_topology, current_core_topolen, scs->scale_clk,
+                                              &dtf_min, &dtf_max, false);
             range_limit_ctx.dt_min = dtf_min;
             range_limit_ctx.dt_max = dtf_max;
 
