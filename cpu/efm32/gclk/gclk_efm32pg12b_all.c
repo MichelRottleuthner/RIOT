@@ -1097,14 +1097,6 @@ const reinit_trigger_conf_t reinit_configs[] = {
 /* TODO: once migrated to list based notifications this can be dropped */
 const unsigned int GCLK_REINIT_CONFIGS_CNT = ARRAY_SIZE(reinit_configs);
 
-/* Clocks higher up in the tree must be listed first */
-preferred_freq_conf_t preferred_freqs[] = {
-    { .clk = &gclk_efm32_hfcorepresc_scaler.base,  .preferred_freq = 19000000},
-};
-
-/* TODO: once preferred frequencies can be registered dynamically we can remove this */
-const unsigned int GCLK_PREFERRED_FREQ_CONF_CNT = ARRAY_SIZE(preferred_freqs);
-
 gclk_t const *gclock_handle_for_core_freq = &gclk_efm32_hfcorepresc_scaler.base;
 
 /* making this static leads to copies if included from multiple places, so avoid that */
