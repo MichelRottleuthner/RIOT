@@ -290,7 +290,14 @@ int gclk_mananger_set_default_dfs_frequencies(void) {
         printf("no active core scale setting defined\n");
         return 0;
     }
+    uint64_t t_1 = xtimer_now_usec64();
     _setup_default_dfs_topology_config(active_core_scale_setting);
+    uint64_t t_2 = xtimer_now_usec64();
+
+    uint32_t t_default_topo_setup = (uint32_t)((t_2 - t_1)/1000);
+
+    printf("took %lu ms for default topo setup\n", t_default_topo_setup);
+
     int res = gclk_mananger_set_dfs_frequencies(active_core_scale_setting->default_freqs, active_core_scale_setting->default_freqs_cnt);
     return res;
 }
