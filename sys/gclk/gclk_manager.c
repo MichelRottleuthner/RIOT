@@ -1036,15 +1036,6 @@ static void _get_scale_factor_limits(const gclk_t *scaler, gclk_freq_limit_t *f_
     }
 }
 
-// TODO: place those variables in heap for now to avoid stack overflows
-/* only required in case a DIRECT or UPTREE_RELATIVE approach is used and a specific set of default freqs is defined */
-lflae_cmp_fun_ctx_t lflaectx;
-/* used if no default freqs are specified and available factors must be matched
- * to a set of actually feasible configs */
-range_limit_cmp_fun_ctx_t range_limit_ctx;
-/* only required in case SCALE_INTERMEDIATE_TOPO_AUTO approach is used */
-gclk_manager_sequence_step_t tmp_seq[MAX_PREPARED_SEQUENCE_LEN];
-
 static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) {
     /* params needed to run config exploration */
     uint32_t max_involved_clks = max_clocks_in_core_topology;
@@ -1062,6 +1053,7 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
     size_t freqs_to_match_cnt = scs->default_freqs_cnt <= possible_freq_cnt ? scs->default_freqs_cnt : possible_freq_cnt;
 
     /* only required in case a DIRECT or UPTREE_RELATIVE approach is used and a specific set of default freqs is defined */
+    lflae_cmp_fun_ctx_t lflaectx;
     lflaectx.freqs = scs->default_freqs;
     lflaectx.target_freqs_cnt = scs->default_freqs_cnt;
     lflaectx.match_freqs_cnt = freqs_to_match_cnt;
@@ -1070,17 +1062,15 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
 
     /* used if no default freqs are specified and available factors must be matched
      * to a set of actually feasible configs */
+    range_limit_cmp_fun_ctx_t range_limit_ctx;
     range_limit_ctx.scale_clk = scs->scale_clk;
     range_limit_ctx.target_freq = DFS_CYCLER_MAX_FREQ;
     range_limit_ctx.min_error = 0xFFFFFFFF;
 
     if (scs->approach == SCALE_DIRECT ||
         scs->approach == SCALE_UPTREE_RELATIVE) {
-        //TODO: this may result in invalid configs where the single scaled clock reduces/increases the frequency too much
-        //      -> to ensure this does not happen we must check all frequencies
-        /* if no freq values are provided explicitly, derive the target frequencies from the
-         * highest possible frequency at its minimal power configuration and using the available factors
-         * of the single scaled clock */
+        /* if no freq values are provided explicitly, derive a target config from the highest allowed DFS frequency and
+         * all available factors of the single scaled clock. */
         if (scs->default_freqs == NULL || scs->default_freqs_cnt == 0) {
             int srcidx = _clk_to_entry_idx(current_core_topology, current_core_topolen, scs->scale_clk);
 
@@ -1120,7 +1110,7 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
             }
 
             /* NOTE: another check could use similar 'symbolic calculation' steps as above to pre-determine
-             *       additional downtree limits per involved clock instance based on the determined limits
+             *       additional downtree limits for each involved clock instance based on the determined limits
              *       at the input side. */
 
             range_limit_ctx.scale_clk_topo_idx = srcidx;
@@ -1153,10 +1143,11 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
     }
 
     int seq_len = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
-                                               ttopo, max_involved_clks, tmp_seq, ARRAY_SIZE(tmp_seq));
+                                               ttopo, max_involved_clks, &prepared_rescale_sequences[0][0],
+                                               ARRAY_SIZE(prepared_rescale_sequences[0]));
     if (seq_len > 0) {
         printf("derived sequence to switch to %lu Hz with %u steps\n", leaf_freq, seq_len);
-        gclk_manager_run_sequence_with_notify(tmp_seq, seq_len, false);
+        gclk_manager_run_sequence_with_notify(&prepared_rescale_sequences[0][0], seq_len, false);
     } else {
         printf("derive seq res: %d\n", seq_len);
         return false;
