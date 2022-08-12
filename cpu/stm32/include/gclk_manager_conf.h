@@ -64,7 +64,6 @@ enum {
 //        }
 //    }
 
-extern preferred_freq_conf_t preferred_freqs[];
 extern const unsigned int GCLK_PREFERRED_FREQ_CONF_CNT;
 //extern gclk_t const *gclock_handle_for_core_freq;
 
@@ -450,12 +449,6 @@ const gclk_manager_topo_switch_desc_t core_clk_topo_switch_descs[] = {
 
 #define CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF   (ARRAY_SIZE(core_clk_topo_switch_descs))
 
-/* Clocks higher up in the tree must be listed first */
-preferred_freq_conf_t preferred_freqs[] = {
-    { .clk = &gclk_stm32_ahb_scaler.base,  .preferred_freq = 80000000},
-    { .clk = &gclk_stm32_apb1_scaler.base, .preferred_freq = 20000000},
-};
-
 /* these constraints universally apply for this platform at all times */
 const gclk_freq_constraint_t global_clock_constraints[] = {
     { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_stm32_pll_m_scaler.base, .freq = 4000000 },
@@ -540,7 +533,6 @@ const gclk_manager_power_properties_t clock_power_model[] = {
 
 /* Defines the maximum number of discrete frequency steps that are used for dynamic frequency scaling
  * and PU metric assessment */
-//#define MAX_DFS_FREQ_VALUES_NUM (ARRAY_SIZE(gclk_manager_preferred_freqs))
 #define MAX_DFS_FREQ_VALUES_NUM (MAX_PREFERRED_FREQS_NUM)
 
 
@@ -584,8 +576,6 @@ static inline int gclk_manager_platform_init(void) {
     return 0;
 }
 
-/* TODO: once preferred frequencies can be registered dynamically we can remove this */
-const unsigned int GCLK_PREFERRED_FREQ_CONF_CNT = ARRAY_SIZE(preferred_freqs);
 /** @} */
 
 #ifdef __cplusplus
