@@ -395,21 +395,6 @@ void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fb
  */
 void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedules);
 
-/* @brief Try to setup clocks as close as possible to their preferred frequency
- *
- * @todo this should be replaced by proper dynamic locks/constraints (ranges) to give the clock manger a more
- *       global view on what it is allowed to configure.
- *
- * @note this is legacy thing refactored out from the transition command. Its intention was to act as a basic replacement for proper
- *       dynamic requirements/constraints put onto clocks at runtime. Since RIOT at the moment does not have any dynamic clock
- *       requirements this basically tries to keep the clocks as close as possible to their static configuration counterparts throughout
- *       different clock changing interactions.
- *       It is basically just an ad hoc quick fix to add some form of clock frequency configuration that is persistent across
- *       interactions that intermediately change clock frequencies. If this is not in place and we change a frequency to
- *       a value different to its initial configuration this error will accumulate with every following transaction.
- */
-void gclk_manager_setup_preferred_freqs(void);
-
 /* @brief Do a complex transition a clock to a new frequency
  *
  * @note This may temporariy switch the clock to another topology before setting up the final configuration in cases
