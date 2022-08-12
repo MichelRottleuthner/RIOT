@@ -1387,27 +1387,6 @@ int _sc_disable_unused(int argc, char **argv)
     return 0;
 }
 
-/* adapt a frequency of a clock by temporarily switching it to another source, adapting the original source, and then
-   switch back */
-int _sc_transition(int argc, char **argv)
-{
-    if (argc != 3) {
-        printf("Usage: %s <clk_name> <target_freq>\n", argv[0]);
-        return 1;
-    }
-
-    const gclk_t *clk = gclk_get_clk_by_name(argv[1]);
-    uint32_t freq = atoi(argv[2]);
-
-    if (clk) {
-        gclk_manager_transition(clk, freq);
-        printf("transition done!\n");
-    } else {
-        printf("could not find clock named %s\n", argv[1]);
-    }
-    return 0;
-}
-
 int _sc_list_topologies(int argc, char **argv){
 
     if (argc != 2) {
