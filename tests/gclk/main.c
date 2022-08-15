@@ -211,7 +211,7 @@ int _sc_perf_util_test(int argc, char **argv) {
     /* ensure we sleep long enough for the threads to actually be dequeued */
     xtimer_usleep(20000);
 
-    /* calculate this output together with power measutremnts of the same task */
+    /* calculate the PU metric of the worker and output verbose metadata data if requested */
     int pu = gclk_manager_calculate_pu_factor(wtid, verbose);
     printf("performance util of thread %u: %d\n", wtid, pu);
     gclk_manager_enable_pu_assessment(false);
