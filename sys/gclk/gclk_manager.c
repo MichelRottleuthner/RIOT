@@ -145,6 +145,8 @@ typedef struct {
     bool freq_cycle_enabled;
 } freq_cycle_thread_context_t;
 
+freq_cycle_thread_context_t fc_ctx = { .done_mutex = MUTEX_INIT, };
+
 typedef struct {
     uint32_t cpu_time_ticks;
     uint32_t schedules;
@@ -295,14 +297,6 @@ static void _freq_change_scale_auto(uint32_t new_freq);
  * The same applies to clocks where it is known that no complex transition mechanism (temporary
  * swithcing to another clock) is needed. */
 gclk_manager_core_freq_reconf_cb_t freq_change_cb = _freq_change_scale_auto;
-
-freq_cycle_thread_context_t fc_ctx = {
-    .freqs = dfs_frequencies,
-    //.freq_cnt = dfs_frequencies_cnt,
-    //.cycle_us = atoi(argv[3]),
-    .done_mutex = MUTEX_INIT,
-    .freq_change_cb = _freq_change_scale_auto,
-};
 
 /* A freq change implementation that just maps to the core scale funtion that uses scale settings that apply
  * to the current topology */
@@ -1348,9 +1342,13 @@ void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedule
     fc_ctx.freqs = dfs_frequencies;
     fc_ctx.freq_cnt = dfs_frequencies_cnt;
     fc_ctx.cur_freq_idx = 0;
+    fc_ctx.freq_change_cb = _freq_change_scale_auto;
 
-    /* indicate that PU stats for the first frequency are pending for each requested thread */
+    /* indicate that all PU stats for the first frequency are still pending for each requested thread */
     fc_ctx.pu_stats_pending_cur_freq = fc_ctx.pu_stats_requested;
+
+    /* lock the mutex so that the second lock call below will block till the freq cycle is finished
+     * (gets unlocked by the cycler thread when done) */
     mutex_lock(&fc_ctx.done_mutex);
 
     /* set_up first frequency of the cycle */
