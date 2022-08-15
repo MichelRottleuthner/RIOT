@@ -107,7 +107,17 @@ static const gclk_freq_constraint_t* _breaks_constraint(const gclk_freq_constrai
  * @param[in]     tree_model_size   number of clock entries the @p tree_model consists of.
  */
 static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size);
-static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, uint32_t dt_mul, uint32_t dt_div, uint32_t fact);
+
+/*
+ * @brief calculates the down-tree output freq with given parameters.
+ *
+ * @param[in]  clk     the clock scaler @p factor and @p f_in are applied to.
+ * @param[in]  f_in    the input frequency of @p clk.
+ * @param[in]  dtf     the fractional scaling factor that is equivalent to all down-tree scaling factors
+ *                     after @p clk till the output clock. (Not including the factor of @p clk).
+ * @param[in]  factor  the scaling factor of @p clk.
+ */
+static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, gclk_fraction_t *dtf, uint32_t factor);
 static inline uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in);
 
 uint8_t active_freq_constraints[GCLK_FREQ_LIMIT_CLKS_NUMOF];
@@ -893,7 +903,7 @@ gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t
 
     for (unsigned i = 0; i < possible_freq_cnt; i++) {
         uint32_t factor = gclk_idx2factor(ctx->scale_clk, i);
-        possible_freqs[i] = _get_freq_for_factors(ctx->scale_clk, input_freq, dtf.n, dtf.d, factor);
+        possible_freqs[i] = _get_freq_for_factors(ctx->scale_clk, input_freq, &dtf, factor);
     }
 
     //uint32_t prev_freq = 0;
@@ -939,11 +949,11 @@ bool _within_dfs_range(uint32_t freq) {
     return true;
 }
 
-static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, uint32_t dt_mul, uint32_t dt_div, uint32_t fact) {
+static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, gclk_fraction_t *dtf, uint32_t factor) {
     if (gclk_is_multiplier(clk)) {
-        return (uint64_t)f_in * (uint64_t)dt_mul * (uint64_t)fact / (uint64_t)dt_div;
+        return (uint64_t)f_in * (uint64_t)dtf->n * (uint64_t)factor / (uint64_t)dtf->d;
     } else {
-        return (uint64_t)f_in * (uint64_t)dt_mul / ((uint64_t)fact * (uint64_t)dt_div);
+        return (uint64_t)f_in * (uint64_t)dtf->n / ((uint64_t)factor * (uint64_t)dtf->d);
     }
 }
 
@@ -967,7 +977,7 @@ static uint32_t _get_best_factor(const gclk_t *clk, uint32_t f_in, uint32_t targ
     uint32_t best_factor = 0;
     for (unsigned i = 0; i < factor_cnt; i++) {
         uint32_t factor = gclk_idx2factor(clk, i);
-        uint32_t f = _get_freq_for_factors(clk, f_in, dt_factor->n, dt_factor->d, factor);
+        uint32_t f = _get_freq_for_factors(clk, f_in, dt_factor, factor);
         uint32_t diff = _abs_diff(f, target_freq);
         if (diff < min_diff) {
             min_diff = diff;
@@ -1217,7 +1227,7 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
             } else {
                 factor = gclk_idx2factor(scs->scale_clk, i);
             }
-            uint32_t possible_freq = _get_freq_for_factors(scs->scale_clk, input_freq, dtf.n, dtf.d, factor);
+            uint32_t possible_freq = _get_freq_for_factors(scs->scale_clk, input_freq, &dtf, factor);
 
             /* filter out duplicates and invalids on the fly */
             if (_within_dfs_range(possible_freq) && ((matched == 0) || (prev_freq != possible_freq))) {
