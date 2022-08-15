@@ -118,6 +118,15 @@ static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_
  * @param[in]  factor  the scaling factor of @p clk.
  */
 static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, gclk_fraction_t *dtf, uint32_t factor);
+
+/*
+ * @brief calculates the output freq of a clock for given input freq and factor.
+ *
+ * @param[in]  clk     the clock scaler @p factor and @p f_in are applied to.
+ * @param[in]  factor  the scaling factor of @p clk.
+ * @param[in]  f_in    the input frequency of @p clk.
+ *
+ */
 static inline uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in);
 
 uint8_t active_freq_constraints[GCLK_FREQ_LIMIT_CLKS_NUMOF];
