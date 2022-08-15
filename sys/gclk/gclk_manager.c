@@ -94,6 +94,18 @@ static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *a
  */
 static const gclk_freq_constraint_t* _breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo, uint32_t topo_len);
 
+/*
+ * @brief propagates a clock config change down the clock tree model
+ *
+ * Can be used to evaluate how a specific change will affect (the properties of) other clocks.
+ * This operation does not affect the active clock configuration ans operates purely on the virtual model representation of the clock tree.
+ *
+ * @param[in]     changed_conf      pointer to the changed configuration entry.
+ * @param[in,out] tree_model        pointer to the topology entries holding (the relevant part of) the clock tree model which represents the state
+ *                                  of the clock tree before the change is applied. This state will be updated according to the indicated change
+ *                                  so that the @p tree_model reflects the state of the tree after performing the change.
+ * @param[in]     tree_model_size   number of clock entries the @p tree_model consists of.
+ */
 static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size);
 static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, uint32_t dt_mul, uint32_t dt_div, uint32_t fact);
 static inline uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in);
