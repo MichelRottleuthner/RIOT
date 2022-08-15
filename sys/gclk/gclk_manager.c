@@ -82,7 +82,18 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs);
  */
 static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *acc, clk_topology_entry_t *topo, uint32_t topo_len);
 
-static const gclk_freq_constraint_t* _breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo_conf, uint32_t topo_len);
+/*
+ * @brief check if the given topology config breaks constraints.
+ *
+ * @param[in] constraints    constraints to be checked.
+ * @param[in] constr_cnt     number of elements @constraints points to.
+ * @param[in] topo           clock topology entries describing the checked topology.
+ * @param[in] topo_len       number of clock instances in @topo.
+ *
+ * @return    The first unfulfilled constraint of @topo or NULL if all constraints are fulfilled.
+ */
+static const gclk_freq_constraint_t* _breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo, uint32_t topo_len);
+
 static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size);
 static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, uint32_t dt_mul, uint32_t dt_div, uint32_t fact);
 static inline uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in);
