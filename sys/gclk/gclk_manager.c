@@ -889,14 +889,28 @@ static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, u
     }
 }
 
-static uint32_t _get_best_factor(const gclk_t *clk, uint32_t f_in, uint32_t target_freq, uint32_t dt_mul, uint32_t dt_div) {
+/* Determines the best factor of available opptions to setup a given target frequency.
+ * The function assumes the following szenario:
+ * [input clock@f_in Hz]---drives-->[clk]---drives-->[down-tree-topology(x dt_mul, / dt_div)]---outputs-->[target_freq]
+ *
+ * @param[in] clk          a scalable clock instance (multiplier or divider)
+ * @param[in] f_in         the fixed input frequency of @clk
+ * @param[in] target_freq  the wanted output frequency value to aim for. This frequency will apply behind both, the
+ *                         scaled @clk and the downtree-topology config after it, where the topology is represented by
+ *                         a combined fraction.
+ * @param[in] dt_factor    a combined fractional factor that represents the whole topology after @clk and shall generate
+ *                         a frequency @target_freq at its output.
+ *
+ * @return    The scaling factor of @clk which generates the closest frequency to @target_freq for @clk and given configs.
+ */
+static uint32_t _get_best_factor(const gclk_t *clk, uint32_t f_in, uint32_t target_freq, gclk_fraction_t *dt_factor) {
     uint32_t min_diff = 0xFFFFFFFF;
     uint32_t factor_cnt = gclk_factor_cnt(clk);
     uint32_t best_factor = 0;
     for (unsigned i = 0; i < factor_cnt; i++) {
         uint32_t factor = gclk_idx2factor(clk, i);
-        uint32_t f = _get_freq_for_factors(clk, f_in, dt_mul, dt_div, factor);
-        uint32_t diff = f >= target_freq ? (f - target_freq) : (target_freq - f);
+        uint32_t f = _get_freq_for_factors(clk, f_in, dt_factor->n, dt_factor->d, factor);
+        uint32_t diff = _abs_diff(f, target_freq);
         if (diff < min_diff) {
             min_diff = diff;
             best_factor = factor;
@@ -1178,7 +1192,7 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
             /* if a set of specific target freqs was provided match them.
              * if not, just scale down the max freq via available factors */
             if (cnt > 0) {
-                factor = _get_best_factor(scs->scale_clk, input_freq, freqs[i], dtf.n, dtf.d);
+                factor = _get_best_factor(scs->scale_clk, input_freq, freqs[i], &dtf);
             } else {
                 factor = gclk_idx2factor(scs->scale_clk, i);
             }
