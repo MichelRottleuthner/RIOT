@@ -125,15 +125,20 @@ static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, g
  * @param[in]  clk     the clock scaler @p factor and @p f_in are applied to.
  * @param[in]  factor  the scaling factor of @p clk.
  * @param[in]  f_in    the input frequency of @p clk.
- *
  */
 static inline uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in);
 
-uint8_t active_freq_constraints[GCLK_FREQ_LIMIT_CLKS_NUMOF];
-
+/* gclk_manager state variable that stores whether the automatic voltage scaling feature is currently enabled.
+ * Never change directly! Use @gclk_manager_enable_voltage_auto_scale() to update this at runtime instead.*/
 static bool auto_vscale_enabled = false;
+
+/* gclk_manager state variable that stores whether the automatic wait state adaptation feature is currently enabled.
+ * Never change directly! Use @gclk_manager_enable_flashws_auto_update() to update this at runtime instead.*/
 static bool auto_wsadapt_enabled = false;
 
+/* mutex used by the manager to guard critical sections like complex topology switch operations.
+ * NOTE: as of now the manager should only be used by a single controller entity as multiple
+ *       simultaneous operators are not tested. */
 mutex_t clock_conf_mutex = MUTEX_INIT;
 
 typedef struct {
