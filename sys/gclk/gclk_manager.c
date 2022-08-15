@@ -83,18 +83,6 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs);
 static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *acc, clk_topology_entry_t *topo, uint32_t topo_len);
 
 /*
- * @brief check if the given topology config breaks constraints.
- *
- * @param[in] constraints    constraints to be checked.
- * @param[in] constr_cnt     number of elements @constraints points to.
- * @param[in] topo           clock topology entries describing the checked topology.
- * @param[in] topo_len       number of clock instances in @topo.
- *
- * @return    The first unfulfilled constraint of @topo or NULL if all constraints are fulfilled.
- */
-static const gclk_freq_constraint_t* _breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo, uint32_t topo_len);
-
-/*
  * @brief propagates a clock config change down the clock tree model
  *
  * Can be used to evaluate how a specific change will affect (the properties of) other clocks.
@@ -870,7 +858,7 @@ gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entr
                 topo_cmp[ctx->scale_clk_topo_idx].factor = factor;
                 _model_propagate_conf_change_downtree(&topo_cmp[ctx->scale_clk_topo_idx], topo_cmp, len2);
 
-                if (_breaks_constraint(global_clock_constraints, GLOBAL_CLOCK_CONSTRAINTS_NUMOF, topo_cmp, len2)) {
+                if (gclk_manager_conf_breaks_constraint(global_clock_constraints, GLOBAL_CLOCK_CONSTRAINTS_NUMOF, topo_cmp, len2)) {
                     infeasible++;
                 }
             }
@@ -1259,7 +1247,7 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
                     gclk_manager_print_topology_conf(&topology_conf_cache[matched][0], current_core_topolen, false, true);
                 }
 
-                const gclk_freq_constraint_t *constraint = _breaks_constraint(relevant_clock_constraints, rel_constr_cnt, &topology_conf_cache[matched][0], current_core_topolen);
+                const gclk_freq_constraint_t *constraint = gclk_manager_conf_breaks_constraint(relevant_clock_constraints, rel_constr_cnt, &topology_conf_cache[matched][0], current_core_topolen);
                 if (!constraint) {
                     _append_dfs_cache_entry(matched++, possible_freq, factor);
                     prev_freq = possible_freq;
@@ -2693,7 +2681,7 @@ static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *a
     return rccnt;
 }
 
-static const gclk_freq_constraint_t* _breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo_conf, uint32_t topo_len) {
+const gclk_freq_constraint_t* gclk_manager_conf_breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo_conf, uint32_t topo_len) {
     for (unsigned c = 0; c < constr_cnt; c++) {
         for (unsigned t = 0; t < topo_len; t++) {
             if (constraints[c].clk == topo_conf[t].clk) {
@@ -2760,7 +2748,7 @@ uint32_t gclk_manager_brute_force_freq_conf(const gclk_t *clk, clk_topology_entr
                         f_max = ct[0].clk_freq;
                     }
 
-                    if (!_breaks_constraint(relevant_clock_constraints, rel_constr_cnt, ct, ct_len)) {
+                    if (!gclk_manager_conf_breaks_constraint(relevant_clock_constraints, rel_constr_cnt, ct, ct_len)) {
                         gclk_cmp_result_t cmp_res = cmp_func(best_topology, best_top_size, ct, ct_len, cmp_func_ctx);
                         if (cmp_res != GCLK_CONF_INVALID) {
                             bool requested_this_config = (force_nth >= 0) && (valids == (unsigned)force_nth);

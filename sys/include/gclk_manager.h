@@ -285,6 +285,18 @@ int gclk_manager_init(void);
  */
 void gclk_manager_run_sequence(gclk_manager_sequence_step_t *steps, size_t step_cnt);
 
+/*
+ * @brief check if the given topology config breaks constraints.
+ *
+ * @param[in] constraints    constraints to be checked.
+ * @param[in] constr_cnt     number of elements @constraints points to.
+ * @param[in] topo           clock topology entries describing the checked topology.
+ * @param[in] topo_len       number of clock instances in @topo.
+ *
+ * @return    The first unfulfilled constraint of @topo or NULL if all constraints are fulfilled.
+ */
+const gclk_freq_constraint_t* gclk_manager_conf_breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo, uint32_t topo_len);
+
 void gclk_manager_notify_multi_clk_change(gclk_manager_sequence_step_t *seq, size_t seq_len,
                                           clk_topology_entry_t *old_topo, size_t old_topo_len,
                                           clk_topology_entry_t *new_topo, size_t new_topo_len,
