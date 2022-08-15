@@ -927,32 +927,6 @@ clk_topology_entry_t *_clear_core_topology_cache(clk_topology_entry_t *cacheloc)
     return topology;
 }
 
-//static int _derive_auto_seq(const gclk_scale_setting_t *scs, gclk_manager_sequence_step_t *seq, size_t max_seq_len,
-//                             clk_topology_entry_t *target_topo_conf, uint32_t target_conf_max_len, uint32_t *target_freq) {
-//
-//    gclk_cmp_func_t cmp_func = gclk_manager_cmp_topology_closest_leaf_freq_pmin;
-//
-//    int tid = scs->topology_id;
-//    size_t valid_cnt = 0;
-//    int force_nth = -1;
-//    uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, target_topo_conf, &target_conf_max_len,
-//                                                            &tid, cmp_func, (void*)&target_freq, &valid_cnt, force_nth, NULL);
-//    *target_freq = leaf_freq;
-//    if (leaf_freq != GCLK_INVALID_FREQ) {
-//        int seq_size = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
-//                                                    target_topo_conf, target_conf_max_len, seq, max_seq_len);
-//        printf("seq size: %d\n", seq_size);
-//        if (seq_size > 0) {
-//            return seq_size;
-//        } else {
-//            LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), current_core_topo_id, current_core_topo_id);
-//        }
-//    } else {
-//        printf("could not find config for %lu Hz with tid %u\n", *target_freq, tid);
-//    }
-//    return -1;
-//}
-
 static const char* _approach2_str(gclk_scale_approach_t approach) {
     switch (approach) {
         case SCALE_DIRECT: return "SCALE_DIRECT";
@@ -974,17 +948,6 @@ static void _get_scaler_min_max_freq(const gclk_t *scaler, uint32_t factor, gclk
     fo_limits->min = _apply_scale_factor(scaler, fi_limits->min, factor);
     fo_limits->max = _apply_scale_factor(scaler, fi_limits->max, factor);
 }
-
-//static void _print_factor_freq_limit_error(uint32_t factor, gclk_freq_limit_t *val, gclk_freq_limit_t *rule) {
-//    /* check if this factor can be ignored completely as it will never give a valid frequency */
-//    printf("factor %lu is invalid:", factor);
-//    if (val->max < rule->min) {
-//        printf("max freq is %lu Hz but >=%lu Hz is required)\n", val->max, rule->min);
-//    }
-//    if (val->min > rule->max) {
-//        printf("min freq is %lu Hz but <=%lu Hz is required)\n", val->min, rule->max);
-//    }
-//}
 
 static bool _limits_are_disjunct(gclk_freq_limit_t *a, gclk_freq_limit_t *b) {
     return (a->max < b->min) || (a->min > b->max);
