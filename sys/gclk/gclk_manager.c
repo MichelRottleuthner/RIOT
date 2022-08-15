@@ -34,18 +34,6 @@
 #define LOG_LEVEL LOG_NONE
 #include "log.h"
 
-/* this callback type is used to issue core clock changes. Depending on which implementation sits
- * behind it, that may be a very efficient operation (only changing a prescaler), a slightly more
- * expensive variant that also (pre- and post-) notifies registered clients that are affected by
- * this change, or even a very complex one that temporarily adapts the source topology of the clock
- * to be sourced by a different clock in order to actually be able to change its value.
- * The latter case is required for clocks that can not be directly scaled during operation but must
- * be swisched off and on again when changing their config.
- * Things that use this interface are e.g. the frequency-cycler-thread that changes the core
- * frequency while collecting metadata to calculate the PU metric for the different running threads.
- * Another use for this is when actually applying DVFS to switch to the most appropriate frequency
- * of the thread being executed */
-typedef void (*freq_reconf_cb_t)(uint32_t new_freq);
 
 /* custom hooks required to tap into peripheral re-init code for clock config changes */
 extern ztimer_periph_timer_t *___ztimer_periph_timer_instance;
@@ -83,7 +71,7 @@ typedef struct {
     unsigned freq_cnt;
     unsigned cur_freq_idx;
     mutex_t  done_mutex;
-    freq_reconf_cb_t freq_change_cb;
+    gclk_manager_core_freq_reconf_cb_t freq_change_cb;
     bool freq_cycle_enabled;
 } freq_cycle_thread_context_t;
 
@@ -236,7 +224,7 @@ static void _freq_change_scale_auto(uint32_t new_freq);
  * checks of whether a clock is affected and also not callbacks are required.
  * The same applies to clocks where it is known that no complex transition mechanism (temporary
  * swithcing to another clock) is needed. */
-freq_reconf_cb_t freq_change_cb = _freq_change_scale_auto;
+gclk_manager_core_freq_reconf_cb_t freq_change_cb = _freq_change_scale_auto;
 
 freq_cycle_thread_context_t fc_ctx = {
     .freqs = dfs_frequencies,

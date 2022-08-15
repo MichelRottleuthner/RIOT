@@ -36,6 +36,19 @@ extern "C" {
 /* This type sepcifies the interface to be used for pre- and post- clock change callback functions */
 typedef void (*clock_change_cb_t)(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
+/* This callback type is used to issue core clock changes. Depending on which implementation sits
+ * behind it, that may be a very efficient operation (only changing a prescaler), a slightly more
+ * expensive variant that also (pre- and post-) notifies registered clients that are affected by
+ * this change, or even a very complex one that temporarily adapts the source topology of the clock
+ * to be sourced by a different clock in order to actually be able to change its value.
+ * The latter case is required for clocks that can not be directly scaled during operation but must
+ * be switched off and on again when changing their config.
+ * Things that use this interface are e.g. the frequency-cycler-thread that changes the core
+ * frequency while collecting metadata to calculate the PU metric for the different running threads.
+ * Another use for this is when actually applying DVFS to switch to the most appropriate frequency
+ * of the thread being executed */
+typedef void (*gclk_manager_core_freq_reconf_cb_t)(uint32_t new_freq);
+
 /* Stores one entry of a callback that is executed once before and after a clock frequency change */
 typedef struct {
     list_node_t      node;
