@@ -69,7 +69,19 @@ extern void timer_write(tim_t tim, unsigned int cnt);
  */
 static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs);
 
+/*
+ * @brief get the subset of clock constraints which are applicable to the given topology.
+ *
+ * @pre (ARRAY_SIZE(acc) >= GLOBAL_CLOCK_CONSTRAINTS_NUMOF)
+ *
+ * @param[out] acc      location where all clock constraints that apply will be stored.
+ * @param[in] topo      topology of which all clocks will be checked for constraints.
+ * @param[in] topo_len  number of clock instances in @topo.
+ *
+ * @return    The number of found constraints that apply to the given topology.
+ */
 static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *acc, clk_topology_entry_t *topo, uint32_t topo_len);
+
 static const gclk_freq_constraint_t* _breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo_conf, uint32_t topo_len);
 static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size);
 static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, uint32_t dt_mul, uint32_t dt_div, uint32_t fact);
