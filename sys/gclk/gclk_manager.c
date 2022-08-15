@@ -240,31 +240,6 @@ static void _freq_change_scale_auto(uint32_t new_freq) {
     gclk_manager_scale_core_freq(new_freq);
 }
 
-///* returns number of appliccable factors that are >= min && <= max; and the idexes of those (via min/maxidx params)*/
-//static unsigned _get_closest_min_max_factors(const gclk_t *clk, uint32_t minf, uint32_t *minidx, uint32_t maxf, uint32_t *maxidx){
-//    /* init to invalid mul/div factors */
-//    uint32_t cmin = 0;
-//    uint32_t cmax = 0;
-//    unsigned valid_cnt = 0;
-//
-//    for (unsigned i = 0; i < gclk_factor_cnt(clk); i++) {
-//        uint32_t tmpf = gclk_idx2factor(clk, i);
-//        if (tmpf >= minf && tmpf <= maxf) {
-//            valid_cnt++;
-//            if (tmpf >= minf && (cmin == 0 || cmin > tmpf)) {
-//                cmin = tmpf;
-//                *minidx = i;
-//            }
-//            if (tmpf <= maxf && (cmax == 0 || cmax < tmpf)) {
-//                cmax = tmpf;
-//                *maxidx = i;
-//            }
-//        }
-//    }
-//
-//    return valid_cnt;
-//}
-
 static void _append_dfs_cache_entry(unsigned cidx, uint32_t freq, uint32_t factor) {
     //TODO it could be benefitial to store either the equivalent downtree factors or the scale factors that correspond to the
     //     frequencies that are being set up (to avoid translating between freq and factor ad hoc)
