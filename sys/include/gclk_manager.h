@@ -33,6 +33,9 @@ extern "C" {
 /* defualt minimum number of thread schedules that must have occured before PU calculation */
 #define GCLK_MANAGER_MIN_PU_STATS_SCHEDULES (10)
 
+/* declare clock instance array that is provided by the platform implementation */
+extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
+
 /* This type sepcifies the interface to be used for pre- and post- clock change callback functions */
 typedef void (*clock_change_cb_t)(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
