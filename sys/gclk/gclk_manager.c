@@ -35,15 +35,38 @@
 #include "log.h"
 
 
-/* custom hooks required to tap into peripheral re-init code for clock config changes */
+/* custom RIOT-specific hooks required to tap into peripheral re-init code for clock config changes */
 extern ztimer_periph_timer_t *___ztimer_periph_timer_instance;
 extern timer_cb_t __ztimer_perph_timer_cb;
 static unsigned int _timer_cnt_backup = 0;
 extern void timer_write(tim_t tim, unsigned int cnt);
 
-extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
-
-/* a function to set up a configuration that works well with the given scale setting */
+/* @brief Sets up a topology configuration that 'works well' with the given scale setting.
+ *
+ * Shall be called with the currently active scale setting and will affect the core clock
+ * topology configuration. The initial configuration that will be set up aims for the highest
+ * allowed DFS frequency.
+ *
+ * NOTE: the used scaling approach directly affects if there are constraints on how the initial
+ * topology and frequency config must be set up.
+ * (1) If the scaling approach involves adjusting multiple clocks (as is the case for
+ * the SCALE_INTERMEDIATE_TOPO_AUTO), the initial configuration is subject to less constraints
+ * becasue each scaling step can set multiple involved clocks to another config. This variant
+ * allows full reconfiguration of the topology config (i.e. multiple scaler instances). It
+ * therfore must only ensure each individual config to be valid on its own.
+ * (2) A scaling approach meant to change as few settings as possible (e.g., with
+ * SCALE_DIRECT or SCALE_UPTREE approach) the initial configuration of the topology significantly
+ * impacts properties and applicablility of different frequency steps. In this case, the
+ * preliminary config setup must be evaluated in more detail because DFS adjustents will only
+ * touch a single scaler instance. The fixed part of the config must therfore apply to *all* steps.
+ * Fixing a part of the topology to a static config like that limits the applicability of frequency
+ * steps more severely. It therefore prioritzes maximizing the number of frequency options to ensure
+ * adjusting the single scaler still gives enough range for DFS adjustment. Lower power configuration
+ * variants are still preferred but this is given less priority than more DFS frequency options.
+ *
+ * @param scs    scale setting structure describing how DFS shall be performed
+ *
+ */
 static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs);
 
 static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *acc, clk_topology_entry_t *topo, uint32_t topo_len);
