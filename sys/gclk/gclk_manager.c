@@ -1371,22 +1371,11 @@ static inline uint32_t _freq_interval_mean(uint32_t slot) {
     return dfs_frequencies[slot];
 }
 
-static inline uint32_t _freq_to_util_idx(uint32_t freq) {
-    for (unsigned i = 0; i < ARRAY_SIZE(dfs_frequencies); i++) {
-        if (dfs_frequencies[i] == freq) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
 int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
-    // TODO: calculate how much a taskbenefits from higher frequency
     int32_t pu_sum = 0;
     int32_t pu_cnt = 0;
-    /* Theil-Sen like estimation */
 
+    /* For multiple frequency pairs the pu value is averaged across all pairs */
     for (unsigned a = 0; a < MAX_DFS_FREQ_VALUES_NUM; a++) {
         for (unsigned b = a + 1; b < MAX_DFS_FREQ_VALUES_NUM; b++) {
             /* only use valid data points */
@@ -1396,8 +1385,7 @@ int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
                 /* use the middle fo the frequency slot as value for computation */
                 int32_t freq_a = _freq_interval_mean(a) / 1000;
                 int32_t freq_b = _freq_interval_mean(b) / 1000;
-                /* must be normalized! */
-                //int32_t freq_diff = freq_b - freq_a;
+                /* relative change in frequency */
                 int32_t freq_inc_fact = freq_b * 100 / freq_a;
 
                 int32_t ta = task_perf_util_data[task_id][a].cpu_time_ticks;
@@ -1423,13 +1411,17 @@ int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
             }
         }
     }
-    /* TODO: for now this depends on another instance actually triggering this calculation */
+
+    /* save the PU value per task */
     task_performance_util[task_id] = pu_sum / pu_cnt;
     return task_performance_util[task_id];
 }
 
 uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t busy_ticks) {
-    uint32_t freq_idx = _freq_to_util_idx(freq);
+    (void)freq; /* currently, performance util data is only collected when the frequency cycler is
+                   is used, and in that case the frequency (or actually its index) is known out-of-band,
+                   (via the freq cycler context), therfore, translation from freq to index can be skipped */
+    uint32_t freq_idx = fc_ctx.cur_freq_idx;
     task_perf_util_data[task_id][freq_idx].cpu_time_ticks += busy_ticks;
     task_perf_util_data[task_id][freq_idx].schedules++;
 
