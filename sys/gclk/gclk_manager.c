@@ -221,12 +221,7 @@ typedef struct {
     volatile task_util_metrics_t task_perf_util_data[GCLK_MANAGER_PU_STATS_TASK_NUM][MAX_DFS_FREQ_VALUES_NUM];
 } gclk_manager_sched_stats_t;
 
-static gclk_manager_sched_stats_t _sched_stats = {
-    .idle_ticks_min = 0xFFFFFFFF,
-    .idle_ticks_max = 0,
-    .busy_ticks_min = 0xFFFFFFFF,
-    .busy_ticks_max = 0,
-};
+static gclk_manager_sched_stats_t _sched_stats;
 
 //TODO make use of min/max utility functions in several functions that set sched stat values
 //TODO unify naming fo task/thread
@@ -569,6 +564,12 @@ int gclk_manager_init(void) {
     _mgr_ctx.pu_metadata_collection_enabled = false;
     _mgr_ctx.cpu_util_based_dvfs_enabled = false;
     _mgr_ctx.dvs_policy = DVS_PREFER_LOW_VOLTAGE;
+
+    _sched_stats.idle_ticks_min = 0xFFFFFFFF;
+    _sched_stats.idle_ticks_max = 0;
+    _sched_stats.busy_ticks_min = 0xFFFFFFFF;
+    _sched_stats.busy_ticks_max = 0;
+
 
     //TODO: this should be updated with code that checks the initial clock config (active topology), and saves the
     //      most appliccable scale_setting instead of the dfs_clock_handle. The actual DFS clock handle may not even
