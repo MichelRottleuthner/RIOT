@@ -26,12 +26,18 @@
 extern "C" {
 #endif
 
+/* @brief Max number of tasks to allocate PU-stats memory for. */
+#ifndef GCLK_MANAGER_PU_STATS_TASK_NUM
+#define GCLK_MANAGER_PU_STATS_TASK_NUM 10
+#endif
+
 /* below values define thresholds for when to consider collected thread stats data to be enough
  * to calculate a valid PU metric properly */
 /* default minimum CPU time per thread to accumulate before PU calculation */
 #define GCLK_MANAGER_MIN_PU_STATS_CPU_TIME (32768)
 /* defualt minimum number of thread schedules that must have occured before PU calculation */
 #define GCLK_MANAGER_MIN_PU_STATS_SCHEDULES (10)
+
 
 /* declare clock instance array that is provided by the platform implementation */
 extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
