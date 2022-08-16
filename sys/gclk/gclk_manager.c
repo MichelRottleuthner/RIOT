@@ -125,24 +125,32 @@ static bool auto_vscale_enabled = false;
 static bool auto_wsadapt_enabled = false;
 
 /* mutex used by the manager to guard critical sections like complex topology switch operations.
- * NOTE: as of now the manager should only be used by a single controller entity as multiple
- *       simultaneous operators are not tested. */
+ * NOTE: As of now the manager should only be used by a single controller entity.
+ *       Multiple simultaneous operators are not tested. */
 mutex_t clock_conf_mutex = MUTEX_INIT;
 
 typedef struct {
-    uint32_t *freqs;
-    uint32_t cpu_time_threshold_ticks;
-    uint32_t thread_schedule_threshold;
-    /* bit cache that holds a bit for each thread that PU statistics were requested for */
-    uint32_t pu_stats_requested;
-    /* bit cache for pending pu stats for the currently active freq of the cycle.
-     * Is set to pu_stats_requested_tbc before measuring at the next cycle freq */
-    uint32_t pu_stats_pending_cur_freq;
-    unsigned freq_cnt;
-    unsigned cur_freq_idx;
-    mutex_t  done_mutex;
-    gclk_manager_core_freq_reconf_cb_t freq_change_cb;
-    bool freq_cycle_enabled;
+    uint32_t *freqs; /*< pointer to frequency values used for PU assessment freq-cycle. */
+    unsigned freq_cnt; /*< number of elements in \ref freqs. */
+    uint32_t cpu_time_threshold_ticks; /*< minimum duration of cpu time to collect data for in tick.
+                                           This value applies per thread, not for the whole PUA-cycle. */
+    uint32_t thread_schedule_threshold; /*< minimum number of thread shedules (per thread) that must
+                                            happen before the collected data is considered enough. */
+    uint32_t pu_stats_requested. /*< bit field that marks if PU statistics were requested for a thread.
+                                     Bit N refers to thread pid N. */
+    uint32_t pu_stats_pending_cur_freq; /*< similar to \ref pu_stats_requested but holds the state for
+                                            pending pu stats for each freq step of the cycle.
+                                            Is set to \ref pu_stats_requested before collecting data at
+                                            each cycle freq. */
+    unsigned cur_freq_idx; /*< index of the currently assessed frequency setting. Starts at 0 for a new
+                               PUA cycle and is incremented for each frequency step till all frequencies
+                               were tested. */
+    mutex_t  done_mutex; /*< mutex used to synchronize/wait for the PUA-cycle to finish. Will be locked
+                             when starting the frequency cycle and unlocked once all data for all
+                             frequencies was collected. */
+    gclk_manager_core_freq_reconf_cb_t freq_change_cb; /* callback that executes the core frequency update */
+    bool freq_cycle_enabled; /*< flag that indicates whether the PUA frequency cycle is currently active.
+                                 Is set to true on cycle start and cleared when all data was collected */
 } freq_cycle_thread_context_t;
 
 freq_cycle_thread_context_t fc_ctx = { .done_mutex = MUTEX_INIT, };
