@@ -129,6 +129,13 @@ static bool auto_wsadapt_enabled = false;
  *       Multiple simultaneous operators are not tested. */
 mutex_t clock_conf_mutex = MUTEX_INIT;
 
+
+/* @brief Frequency cycler context.
+ *
+ * Holds state of the frequency cycler which is used for automatic performance utilization
+ * assemssment (PUA). This process changes the core frequency to a number of different
+ * speeds and collects performance metrics for each setting per running thread (if requested).
+ * The collected data is used to determine the workload-specific PU metric to rate its scalability. */
 typedef struct {
     uint32_t *freqs; /*< pointer to frequency values used for PU assessment freq-cycle. */
     unsigned freq_cnt; /*< number of elements in \ref freqs. */
@@ -153,25 +160,33 @@ typedef struct {
                                  Is set to true on cycle start and cleared when all data was collected */
 } freq_cycle_thread_context_t;
 
+/* Use the static initializer for the mutex, all other members are set up when starting the frequency cycler */
 freq_cycle_thread_context_t fc_ctx = { .done_mutex = MUTEX_INIT, };
 
+/* @brief struct for storing task-specific scheduling metrics */
 typedef struct {
-    uint32_t cpu_time_ticks;
-    uint32_t schedules;
+    uint32_t cpu_time_ticks; /*< sum of cpu time the task was scheduled in ticks */
+    uint32_t schedules; /*< number of times the task was scheduled */
 } task_util_metrics_t;
 
-/* This list holds one list of notification callbacks per clock that callbacks were registered for.
+/* @brief Clock change notification list.
+ *
+ * This list holds one list of notification callbacks per clock that callbacks were registered for.
  **/
 static list_node_t clock_change_notify_list;
 
-/* registrations are simply counted on reg/unreg so the above list must not be iterated
- * to get the registration count */
+/* @brief Number of registered clock change notifications.
+ *
+ * Registrations are simply counted on reg/unreg operations. This allows a fast check on whether
+ * ther are no active registrations in the \ref clock_change_notify_list. */
 static unsigned int registered_clk_change_cb_cnt = 0;
 
-/* holds the last frequency set up by the clock manager */
+/* @brief The last core frequency value set up by the clock manager */
 volatile uint32_t current_core_freq;
 
-/* holds the core frequency that was active when DFS was enabled to restore that setting later */
+/* @brief The core frequency before DFS got enabled.
+ *
+ * This old frequency setting is restored when DFS is disabled again. */
 uint32_t pre_dfs_enable_freq = 0;
 
 /* variables used to collect metadata on scheduling and busy/idle time to calculate
