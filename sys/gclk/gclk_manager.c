@@ -216,6 +216,9 @@ typedef struct {
     volatile uint32_t busy_ticks_min; /*< lowest number of busy ticks observed */
     volatile uint32_t busy_ticks_max; /*< highest number of busy ticks observed */
     uint32_t freq_sched_cnt[MAX_DFS_FREQ_VALUES_NUM]; /*< number of schedules at each freq. idx */
+
+    /* scheduling and timing metrics per thread at each frequency */
+    volatile task_util_metrics_t task_perf_util_data[GCLK_MANAGER_PU_STATS_TASK_NUM][MAX_DFS_FREQ_VALUES_NUM];
 } gclk_manager_sched_stats_t;
 
 static gclk_manager_sched_stats_t _sched_stats = {
@@ -225,104 +228,116 @@ static gclk_manager_sched_stats_t _sched_stats = {
     .busy_ticks_max = 0,
 };
 
-/* below parameters are used to control how the thread-based dynamic frequency scaling is applied
- * and in general how the colck manager is able to control the clocks (e.g. which frequencies are
- * allowed/intended to be set up) */
+//TODO make use of min/max utility functions in several functions that set sched stat values
+//TODO unify naming fo task/thread
+//TODO move _sched_stats init to init function (to move many bytes from data section to few bytes in text)
 
-/* @brief Currently active (DFS) frequency scale idx.
- *
- * This value refers to the frequency value in the prepopulated \ref dfs_frequencies array, which
- * holds frequency values that are applicable to the current frequency scaling settings defined
- * by \ref active_core_scale_setting.
- * This variable is only set by \ref _dvfs(). The explicit freq. scaler used for PUA
- * tracks its freq scale idx separately as it may use another (PUA-specific) set of frequencies. */
-int current_dfs_freq_idx = MAX_DFS_FREQ_VALUES_NUM - 1;
 
-/* @brief Currently active D(V)FS setting.
- *
- * The scale setting that is applied for scaling the core clock via D(V)FS.
- * Different options for this setting should be defined in the gclk_manager_conf file
- * according to hardware capabilities.  The \ref gclk_manager_init() function sets this up to
- * the first applicable setting for the active topology (if there is any). */
-static const gclk_scale_setting_t *active_core_scale_setting = NULL;
+/* @brief Stores the state of the clock manager. */
+typedef struct {
+    /* @brief Currently active (DFS) frequency scale idx.
+     *
+     * This value refers to the frequency value in the prepopulated \ref dfs_frequencies array, which
+     * holds frequency values that are applicable to the current frequency scaling settings defined
+     * by \ref active_core_scale_setting.
+     * This variable is only set by \ref _dvfs(). The explicit freq. scaler used for PUA
+     * tracks its freq scale idx separately as it may use another (PUA-specific) set of frequencies. */
+    int current_dfs_freq_idx;
 
-static clk_topology_entry_t topology_conf_cache[GCLK_MANAGER_PREP_CONFS_MAX_NUMOF][GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN];
-static gclk_manager_sequence_step_t prepared_rescale_sequences[MAX_DFS_FREQ_VALUES_NUM][GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN];
-static int prepared_rescale_sequence_lengths[MAX_DFS_FREQ_VALUES_NUM];
+    /* @brief Currently active D(V)FS setting.
+     *
+     * The scale setting that is applied for scaling the core clock via D(V)FS.
+     * Different options for this setting should be defined in the gclk_manager_conf file
+     * according to hardware capabilities. The \ref gclk_manager_init() function sets this up to
+     * the first applicable setting for the active topology (if there is any). */
+    const gclk_scale_setting_t *active_core_scale_setting;
 
-/* this gets updated with a list of possible frequencies when setting the clock handle that is used
- * for dynamic frequency scaling. If the handle that is set up supports more values than this can hold
- * a subset of possible values is stored instead */
-static uint32_t dfs_frequencies[MAX_DFS_FREQ_VALUES_NUM];
+    clk_topology_entry_t topology_conf_cache[GCLK_MANAGER_PREP_CONFS_MAX_NUMOF][GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN];
+    gclk_manager_sequence_step_t prepared_rescale_sequences[MAX_DFS_FREQ_VALUES_NUM][GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN];
+    int prepared_rescale_sequence_lengths[MAX_DFS_FREQ_VALUES_NUM];
 
-/* the holds the number of valid frequency settings contained in dfs_frequencies */
-static unsigned int dfs_frequencies_cnt = 0;
+    /* this gets updated with a list of possible frequencies when setting the clock handle that is used
+     * for dynamic frequency scaling. If the handle that is set up supports more values than this can hold
+     * a subset of possible values is stored instead */
+    uint32_t dfs_frequencies[MAX_DFS_FREQ_VALUES_NUM];
 
-/* This PU threshold defines if a higher frequency should be used for a specific thread
- * TODO: replace this value with a lookup function that can be parameterized and returns an
- *       optimal configuration for the actuall PU. Additionally, information on the flash/voltage
- *       scaling behavior can be added here e.g. to affect wether low voltage or fast flash is
- *       preferrable for a specific task. More global considereations (how is this decision
- *       affected by other therads, and overhead of reconfiguration steps) should also be
- *       evaluated */
-volatile int pre_sched_freq_boost_threshold = 60;
-/* the threshold that defines if a lower frequency should be set up for the next thread */
-volatile int pre_sched_freq_throttle_threshold = 30;
+    /* the holds the number of valid frequency settings contained in dfs_frequencies */
+    unsigned int dfs_frequencies_cnt;
 
-/* fast boost frequency that is applied if a thread has a 'high' PU value
- * (as indicated by pre_sched_freq_boost_threshold) */
-volatile uint32_t pre_sched_boost_freq;
+    /* For the simple case where a PU threshold is used for D(V)FS control, this defines the min. level
+     * on when to use a higher frequency for execution.
+     * TODO: instead of basic threshold control this should be replaced with a (parameterized) lookup
+     *       function which returns the optimal configuration for a given PU value. Additionally,
+     *       information on the flash/voltage scaling behavior can be added here e.g. to affect wether
+     *       low voltage or fast flash is preferrable for a specific task. More global considereations
+     *       (how is this decision affected by other therads, and overhead of reconfiguration steps)
+     *       should also be evaluated in more detail */
+    volatile int pre_sched_freq_boost_threshold;
 
-/* slow throttle frequency that is applied if a thread has a 'low' PU value
- * (as indicated by pre_sched_freq_boost_threshold) */
-volatile uint32_t pre_sched_throttle_freq;
+    /* Same as \ref pre_sched_freq_boost_threshold but marks the limit for lower frequency operation.
+     * I.e., defines if a lower frequency should be set up for execution. */
+    volatile int pre_sched_freq_throttle_threshold;
 
-/* below values are used to control features of the clock manager at runtime */
+    /* fast boost frequency that is applied if a thread has a 'high' PU value as indicated
+     * by \ref pre_sched_freq_boost_threshold. */
+    volatile uint32_t pre_sched_boost_freq;
 
-/* controls whether dynamic frequency scaling is applied before scheduling a thread */
-volatile bool pre_sched_pu_dfs_enabled = false;
+    /* slow throttle frequency that is applied if a thread has a 'low' PU value
+     * as indicated by \ref pre_sched_freq_boost_threshold */
+    volatile uint32_t pre_sched_throttle_freq;
 
-/* controls whether scheduling/thread/timing metadata is collected to assess the PU metric during
- * execution. Usually this should be enabled together with with the frequency scaler-thread that
- * proactively cycles between frequencies.
- * TODO: It would also be possible to use an opportinustic approach that changes the frequency onlya thread is executed at. */
-bool pu_metadata_collection_enabled = false;
+    /* controls whether dynamic frequency scaling is applied before scheduling a thread */
+    volatile bool pre_sched_pu_dfs_enabled;
 
-/* controls if DVFS should be applied based on overal CU utilization (not thread PU)
- * TODO: this should be merged with pre_sched_pu_dfs etc. to define the adaptation method just at one place */
-bool cpu_util_based_dvfs_enabled = false;
+    /* controls whether scheduling/thread/timing metadata is collected to assess the PU metric during
+     * execution. Usually this should be enabled together with with the frequency scaler-thread that
+     * proactively cycles between frequencies. */
+    bool pu_metadata_collection_enabled;
 
-/* This policy defines which optimization goal to prefer in cases where different optimizations are
- * possible but some parameters are mutually exlusive */
-static gclk_manager_dvs_policy_t dvs_policy = DVS_PREFER_LOW_VOLTAGE;
+    /* controls if DVFS should be applied based on global CPU utilization (not thread PU)
+     * TODO: this should be merged with pre_sched_pu_dfs etc. to define the adaptation method just at one place */
+    bool cpu_util_based_dvfs_enabled;
 
-/* absolute maximum number of clocks involved in a topology of any clock */
-static unsigned int max_clocks_in_topology;
+    /* This policy defines which optimization goal to prefer in cases where different optimizations are
+     * possible but some parameters are mutually exlusive */
+    gclk_manager_dvs_policy_t dvs_policy;
 
-/* absolute maximum number of clocks involved in a topology of the core clock */
-static unsigned int max_clocks_in_core_topology;
+    /* absolute maximum number of clocks involved in a (sub-)topology of any clock.
+     * This is determined once at \ref gclk_manager_init(). */
+    unsigned int max_clocks_in_topology;
 
-/* below values are cached for faster operation an therefore need to be updated at relevant changes */
-/* length of current topology that drives the core handle */
-static unsigned int current_core_topolen;
+    /* absolute maximum number of clocks involved in a topology that drives the core clock.
+     * This is determined once at \ref gclk_manager_init(). */
+    unsigned int max_clocks_in_core_topology;
 
-/* holds the currently active topology id for the core clock handle */
-static int current_core_topo_id;
+    /* NOTE: below values are cached for faster operation an therefore need
+     * to be updated at relevant changes. This is usually needed when the manager
+     * reconfigures the clock tree (e.g., via the switch_topology function). */
 
-/* meant to hold the topology that is currently driving the core clock
- * the size is an absolute worst case for now */
-static clk_topology_entry_t current_core_topology[GCLK_NUM_OF_CLOCKS];
+    /* length of current topology that drives the core clock. */
+    unsigned int current_core_topolen;
+
+    /* holds the currently active topology id for the core clock handle. */
+    int current_core_topo_id;
+
+    /* holds the topology that was previously set up to drive the core clock.
+     * NOTE: the size is currently based on an absolute worst case assumption. */
+    clk_topology_entry_t current_core_topology[GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN];
+
+} gclk_manager_ctx_t;
+
+/* @brief global clock manager context. */
+static gclk_manager_ctx_t _mgr_ctx;
+
+/* Core-clock change notification list */
+static gclk_clock_change_notify_list_t ccnl[GCLK_FREQ_LIMIT_CLKS_NUMOF];
+
 
 /* is used decide in which group a specific frequency should be put */
 /* defines how the history is weighted for moving average calculation of
    time frequency products */
 #define TASK_UTIL_MAVG_STEPS     (10)
 
-/* Core-clock change notification list */
-static gclk_clock_change_notify_list_t ccnl[GCLK_FREQ_LIMIT_CLKS_NUMOF];
-
-/* schedule and timing metadata for each threads execution at different frequencies */
-volatile task_util_metrics_t task_perf_util_data[GCLK_MANAGER_PU_STATS_TASK_NUM][MAX_DFS_FREQ_VALUES_NUM];
 
 static void _freq_change_scale_auto(uint32_t new_freq);
 
@@ -346,25 +361,25 @@ static void _freq_change_scale_auto(uint32_t new_freq) {
 static void _append_dfs_cache_entry(unsigned cidx, uint32_t freq, uint32_t factor) {
     //TODO it could be benefitial to store either the equivalent downtree factors or the scale factors that correspond to the
     //     frequencies that are being set up (to avoid translating between freq and factor ad hoc)
-    topology_conf_cache[cidx][0].clk_freq = freq;
-    topology_conf_cache[cidx][0].factor = factor;
-    dfs_frequencies[cidx] = freq;
+    _mgr_ctx.topology_conf_cache[cidx][0].clk_freq = freq;
+    _mgr_ctx.topology_conf_cache[cidx][0].factor = factor;
+    _mgr_ctx.dfs_frequencies[cidx] = freq;
 }
 
 int gclk_mananger_set_default_dfs_frequencies(void) {
-    if (!active_core_scale_setting) {
+    if (!_mgr_ctx.active_core_scale_setting) {
         printf("no active core scale setting defined\n");
         return 0;
     }
     uint64_t t_1 = xtimer_now_usec64();
-    _setup_default_dfs_topology_config(active_core_scale_setting);
+    _setup_default_dfs_topology_config(_mgr_ctx.active_core_scale_setting);
     uint64_t t_2 = xtimer_now_usec64();
 
     uint32_t t_default_topo_setup = (uint32_t)((t_2 - t_1)/1000);
 
     printf("took %lu ms for default topo setup\n", t_default_topo_setup);
 
-    int res = gclk_mananger_set_dfs_frequencies(active_core_scale_setting->default_freqs, active_core_scale_setting->default_freqs_cnt);
+    int res = gclk_mananger_set_dfs_frequencies(_mgr_ctx.active_core_scale_setting->default_freqs, _mgr_ctx.active_core_scale_setting->default_freqs_cnt);
     return res;
 }
 
@@ -374,19 +389,19 @@ const gclk_t* gclk_manager_get_core_clock_handle(void) {
 
 /* crude helper to force update of cached state */
 static void _update_cached_state_vars(void) {
-    current_core_topolen = gclk_get_current_topology_len(gclock_core_clock_handle);
-    current_core_topology[0].clk = gclock_core_clock_handle;
-    gclk_get_current_topology_config(current_core_topology, current_core_topolen);
-    current_core_topo_id = gclk_topology2id(current_core_topology, current_core_topolen);
+    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclock_core_clock_handle);
+    _mgr_ctx.current_core_topology[0].clk = gclock_core_clock_handle;
+    gclk_get_current_topology_config(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
+    _mgr_ctx.current_core_topo_id = gclk_topology2id(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
 
     /* always assume there is no applicable scale setting in case none can be found */
-    active_core_scale_setting = NULL;
+    _mgr_ctx.active_core_scale_setting = NULL;
     /* select first appliccable scale setting for the current core topology as the active scale setting
      * that will be used by automatic scale operations (e.g., via gclk_manager_scale_core_freq()) */
     for (unsigned i = 0; i < SCALE_SETTINGS_NUMOF; i++) {
         if (scale_settings[i].output_clk == gclock_core_clock_handle &&
-            scale_settings[i].topology_id == current_core_topo_id) {
-            active_core_scale_setting = &scale_settings[i];
+            scale_settings[i].topology_id == _mgr_ctx.current_core_topo_id) {
+            _mgr_ctx.active_core_scale_setting = &scale_settings[i];
             break;
         }
     }
@@ -527,7 +542,7 @@ void _init_dvs_wsa_constraint_cache(void) {
     unsigned min_vc_idx;
 
     /* determine the best configuration that fulfilll all constraints and set it up */
-    gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_NUM_OF_CLOCKS, &min_ws,  &min_vc_idx, dvs_policy);
+    gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_NUM_OF_CLOCKS, &min_ws,  &min_vc_idx, _mgr_ctx.dvs_policy);
 
     unsigned cur_ws = flash_opt_get_wait_states();
     unsigned cur_vc = core_voltage_get();
@@ -542,14 +557,27 @@ void _init_dvs_wsa_constraint_cache(void) {
 }
 
 int gclk_manager_init(void) {
+
+    /* TODO: check for all of these if the initialization can be dropped
+     * (e.g. the first one should be set up on DFS enable anyway) */
+    _mgr_ctx.current_dfs_freq_idx = MAX_DFS_FREQ_VALUES_NUM - 1;
+    _mgr_ctx.active_core_scale_setting = NULL;
+    _mgr_ctx.dfs_frequencies_cnt = 0;
+    _mgr_ctx.pre_sched_freq_boost_threshold = 60;
+    _mgr_ctx.pre_sched_freq_throttle_threshold = 30;
+    _mgr_ctx.pre_sched_pu_dfs_enabled = false;
+    _mgr_ctx.pu_metadata_collection_enabled = false;
+    _mgr_ctx.cpu_util_based_dvfs_enabled = false;
+    _mgr_ctx.dvs_policy = DVS_PREFER_LOW_VOLTAGE;
+
     //TODO: this should be updated with code that checks the initial clock config (active topology), and saves the
     //      most appliccable scale_setting instead of the dfs_clock_handle. The actual DFS clock handle may not even
     //      be a single instance (e.g. for a multi-instance PLL configuration) and this info should not be needed from
     //      outside of the manager anyway.
     /* set default clock handle for dynamic scaling from static clock manager configuration. */
     //gclk_manager_set_dfs_clock_handle(scale_settings[0].clk);
-    max_clocks_in_topology = gclk_get_max_topology_depth();
-    max_clocks_in_core_topology = gclk_get_clk_subtree_max_depth(gclock_core_clock_handle, 0) + 1;
+    _mgr_ctx.max_clocks_in_topology = gclk_get_max_topology_depth();
+    _mgr_ctx.max_clocks_in_core_topology = gclk_get_clk_subtree_max_depth(gclock_core_clock_handle, 0) + 1;
 
 
     _init_dvs_wsa_constraint_cache();
@@ -572,8 +600,8 @@ int gclk_manager_get_scale_settings(const gclk_scale_setting_t **s) {
 
 bool gclk_mananger_set_active_scale_setting(unsigned i) {
     if ((SCALE_SETTINGS_NUMOF > i) &&
-        scale_settings[i].topology_id == current_core_topo_id) {
-        active_core_scale_setting = &scale_settings[i];
+        scale_settings[i].topology_id == _mgr_ctx.current_core_topo_id) {
+        _mgr_ctx.active_core_scale_setting = &scale_settings[i];
         gclk_mananger_set_default_dfs_frequencies();
         return true;
     }
@@ -581,7 +609,7 @@ bool gclk_mananger_set_active_scale_setting(unsigned i) {
 }
 
 const gclk_scale_setting_t* gclk_mananger_get_active_scale_setting(void) {
-    return active_core_scale_setting;
+    return _mgr_ctx.active_core_scale_setting;
 }
 
 int gclk_manager_get_allowed_core_clock_sources(const gclk_t ***clks) {
@@ -589,11 +617,11 @@ int gclk_manager_get_allowed_core_clock_sources(const gclk_t ***clks) {
   return CORE_CLOCK_SOURCES_NUMOF;
 }
 
-void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fboost_pu_th, int fthrottle_pu_thesh) {
-    pre_sched_boost_freq = fboost;
-    pre_sched_throttle_freq = fthrottle;
-    pre_sched_freq_boost_threshold = fboost_pu_th;
-    pre_sched_freq_throttle_threshold = fthrottle_pu_thesh;
+void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fboost_pu_th, int fthrottle_pu_thresh) {
+    _mgr_ctx.pre_sched_boost_freq = fboost;
+    _mgr_ctx.pre_sched_throttle_freq = fthrottle;
+    _mgr_ctx.pre_sched_freq_boost_threshold = fboost_pu_th;
+    _mgr_ctx.pre_sched_freq_throttle_threshold = fthrottle_pu_thresh;
 }
 
 static void _do_freq_cycle_step_if_ready(void) {
@@ -620,8 +648,8 @@ static void _do_freq_cycle_step_if_ready(void) {
 }
 
 unsigned int gclk_manager_get_dfs_freqs(uint32_t **freqs) {
-    *freqs = &dfs_frequencies[0];
-    return dfs_frequencies_cnt;
+    *freqs = &_mgr_ctx.dfs_frequencies[0];
+    return _mgr_ctx.dfs_frequencies_cnt;
 }
 
 void _get_equivalent_factors_after_source(const gclk_t *source, clk_topology_entry_t *topo,
@@ -1024,7 +1052,7 @@ static uint32_t _get_best_factor(const gclk_t *clk, uint32_t f_in, uint32_t targ
 
 clk_topology_entry_t *_clear_core_topology_cache(clk_topology_entry_t *cacheloc) {
     clk_topology_entry_t *topology = cacheloc;
-    memset(topology, 0, sizeof(clk_topology_entry_t) * max_clocks_in_core_topology);
+    memset(topology, 0, sizeof(clk_topology_entry_t) * _mgr_ctx.max_clocks_in_core_topology);
     topology[0].clk = gclock_core_clock_handle;
     topology[0].clk_freq = GCLK_INVALID_FREQ;
     return topology;
@@ -1081,7 +1109,7 @@ static void _get_scale_factor_limits(const gclk_t *scaler, gclk_freq_limit_t *f_
 
 static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) {
     /* params needed to run config exploration */
-    uint32_t max_involved_clks = max_clocks_in_core_topology;
+    uint32_t max_involved_clks = _mgr_ctx.max_clocks_in_core_topology;
     clk_topology_entry_t ttopo[max_involved_clks];
     int tid = scs->topology_id;
     size_t valid_cnt = 0;
@@ -1115,13 +1143,13 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
         /* if no freq values are provided explicitly, derive a target config from the highest allowed DFS frequency and
          * all available factors of the single scaled clock. */
         if (scs->default_freqs == NULL || scs->default_freqs_cnt == 0) {
-            int srcidx = _clk_to_entry_idx(current_core_topology, current_core_topolen, scs->scale_clk);
+            int srcidx = _clk_to_entry_idx(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen, scs->scale_clk);
 
             /* get absolute input requirements for the topology fed by the scaled clock instance
              * This data is then used to rule out any configs for the input side (the scaler) that wont be able
              * to operate within these limits. */
-            _get_minmax_applicable_topo_input_freq(current_core_topology,
-                                                   current_core_topolen - (current_core_topolen - srcidx),
+            _get_minmax_applicable_topo_input_freq(_mgr_ctx.current_core_topology,
+                                                   _mgr_ctx.current_core_topolen - (_mgr_ctx.current_core_topolen - srcidx),
                                                    &range_limit_ctx.scaler_fo_limits);
 
             /* factor limits of the uptree topology */
@@ -1131,11 +1159,11 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
             /* get min max factors of the topology that feeds the scaler instance. In case any additional scalers
              * sit before the scaler which is used for dfs, the full operational range of the input side must be considered too,
              * before ruling out factors of the dfs scaler as infeasible */
-            _get_minmax_equivalent_factors_of_topology(&current_core_topology[srcidx + 1], current_core_topolen - (srcidx + 1),
+            _get_minmax_equivalent_factors_of_topology(&_mgr_ctx.current_core_topology[srcidx + 1], _mgr_ctx.current_core_topolen - (srcidx + 1),
                                                        &utf_min, &utf_max);
 
             /* determine frequency boundaries of the uptree topology */
-            uint32_t root_freq = current_core_topology[current_core_topolen-1].clk_freq;
+            uint32_t root_freq = _mgr_ctx.current_core_topology[_mgr_ctx.current_core_topolen-1].clk_freq;
             gclk_freq_limit_t scaler_f_in_limits = {
                 .min = root_freq * utf_min.n / utf_min.d,
                 .max = root_freq * utf_max.n / utf_max.d,
@@ -1185,12 +1213,12 @@ static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) 
         printf("derived %lu topo conf entries for running at %lu Hz with approach %s\n", max_involved_clks, leaf_freq, _approach2_str(scs->approach));
     }
 
-    int seq_len = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
-                                               ttopo, max_involved_clks, &prepared_rescale_sequences[0][0],
-                                               ARRAY_SIZE(prepared_rescale_sequences[0]));
+    int seq_len = gclk_manager_derive_sequence(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen,
+                                               ttopo, max_involved_clks, &_mgr_ctx.prepared_rescale_sequences[0][0],
+                                               ARRAY_SIZE(_mgr_ctx.prepared_rescale_sequences[0]));
     if (seq_len > 0) {
         printf("derived sequence to switch to %lu Hz with %u steps\n", leaf_freq, seq_len);
-        gclk_manager_run_sequence_with_notify(&prepared_rescale_sequences[0][0], seq_len, false);
+        gclk_manager_run_sequence_with_notify(&_mgr_ctx.prepared_rescale_sequences[0][0], seq_len, false);
     } else {
         printf("derive seq res: %d\n", seq_len);
         return false;
@@ -1210,9 +1238,9 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
         }
     }
 
-    current_core_topolen = gclk_get_current_topology_len(gclock_core_clock_handle);
-    gclk_get_current_topology_config(current_core_topology, current_core_topolen);
-    current_core_topo_id = gclk_topology2id(current_core_topology, current_core_topolen);
+    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclock_core_clock_handle);
+    gclk_get_current_topology_config(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
+    _mgr_ctx.current_core_topo_id = gclk_topology2id(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
 
     if (scs->approach == SCALE_DIRECT ||
         scs->approach == SCALE_UPTREE_RELATIVE) {
@@ -1224,12 +1252,12 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
          * A more comprehensive (and complex) approach derives the best combination of other involved factors that then
          * match the given frequencies best via the single adapted scaler.
          * */
-        uint32_t max_involved_clks = max_clocks_in_core_topology;
-        //clk_topology_entry_t *topology = _clear_core_topology_cache(&topology_conf_cache[0][0]);
+        uint32_t max_involved_clks = _mgr_ctx.max_clocks_in_core_topology;
+        //clk_topology_entry_t *topology = _clear_core_topology_cache(&_mgr_ctx.topology_conf_cache[0][0]);
 
         /* once for each topology, check if there are any global constraints that must be considered */
         gclk_freq_constraint_t relevant_clock_constraints[GLOBAL_CLOCK_CONSTRAINTS_NUMOF];
-        unsigned rel_constr_cnt = _populate_applicable_clock_constraints(relevant_clock_constraints, current_core_topology, current_core_topolen);
+        unsigned rel_constr_cnt = _populate_applicable_clock_constraints(relevant_clock_constraints, _mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
 
         size_t possible_freq_cnt = gclk_factor_cnt(scs->scale_clk);
 
@@ -1245,12 +1273,12 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
         }
 
         gclk_fraction_t dtf;
-        _get_equivalent_dt_factors(current_core_topology, current_core_topolen, scs->scale_clk, &dtf, false);
+        _get_equivalent_dt_factors(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen, scs->scale_clk, &dtf, false);
 
-        int srcidx = _clk_to_entry_idx(current_core_topology, max_involved_clks, scs->scale_clk);
+        int srcidx = _clk_to_entry_idx(_mgr_ctx.current_core_topology, max_involved_clks, scs->scale_clk);
         /* TODO: replace this with a utility function that returns the the input freq
          * (for cases where the source itself is scalable) */
-        uint32_t input_freq = current_core_topology[srcidx+1].clk_freq;
+        uint32_t input_freq = _mgr_ctx.current_core_topology[srcidx+1].clk_freq;
 
         uint32_t prev_freq = 0;
 
@@ -1272,16 +1300,16 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
                  * and only overwrite the setting specific to the single adapted scaler.
                  * Before constraint violations can be checked the downtree effects of the scaler adaptaion must be applied
                  * to a model of the current config */
-                memcpy(&topology_conf_cache[matched][0], current_core_topology, sizeof(clk_topology_entry_t) * current_core_topolen);
-                topology_conf_cache[matched][srcidx].clk_freq = possible_freq;
-                topology_conf_cache[matched][srcidx].factor = factor;
-                _model_propagate_conf_change_downtree(&topology_conf_cache[matched][srcidx], &topology_conf_cache[matched][0], current_core_topolen);
+                memcpy(&_mgr_ctx.topology_conf_cache[matched][0], _mgr_ctx.current_core_topology, sizeof(clk_topology_entry_t) * _mgr_ctx.current_core_topolen);
+                _mgr_ctx.topology_conf_cache[matched][srcidx].clk_freq = possible_freq;
+                _mgr_ctx.topology_conf_cache[matched][srcidx].factor = factor;
+                _model_propagate_conf_change_downtree(&_mgr_ctx.topology_conf_cache[matched][srcidx], &_mgr_ctx.topology_conf_cache[matched][0], _mgr_ctx.current_core_topolen);
 
                 if (LOG_LEVEL >= LOG_DEBUG) {
-                    gclk_manager_print_topology_conf(&topology_conf_cache[matched][0], current_core_topolen, false, true);
+                    gclk_manager_print_topology_conf(&_mgr_ctx.topology_conf_cache[matched][0], _mgr_ctx.current_core_topolen, false, true);
                 }
 
-                const gclk_freq_constraint_t *constraint = gclk_manager_conf_breaks_constraint(relevant_clock_constraints, rel_constr_cnt, &topology_conf_cache[matched][0], current_core_topolen);
+                const gclk_freq_constraint_t *constraint = gclk_manager_conf_breaks_constraint(relevant_clock_constraints, rel_constr_cnt, &_mgr_ctx.topology_conf_cache[matched][0], _mgr_ctx.current_core_topolen);
                 if (!constraint) {
                     _append_dfs_cache_entry(matched++, possible_freq, factor);
                     prev_freq = possible_freq;
@@ -1299,8 +1327,8 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
         uint32_t freq_step = (DFS_CYCLER_MAX_FREQ - DFS_CYCLER_MIN_FREQ) / (cnt - 1);
 
         for (unsigned i = 0; i < cnt; i++) {
-            uint32_t max_involved_clks = max_clocks_in_core_topology;
-            clk_topology_entry_t *topology = _clear_core_topology_cache(&topology_conf_cache[matched][0]);
+            uint32_t max_involved_clks = _mgr_ctx.max_clocks_in_core_topology;
+            clk_topology_entry_t *topology = _clear_core_topology_cache(&_mgr_ctx.topology_conf_cache[matched][0]);
 
             uint32_t target_freq;
             /* either use provided freq values or spread them across allowed range */
@@ -1314,24 +1342,24 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
                 target_freq = freqs[i];
             }
 
-            int tid = active_core_scale_setting->topology_id;
+            int tid = _mgr_ctx.active_core_scale_setting->topology_id;
             size_t valid_cnt = 0;
             int force_nth = -1;
             uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
                                                                     &tid, cmp_func, (void*)&target_freq, &valid_cnt, force_nth, NULL);
             if (leaf_freq != GCLK_INVALID_FREQ) {
                 /* ignore duplicates on the fly */
-                if ((!matched) || (topology_conf_cache[matched-1][0].clk_freq != leaf_freq)) {
-                    dfs_frequencies[matched] = leaf_freq;
-                    gclk_manager_sequence_step_t *seq = &prepared_rescale_sequences[matched][0];
-                    int seq_size = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
+                if ((!matched) || (_mgr_ctx.topology_conf_cache[matched-1][0].clk_freq != leaf_freq)) {
+                    _mgr_ctx.dfs_frequencies[matched] = leaf_freq;
+                    gclk_manager_sequence_step_t *seq = &_mgr_ctx.prepared_rescale_sequences[matched][0];
+                    int seq_size = gclk_manager_derive_sequence(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen,
                                                                 topology, max_involved_clks, seq,
                                                                 GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN);
                     if (seq_size > 0) {
-                        prepared_rescale_sequence_lengths[matched] = seq_size;
+                        _mgr_ctx.prepared_rescale_sequence_lengths[matched] = seq_size;
                         matched++;
                     } else {
-                        LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), current_core_topo_id, current_core_topo_id);
+                        LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), _mgr_ctx.current_core_topo_id, _mgr_ctx.current_core_topo_id);
                     }
                 }
             }
@@ -1344,9 +1372,9 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
 
 int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
     /* reset dfs count before setting new values */
-    dfs_frequencies_cnt = 0;
+    _mgr_ctx.dfs_frequencies_cnt = 0;
 
-    if (!active_core_scale_setting) {
+    if (!_mgr_ctx.active_core_scale_setting) {
         printf("no active core scale setting defined\n");
         return -1;
     }
@@ -1357,7 +1385,7 @@ int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
     }
 
     uint64_t t_1 = xtimer_now_usec64();
-    int res = _populate_dfs_freqs_bf(active_core_scale_setting, freqs, cnt);
+    int res = _populate_dfs_freqs_bf(_mgr_ctx.active_core_scale_setting, freqs, cnt);
     uint64_t t_2 = xtimer_now_usec64();
 
     uint32_t t_populate_dfs = (uint32_t)((t_2 - t_1)/1000);
@@ -1365,14 +1393,14 @@ int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
     printf("took %lu ms for populate\n", t_populate_dfs);
 
     if (res > 0) {
-        dfs_frequencies_cnt = res;
+        _mgr_ctx.dfs_frequencies_cnt = res;
     }
 
     return 0;
 }
 
 void gclk_manager_enable_pu_assessment(bool enable) {
-    pu_metadata_collection_enabled = enable;
+    _mgr_ctx.pu_metadata_collection_enabled = enable;
 }
 
 void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedules) {
@@ -1380,8 +1408,8 @@ void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedule
 
     fc_ctx.cpu_time_threshold_ticks = idle_timer_usecs_to_ticks(cycle_us);
     fc_ctx.thread_schedule_threshold = min_schedules;
-    fc_ctx.freqs = dfs_frequencies;
-    fc_ctx.freq_cnt = dfs_frequencies_cnt;
+    fc_ctx.freqs = _mgr_ctx.dfs_frequencies;
+    fc_ctx.freq_cnt = _mgr_ctx.dfs_frequencies_cnt;
     fc_ctx.cur_freq_idx = 0;
     fc_ctx.freq_change_cb = _freq_change_scale_auto;
 
@@ -1409,7 +1437,7 @@ void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedule
 uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t time_us);
 
 static inline uint32_t _freq_interval_mean(uint32_t slot) {
-    return dfs_frequencies[slot];
+    return _mgr_ctx.dfs_frequencies[slot];
 }
 
 int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
@@ -1420,8 +1448,8 @@ int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
     for (unsigned a = 0; a < MAX_DFS_FREQ_VALUES_NUM; a++) {
         for (unsigned b = a + 1; b < MAX_DFS_FREQ_VALUES_NUM; b++) {
             /* only use valid data points */
-            if ((task_perf_util_data[task_id][a].schedules != 0) &&
-                (task_perf_util_data[task_id][b].schedules != 0)) {
+            if ((_sched_stats.task_perf_util_data[task_id][a].schedules != 0) &&
+                (_sched_stats.task_perf_util_data[task_id][b].schedules != 0)) {
 
                 /* use the middle fo the frequency slot as value for computation */
                 int32_t freq_a = _freq_interval_mean(a) / 1000;
@@ -1429,10 +1457,10 @@ int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
                 /* relative change in frequency */
                 int32_t freq_inc_fact = freq_b * 100 / freq_a;
 
-                int32_t ta = task_perf_util_data[task_id][a].cpu_time_ticks;
-                ta /= task_perf_util_data[task_id][a].schedules;
-                int32_t tb = task_perf_util_data[task_id][b].cpu_time_ticks;
-                tb /= task_perf_util_data[task_id][b].schedules;
+                int32_t ta = _sched_stats.task_perf_util_data[task_id][a].cpu_time_ticks;
+                ta /= _sched_stats.task_perf_util_data[task_id][a].schedules;
+                int32_t tb = _sched_stats.task_perf_util_data[task_id][b].cpu_time_ticks;
+                tb /= _sched_stats.task_perf_util_data[task_id][b].schedules;
                 int32_t t_dec_fact = ta * 100 / tb;
                 int32_t t_diff = tb - ta;
 
@@ -1443,8 +1471,8 @@ int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
                 if (debug_print) {
                     printf("\nf: %ld %ld %ld %ld %%\n", freq_a * 1000, freq_b * 1000, (freq_b - freq_a) * 1000, freq_inc_fact);
                     printf("t: %ld %ld %ld %ld %%\n", ta, tb, t_diff, t_dec_fact);
-                    printf("cpu time: %ld %ld\n", task_perf_util_data[task_id][a].cpu_time_ticks, task_perf_util_data[task_id][b].cpu_time_ticks);
-                    printf("schedules: %ld %ld\n", task_perf_util_data[task_id][a].schedules, task_perf_util_data[task_id][b].schedules);
+                    printf("cpu time: %ld %ld\n", _sched_stats.task_perf_util_data[task_id][a].cpu_time_ticks, _sched_stats.task_perf_util_data[task_id][b].cpu_time_ticks);
+                    printf("schedules: %ld %ld\n", _sched_stats.task_perf_util_data[task_id][a].schedules, _sched_stats.task_perf_util_data[task_id][b].schedules);
                     printf("PU: %ld\n", pu);
                 }
                 pu_sum += pu;
@@ -1463,11 +1491,11 @@ uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t
                    is used, and in that case the frequency (or actually its index) is known out-of-band,
                    (via the freq cycler context), therfore, translation from freq to index can be skipped */
     uint32_t freq_idx = fc_ctx.cur_freq_idx;
-    task_perf_util_data[task_id][freq_idx].cpu_time_ticks += busy_ticks;
-    task_perf_util_data[task_id][freq_idx].schedules++;
+    _sched_stats.task_perf_util_data[task_id][freq_idx].cpu_time_ticks += busy_ticks;
+    _sched_stats.task_perf_util_data[task_id][freq_idx].schedules++;
 
-    if (task_perf_util_data[task_id][freq_idx].cpu_time_ticks >= fc_ctx.cpu_time_threshold_ticks &&
-        task_perf_util_data[task_id][freq_idx].schedules >= fc_ctx.thread_schedule_threshold) {
+    if (_sched_stats.task_perf_util_data[task_id][freq_idx].cpu_time_ticks >= fc_ctx.cpu_time_threshold_ticks &&
+        _sched_stats.task_perf_util_data[task_id][freq_idx].schedules >= fc_ctx.thread_schedule_threshold) {
         /* mark that enough stats were collected for this thread */
         fc_ctx.pu_stats_pending_cur_freq &= ~(1 << task_id);
     }
@@ -1481,8 +1509,8 @@ void gclk_manager_enable_pu_stat_request_for_thread(kernel_pid_t tid) {
 void gclk_manager_clear_performance_util_data(void) {
     for (unsigned t = 0; t < GCLK_MANAGER_PU_STATS_TASK_NUM; t++) {
         for (unsigned f = 0; f < MAX_DFS_FREQ_VALUES_NUM; f++) {
-            task_perf_util_data[t][f].cpu_time_ticks = 0;
-            task_perf_util_data[t][f].schedules = 0;
+            _sched_stats.task_perf_util_data[t][f].cpu_time_ticks = 0;
+            _sched_stats.task_perf_util_data[t][f].schedules = 0;
         }
     }
 
@@ -1492,24 +1520,24 @@ void gclk_manager_clear_performance_util_data(void) {
 }
 
 void gclk_manager_pre_sched_hook(kernel_pid_t next_thread) {
-    if (pu_metadata_collection_enabled) {
+    if (_mgr_ctx.pu_metadata_collection_enabled) {
         _sched_stats.t_cur_thread_start = idle_timer_read();
     }
-    if (pre_sched_pu_dfs_enabled) {
-        if (_sched_stats.task_performance_util[next_thread] >= pre_sched_freq_boost_threshold &&
-            pre_sched_boost_freq != current_core_freq) {
-            freq_change_cb(pre_sched_boost_freq);
-            current_core_freq = pre_sched_boost_freq;
-        } else if (_sched_stats.task_performance_util[next_thread] <= pre_sched_freq_throttle_threshold &&
-            pre_sched_throttle_freq != current_core_freq) {
-            freq_change_cb(pre_sched_throttle_freq);
-            current_core_freq = pre_sched_throttle_freq;
+    if (_mgr_ctx.pre_sched_pu_dfs_enabled) {
+        if (_sched_stats.task_performance_util[next_thread] >= _mgr_ctx.pre_sched_freq_boost_threshold &&
+            _mgr_ctx.pre_sched_boost_freq != current_core_freq) {
+            freq_change_cb(_mgr_ctx.pre_sched_boost_freq);
+            current_core_freq = _mgr_ctx.pre_sched_boost_freq;
+        } else if (_sched_stats.task_performance_util[next_thread] <= _mgr_ctx.pre_sched_freq_throttle_threshold &&
+            _mgr_ctx.pre_sched_throttle_freq != current_core_freq) {
+            freq_change_cb(_mgr_ctx.pre_sched_throttle_freq);
+            current_core_freq = _mgr_ctx.pre_sched_throttle_freq;
         }
     }
 }
 
 void gclk_manager_post_sched_hook(kernel_pid_t desched_thread) {
-    if (pu_metadata_collection_enabled) {
+    if (_mgr_ctx.pu_metadata_collection_enabled) {
         uint32_t busy_ticks = idle_timer_read() - _sched_stats.t_cur_thread_start;
         _append_performance_util_data(desched_thread, current_core_freq, busy_ticks);
         _do_freq_cycle_step_if_ready();
@@ -1543,7 +1571,7 @@ void gclk_manager_on_idle_hook(void) {
 }
 
 void gclk_manager_enable_dynamic_frequency_scaling(bool enable) {
-    pre_sched_pu_dfs_enabled = enable;
+    _mgr_ctx.pre_sched_pu_dfs_enabled = enable;
     if (enable) {
         pre_dfs_enable_freq = gclk_get_current_freq(gclk_manager_get_core_clock_handle());
     } else {
@@ -1555,26 +1583,26 @@ static void _dvfs(uint32_t utilization) {
 
     unsigned state = irq_disable();
     /* dfs can only be applied if there are multiple freq settings available */
-    if (dfs_frequencies_cnt > 0) {
-        int old_scale_idx = current_dfs_freq_idx;
+    if (_mgr_ctx.dfs_frequencies_cnt > 0) {
+        int old_scale_idx = _mgr_ctx.current_dfs_freq_idx;
 
         if (utilization > 80) {
-            current_dfs_freq_idx++;
+            _mgr_ctx.current_dfs_freq_idx++;
         } else if (utilization < 60){
-            current_dfs_freq_idx--;
+            _mgr_ctx.current_dfs_freq_idx--;
         }
 
-        if (current_dfs_freq_idx < 0) {
-            current_dfs_freq_idx = 0;
-        } else if ((uint32_t)current_dfs_freq_idx >= dfs_frequencies_cnt){
-            current_dfs_freq_idx =  dfs_frequencies_cnt - 1;
+        if (_mgr_ctx.current_dfs_freq_idx < 0) {
+            _mgr_ctx.current_dfs_freq_idx = 0;
+        } else if ((uint32_t)_mgr_ctx.current_dfs_freq_idx >= _mgr_ctx.dfs_frequencies_cnt){
+            _mgr_ctx.current_dfs_freq_idx =  _mgr_ctx.dfs_frequencies_cnt - 1;
         }
 
-        if(current_dfs_freq_idx != old_scale_idx) {
-            gclk_manager_scale_core_freq(dfs_frequencies[current_dfs_freq_idx]);
+        if(_mgr_ctx.current_dfs_freq_idx != old_scale_idx) {
+            gclk_manager_scale_core_freq(_mgr_ctx.dfs_frequencies[_mgr_ctx.current_dfs_freq_idx]);
         }
 
-        _sched_stats.freq_sched_cnt[current_dfs_freq_idx]++;
+        _sched_stats.freq_sched_cnt[_mgr_ctx.current_dfs_freq_idx]++;
     }
 
     irq_restore(state);
@@ -1606,7 +1634,7 @@ void gclk_manager_post_idle_hook(void) {
     _sched_stats.utilization = (201 * _sched_stats.busy_ticks + _sched_stats.idle_ticks) / ((_sched_stats.idle_ticks + _sched_stats.busy_ticks) * 2);
     _sched_stats.utilization_avg = (3 * _sched_stats.utilization_avg + _sched_stats.utilization) >> 2;
     //uint32_t utilization_avg = busy_ticks_avg / ((idle_ticks_avg + busy_ticks_avg) / 100);
-    if (cpu_util_based_dvfs_enabled) {
+    if (_mgr_ctx.cpu_util_based_dvfs_enabled) {
         //printf("busy: %lu idle %lu util: %lu avg_util: %lu\n", busy_ticks, idle_ticks, utilization, utilization_avg);
         //printf("performing DVFS for %lu %% utilization\n", utilization_avg);
         if (_sched_stats.idle_ticks == 0) {
@@ -1629,8 +1657,8 @@ void gclk_manager_print_util_metrics(void) {
     printf("utilization:    %lu\n", _sched_stats.utilization);
     printf("util_avg:       %lu\n", _sched_stats.utilization_avg);
 
-    for (unsigned i = 0; i < dfs_frequencies_cnt; i++) {
-        printf("used %lu Hz for %lu schedules\n", dfs_frequencies[i], _sched_stats.freq_sched_cnt[i]);
+    for (unsigned i = 0; i < _mgr_ctx.dfs_frequencies_cnt; i++) {
+        printf("used %lu Hz for %lu schedules\n", _mgr_ctx.dfs_frequencies[i], _sched_stats.freq_sched_cnt[i]);
         _sched_stats.freq_sched_cnt[i] = 0;
     }
 }
@@ -2081,7 +2109,7 @@ void _post_notify_commit(bool post_change) {
         unsigned min_ws;
         unsigned min_vc_idx;
 
-        gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_FREQ_LIMIT_CLKS_NUMOF, &min_ws,  &min_vc_idx, dvs_policy);
+        gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_FREQ_LIMIT_CLKS_NUMOF, &min_ws,  &min_vc_idx, _mgr_ctx.dvs_policy);
 
         if (auto_wsadapt_enabled &&
             ((!post_change &&  (flash_opt_get_wait_states() < min_ws)) ||
@@ -2277,7 +2305,7 @@ void gclk_manager_run_sequence_with_notify(gclk_manager_sequence_step_t *seq, si
          *       and are *not* changed with this step-sequence may not be part of the (reduced)
          *       tree view (only contained in the cache). The below function would need to be
          *       updated to also consider the cached constraints */
-        gclk_get_min_required_ws_vc_from_tree_config(target_tree_conf, tree_size, &ws, &vc_idx, dvs_policy);
+        gclk_get_min_required_ws_vc_from_tree_config(target_tree_conf, tree_size, &ws, &vc_idx, _mgr_ctx.dvs_policy);
         printf("Applicable Voltage/Flash configs\n");
         printf("New flash waitstate setting: %u\n", ws);
         printf("New core voltage setting: %u (%u mV)\n", vc_idx, core_voltage_idx2mv(vc_idx));
@@ -2533,11 +2561,11 @@ void gclk_manager_enable_flashws_auto_update(bool on) {
 }
 
 void gclk_manager_set_dvs_policy(gclk_manager_dvs_policy_t policy) {
-    dvs_policy = policy;
+    _mgr_ctx.dvs_policy = policy;
 }
 
 gclk_manager_dvs_policy_t gclk_manager_get_dvs_policy(void) {
-    return dvs_policy;
+    return _mgr_ctx.dvs_policy;
 }
 
 void gclk_manager_disable_unused(void) {
@@ -3005,8 +3033,8 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
 
             // if it can be guaranteed that the target setting is effective and setup correctly
             // it could be more efficient to just update the values based on the known changes instead of queriying the whole state again.
-            //current_core_topolen = max_involved_clks;
-            //current_core_topo_id = target_topology;
+            //_mgr_ctx.current_core_topolen = max_involved_clks;
+            //_mgr_ctx.current_core_topo_id = target_topology;
             _update_cached_state_vars();
             /* a topology change in most cases invalidates configured DFS settings.
              * Therefore they are updated to valid default values */
@@ -3027,13 +3055,13 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
 }
 
 bool gclk_manager_scale_core_freq(uint32_t freq) {
-    const gclk_scale_setting_t *s = active_core_scale_setting;
+    const gclk_scale_setting_t *s = _mgr_ctx.active_core_scale_setting;
     if (!s) {
         printf("%s: no scale setting appliccable at the moment!\n", __FUNCTION__);
         return false;
     }
 
-    LOG_DEBUG("%s: scale freq of [%s](topo %d) to %luHz\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), current_core_topo_id, freq);
+    LOG_DEBUG("%s: scale freq of [%s](topo %d) to %luHz\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), _mgr_ctx.current_core_topo_id, freq);
 
     const gclk_t *adapted_clk = s->scale_clk;
 
@@ -3049,10 +3077,10 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
         /* for cases where any nodes between the output clock instance and the scale_clock instance do intermediate scaling,
          * the factor applied to the scaled clock needs to adapted accordingly by calculating the effective scaling factor
          * relative to the intermediate nodes and the output. */
-        for (unsigned i = 0; i < dfs_frequencies_cnt; i++) {
-            if (topology_conf_cache[i][0].clk_freq == freq) {
-                new_uptree_factor = topology_conf_cache[i][0].factor;
-                adapted_clk_new_freq = topology_conf_cache[i][0].factor * gclk_get_input_freq(adapted_clk);
+        for (unsigned i = 0; i < _mgr_ctx.dfs_frequencies_cnt; i++) {
+            if (_mgr_ctx.topology_conf_cache[i][0].clk_freq == freq) {
+                new_uptree_factor = _mgr_ctx.topology_conf_cache[i][0].factor;
+                adapted_clk_new_freq = _mgr_ctx.topology_conf_cache[i][0].factor * gclk_get_input_freq(adapted_clk);
                 new_freq = freq;
                 break;
             }
@@ -3087,10 +3115,10 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
             gclk_manager_sequence_step_t adhoc_seq[20];
             int seq_len = 0;
             gclk_manager_sequence_step_t *seq = NULL;
-            for (unsigned i = 0; i < dfs_frequencies_cnt; i++) {
-                if (topology_conf_cache[i][0].clk_freq == freq) {
-                    seq = &prepared_rescale_sequences[i][0];
-                    seq_len = prepared_rescale_sequence_lengths[i];
+            for (unsigned i = 0; i < _mgr_ctx.dfs_frequencies_cnt; i++) {
+                if (_mgr_ctx.topology_conf_cache[i][0].clk_freq == freq) {
+                    seq = &_mgr_ctx.prepared_rescale_sequences[i][0];
+                    seq_len = _mgr_ctx.prepared_rescale_sequence_lengths[i];
                     new_freq = freq;
                     break;
                 }
@@ -3099,7 +3127,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
             /* if there is no applicable prepared sequence, derive it on the fly
              * (expensive, but okay for manual testing purposes) */
             if (!seq) {
-                uint32_t max_topo_len = max_clocks_in_core_topology;
+                uint32_t max_topo_len = _mgr_ctx.max_clocks_in_core_topology;
                 clk_topology_entry_t target_topology[max_topo_len];
                 memset(target_topology, 0, sizeof(clk_topology_entry_t) * max_topo_len);
                 target_topology[0].clk = gclock_core_clock_handle;
@@ -3109,10 +3137,10 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
                 size_t valid_cnt = 0;
                 int force_nth = -1;
                 /* brute force a configuration for the current topology */
-                new_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, target_topology, &max_topo_len, &current_core_topo_id,
+                new_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, target_topology, &max_topo_len, &_mgr_ctx.current_core_topo_id,
                         cmp_func, (void*)&target_freq, &valid_cnt, force_nth, NULL);
 
-                seq_len = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
+                seq_len = gclk_manager_derive_sequence(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen,
                                                        target_topology, max_topo_len, adhoc_seq, ARRAY_SIZE(adhoc_seq));
                 seq = adhoc_seq;
             }
@@ -3122,7 +3150,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
                 _gclk_manager_run_sequence__dyn_freq(seq, seq_len, freq);
                 new_freq = gclk_get_current_freq(gclock_core_clock_handle);
             } else {
-                printf("transition from [%s] topology from %d to %d infeasible!\n", gclk_get_name(gclock_core_clock_handle), current_core_topo_id, current_core_topo_id);
+                printf("transition from [%s] topology from %d to %d infeasible!\n", gclk_get_name(gclock_core_clock_handle), _mgr_ctx.current_core_topo_id, _mgr_ctx.current_core_topo_id);
             }
 
             }
