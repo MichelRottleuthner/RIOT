@@ -227,6 +227,10 @@ static gclk_manager_sched_stats_t _sched_stats;
 //TODO unify naming fo task/thread
 //TODO move _sched_stats init to init function (to move many bytes from data section to few bytes in text)
 
+/* A freq change implementation that automatically uses the scaling approach that applies to the current
+ * topology (as defined by the active scale setting of the manager) */
+static void _freq_change_scale_auto(uint32_t new_freq);
+
 
 /* @brief Stores the state of the clock manager. */
 typedef struct {
@@ -324,6 +328,16 @@ typedef struct {
      * has constraints on core voltage and/or wait state configuration. */
     gclk_clock_change_notify_list_t ccnl[GCLK_FREQ_LIMIT_CLKS_NUMOF];
 
+    /* TODO: implement functions to switch this to other implementations at runtime */
+    /* Depending on the clock configuration, topology, dependencies and the DVFS-scheme at use, the
+     * mathod to switch the frequency may be changed at runtime.
+     * If, for example, it is known beforehand (still at runtime) that no other clock instance is
+     * affected by changing the core clock (because no dependent peripharal is in use or because the
+     * core is clocked by a completely independent instance), it may be possible to completely avoid
+     * checks of whether a clock is affected and also not callbacks are required.
+     * The same applies to clocks where it is known that no complex transition mechanism (temporary
+     * swithcing to another clock) is needed. */
+    gclk_manager_core_freq_reconf_cb_t freq_change_cb;
 } gclk_manager_ctx_t;
 
 /* @brief global clock manager context. */
@@ -335,22 +349,6 @@ static gclk_manager_ctx_t _mgr_ctx;
    time frequency products */
 #define TASK_UTIL_MAVG_STEPS     (10)
 
-
-static void _freq_change_scale_auto(uint32_t new_freq);
-
-/* TODO: implement functions to switch this to other implementations at runtime */
-/* Depending on the clock configuration, topology, dependencies and the DVFS-scheme at use, the
- * mathod to switch the frequency may be changed at runtime.
- * If, for example, it is known beforehand (still at runtime) that no other clock instance is
- * affected by changing the core clock (because no dependent peripharal is in use or because the
- * core is clocked by a completely independent instance), it may be possible to completely avoid
- * checks of whether a clock is affected and also not callbacks are required.
- * The same applies to clocks where it is known that no complex transition mechanism (temporary
- * swithcing to another clock) is needed. */
-gclk_manager_core_freq_reconf_cb_t freq_change_cb = _freq_change_scale_auto;
-
-/* A freq change implementation that just maps to the core scale funtion that uses scale settings that apply
- * to the current topology */
 static void _freq_change_scale_auto(uint32_t new_freq) {
     gclk_manager_scale_core_freq(new_freq);
 }
@@ -1432,8 +1430,8 @@ void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedule
 
     mutex_lock(&fc_ctx.done_mutex);
     mutex_unlock(&fc_ctx.done_mutex);
-    /* go back to default frequency */
-    freq_change_cb(initial_freq);
+    /* go back to default frequency via the manager freq change method instead of the freq cycler variant */
+    _mgr_ctx.freq_change_cb(initial_freq);
     LOG_DEBUG("freq cycler done\n");
     current_core_freq = initial_freq;
 }
@@ -1529,11 +1527,11 @@ void gclk_manager_pre_sched_hook(kernel_pid_t next_thread) {
     if (_mgr_ctx.pre_sched_pu_dfs_enabled) {
         if (_sched_stats.task_performance_util[next_thread] >= _mgr_ctx.pre_sched_freq_boost_threshold &&
             _mgr_ctx.pre_sched_boost_freq != current_core_freq) {
-            freq_change_cb(_mgr_ctx.pre_sched_boost_freq);
+            _mgr_ctx.freq_change_cb(_mgr_ctx.pre_sched_boost_freq);
             current_core_freq = _mgr_ctx.pre_sched_boost_freq;
         } else if (_sched_stats.task_performance_util[next_thread] <= _mgr_ctx.pre_sched_freq_throttle_threshold &&
             _mgr_ctx.pre_sched_throttle_freq != current_core_freq) {
-            freq_change_cb(_mgr_ctx.pre_sched_throttle_freq);
+            _mgr_ctx.freq_change_cb(_mgr_ctx.pre_sched_throttle_freq);
             current_core_freq = _mgr_ctx.pre_sched_throttle_freq;
         }
     }
@@ -1578,7 +1576,7 @@ void gclk_manager_enable_dynamic_frequency_scaling(bool enable) {
     if (enable) {
         pre_dfs_enable_freq = gclk_get_current_freq(gclk_manager_get_core_clock_handle());
     } else {
-        freq_change_cb(pre_dfs_enable_freq);
+        _mgr_ctx.freq_change_cb(pre_dfs_enable_freq);
     }
 }
 
