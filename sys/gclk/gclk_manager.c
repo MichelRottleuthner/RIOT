@@ -208,13 +208,14 @@ typedef struct {
     volatile uint32_t busy_ticks_avg; /*< (moving) average number of ticks the scheduler was busy */
     volatile uint32_t idle_ticks_avg; /*< (moving) average number of ticks the scheduler was idle */
     volatile uint32_t utilization_avg; /*< (moving) average utilization based on busy/idle ratio */
-    /* min max values just for debugging/testing purposes (e.g. to provide insight of the value
-     * ranges and to evaluate how tick resolution affects accuracy */
+    int task_performance_util[GCLK_MANAGER_PU_STATS_TASK_NUM]; /*< PU value for each thread */
+    /* metadata for debugging/testing purposes (e.g. to provide insight of the value
+     * ranges, dvfs usage, and to evaluate how tick resolution affects accuracy) */
     volatile uint32_t idle_ticks_min; /*< lowest number of idle ticks observed */
     volatile uint32_t idle_ticks_max; /*< highest number of idle ticks observed */
     volatile uint32_t busy_ticks_min; /*< lowest number of busy ticks observed */
     volatile uint32_t busy_ticks_max; /*< highest number of busy ticks observed */
-    int task_performance_util[GCLK_MANAGER_PU_STATS_TASK_NUM]; /*< PU value for each thread */
+    uint32_t freq_sched_cnt[MAX_DFS_FREQ_VALUES_NUM]; /*< number of schedules at each freq. idx */
 } gclk_manager_sched_stats_t;
 
 static gclk_manager_sched_stats_t _sched_stats = {
@@ -228,16 +229,46 @@ static gclk_manager_sched_stats_t _sched_stats = {
  * and in general how the colck manager is able to control the clocks (e.g. which frequencies are
  * allowed/intended to be set up) */
 
-uint32_t freq_sched_cnt[MAX_DFS_FREQ_VALUES_NUM];
-int current_scale_idx = MAX_DFS_FREQ_VALUES_NUM - 1;
+/* @brief Currently active (DFS) frequency scale idx.
+ *
+ * This value refers to the frequency value in the prepopulated \ref dfs_frequencies array, which
+ * holds frequency values that are applicable to the current frequency scaling settings defined
+ * by \ref active_core_scale_setting.
+ * This variable is only set by \ref _dvfs(). The explicit freq. scaler used for PUA
+ * tracks its freq scale idx separately as it may use another (PUA-specific) set of frequencies. */
+int current_dfs_freq_idx = MAX_DFS_FREQ_VALUES_NUM - 1;
 
-/* the currently active scale setting that is applied for scaling the core clock (setup by manager init) */
+/* @brief Currently active D(V)FS setting.
+ *
+ * The scale setting that is applied for scaling the core clock via D(V)FS.
+ * Different options for this setting should be defined in the gclk_manager_conf file
+ * according to hardware capabilities.  The \ref gclk_manager_init() function sets this up to
+ * the first applicable setting for the active topology (if there is any). */
 static const gclk_scale_setting_t *active_core_scale_setting = NULL;
 
-/* TODO: the sizes for both of those cached/prepared configs are based on s pessimistic worst case and
- *       should be replaced by a more efficient representation */
-static clk_topology_entry_t topology_conf_cache[MAX_DFS_FREQ_VALUES_NUM][GCLK_NUM_OF_CLOCKS];
+/* @brief max number of prepared clock configs to allocate memory for.
+ * By default allocate enough space to store one prepared config per DFS frequency step. */
+#define GCLK_MANAGER_PREP_CONFS_MAX_NUMOF (MAX_DFS_FREQ_VALUES_NUM)
+
+/* @brief max number of clocks in a topology conf.
+ * There can never be more clocks in any topology than there are clocks.
+ * NOTE: this is a very pessimistic estimation, as in practice the number of clocks
+ *       which are part of the core clock (sub-)topology is by far lower than this.
+ * TODO: add testing code to automatically determine a more realistic platform-specific
+ *       upper bound for this by exploring the maximum length of any possible
+ *       core (sub-)topology. */
+#define GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN (GCLK_NUM_OF_CLOCKS)
+
+/* @brief max number of steps in a prepared reconfiguration sequence.
+ * By default we assume a reconfiguration sequence will touch each clock once at most.
+ * NOTE: this is a very pessimistic estimation, as in practice reconfiguration sequences
+ *       involve far less operations.
+ * TODO: add testing code to automatically determine a more realistic platform-specific
+ *       upper bound for this by exploring a representative set of possible
+ *       reconfiguration sequences. */
 #define MAX_PREPARED_SEQUENCE_LEN (GCLK_NUM_OF_CLOCKS)
+
+static clk_topology_entry_t topology_conf_cache[GCLK_MANAGER_PREP_CONFS_MAX_NUMOF][GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN];
 static gclk_manager_sequence_step_t prepared_rescale_sequences[MAX_DFS_FREQ_VALUES_NUM][MAX_PREPARED_SEQUENCE_LEN];
 static int prepared_rescale_sequence_lengths[MAX_DFS_FREQ_VALUES_NUM];
 
@@ -1232,6 +1263,7 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
             match_freq_cnt = MAX_DFS_FREQ_VALUES_NUM <= possible_freq_cnt ? MAX_DFS_FREQ_VALUES_NUM : possible_freq_cnt;
         } else {
             match_freq_cnt = cnt <= possible_freq_cnt ? cnt : possible_freq_cnt;
+            match_freq_cnt = match_freq_cnt <= MAX_DFS_FREQ_VALUES_NUM ? match_freq_cnt : MAX_DFS_FREQ_VALUES_NUM;
         }
 
         gclk_fraction_t dtf;
@@ -1545,25 +1577,25 @@ static void _dvfs(uint32_t utilization) {
     unsigned state = irq_disable();
     /* dfs can only be applied if there are multiple freq settings available */
     if (dfs_frequencies_cnt > 0) {
-        int old_scale_idx = current_scale_idx;
+        int old_scale_idx = current_dfs_freq_idx;
 
         if (utilization > 80) {
-            current_scale_idx++;
+            current_dfs_freq_idx++;
         } else if (utilization < 60){
-            current_scale_idx--;
+            current_dfs_freq_idx--;
         }
 
-        if (current_scale_idx < 0) {
-            current_scale_idx = 0;
-        } else if ((uint32_t)current_scale_idx >= dfs_frequencies_cnt){
-            current_scale_idx =  dfs_frequencies_cnt - 1;
+        if (current_dfs_freq_idx < 0) {
+            current_dfs_freq_idx = 0;
+        } else if ((uint32_t)current_dfs_freq_idx >= dfs_frequencies_cnt){
+            current_dfs_freq_idx =  dfs_frequencies_cnt - 1;
         }
 
-        if(current_scale_idx != old_scale_idx) {
-            gclk_manager_scale_core_freq(dfs_frequencies[current_scale_idx]);
+        if(current_dfs_freq_idx != old_scale_idx) {
+            gclk_manager_scale_core_freq(dfs_frequencies[current_dfs_freq_idx]);
         }
 
-        freq_sched_cnt[current_scale_idx]++;
+        _sched_stats.freq_sched_cnt[current_dfs_freq_idx]++;
     }
 
     irq_restore(state);
@@ -1607,9 +1639,6 @@ void gclk_manager_post_idle_hook(void) {
 }
 
 void gclk_manager_print_util_metrics(void) {
-    //uint32_t utilization = (busy_ticks * 100) / (idle_ticks + busy_ticks);
-    //uint32_t utilization_avg = (busy_ticks_avg * 100) / (idle_ticks_avg + busy_ticks_avg);
-    printf("done working @ %lu MHz\n", gclk_get_current_freq(gclk_manager_get_core_clock_handle()) / 1000000);
     printf("idle_cycles:    %lu\n", _sched_stats.idle_ticks);
     printf("working_cycles: %lu\n", _sched_stats.busy_ticks);
     printf("idle_ticks_min: %lu\n", _sched_stats.idle_ticks_min);
@@ -1622,8 +1651,8 @@ void gclk_manager_print_util_metrics(void) {
     printf("util_avg:       %lu\n", _sched_stats.utilization_avg);
 
     for (unsigned i = 0; i < dfs_frequencies_cnt; i++) {
-        printf("used %lu Hz for %lu schedules\n", dfs_frequencies[i], freq_sched_cnt[i]);
-        freq_sched_cnt[i] = 0;
+        printf("used %lu Hz for %lu schedules\n", dfs_frequencies[i], _sched_stats.freq_sched_cnt[i]);
+        _sched_stats.freq_sched_cnt[i] = 0;
     }
 }
 
@@ -2073,7 +2102,7 @@ void _post_notify_commit(bool post_change) {
         unsigned min_ws;
         unsigned min_vc_idx;
 
-        gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_NUM_OF_CLOCKS, &min_ws,  &min_vc_idx, dvs_policy);
+        gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_FREQ_LIMIT_CLKS_NUMOF, &min_ws,  &min_vc_idx, dvs_policy);
 
         if (auto_wsadapt_enabled &&
             ((!post_change &&  (flash_opt_get_wait_states() < min_ws)) ||
