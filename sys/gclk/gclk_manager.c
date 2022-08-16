@@ -214,6 +214,7 @@ typedef struct {
     volatile uint32_t idle_ticks_max; /*< highest number of idle ticks observed */
     volatile uint32_t busy_ticks_min; /*< lowest number of busy ticks observed */
     volatile uint32_t busy_ticks_max; /*< highest number of busy ticks observed */
+    int task_performance_util[GCLK_MANAGER_PU_STATS_TASK_NUM]; /*< PU value for each thread */
 } gclk_manager_sched_stats_t;
 
 static gclk_manager_sched_stats_t _sched_stats = {
@@ -222,12 +223,6 @@ static gclk_manager_sched_stats_t _sched_stats = {
     .busy_ticks_min = 0xFFFFFFFF,
     .busy_ticks_max = 0,
 };
-
-/* Max number of threads to reserve memory for, that stores task util metrics */
-#define TASK_UTIL_TASK_NUM       (10)
-
-/* performance utilization for each thread */
-int task_performance_util[TASK_UTIL_TASK_NUM];
 
 /* below parameters are used to control how the thread-based dynamic frequency scaling is applied
  * and in general how the colck manager is able to control the clocks (e.g. which frequencies are
@@ -318,7 +313,7 @@ static clk_topology_entry_t current_core_topology[GCLK_NUM_OF_CLOCKS];
 static gclk_clock_change_notify_list_t ccnl[GCLK_FREQ_LIMIT_CLKS_NUMOF];
 
 /* schedule and timing metadata for each threads execution at different frequencies */
-volatile task_util_metrics_t task_perf_util_data[TASK_UTIL_TASK_NUM][MAX_DFS_FREQ_VALUES_NUM];
+volatile task_util_metrics_t task_perf_util_data[GCLK_MANAGER_PU_STATS_TASK_NUM][MAX_DFS_FREQ_VALUES_NUM];
 
 static void _freq_change_scale_auto(uint32_t new_freq);
 
@@ -1448,8 +1443,8 @@ int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
     }
 
     /* save the PU value per task */
-    task_performance_util[task_id] = pu_sum / pu_cnt;
-    return task_performance_util[task_id];
+    _sched_stats.task_performance_util[task_id] = pu_sum / pu_cnt;
+    return _sched_stats.task_performance_util[task_id];
 }
 
 uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t busy_ticks) {
@@ -1473,7 +1468,7 @@ void gclk_manager_enable_pu_stat_request_for_thread(kernel_pid_t tid) {
 }
 
 void gclk_manager_clear_performance_util_data(void) {
-    for (unsigned t = 0; t < TASK_UTIL_TASK_NUM; t++) {
+    for (unsigned t = 0; t < GCLK_MANAGER_PU_STATS_TASK_NUM; t++) {
         for (unsigned f = 0; f < MAX_DFS_FREQ_VALUES_NUM; f++) {
             task_perf_util_data[t][f].cpu_time_ticks = 0;
             task_perf_util_data[t][f].schedules = 0;
@@ -1490,11 +1485,11 @@ void gclk_manager_pre_sched_hook(kernel_pid_t next_thread) {
         _sched_stats.t_cur_thread_start = idle_timer_read();
     }
     if (pre_sched_pu_dfs_enabled) {
-        if (task_performance_util[next_thread] >= pre_sched_freq_boost_threshold &&
+        if (_sched_stats.task_performance_util[next_thread] >= pre_sched_freq_boost_threshold &&
             pre_sched_boost_freq != current_core_freq) {
             freq_change_cb(pre_sched_boost_freq);
             current_core_freq = pre_sched_boost_freq;
-        } else if (task_performance_util[next_thread] <= pre_sched_freq_throttle_threshold &&
+        } else if (_sched_stats.task_performance_util[next_thread] <= pre_sched_freq_throttle_threshold &&
             pre_sched_throttle_freq != current_core_freq) {
             freq_change_cb(pre_sched_throttle_freq);
             current_core_freq = pre_sched_throttle_freq;
