@@ -319,13 +319,15 @@ typedef struct {
      * NOTE: the size is currently based on an absolute worst case assumption. */
     clk_topology_entry_t current_core_topology[GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN];
 
+    /* Core-clock change notification list.
+     * Allocates space for one clock change notification entry for each clock that
+     * has constraints on core voltage and/or wait state configuration. */
+    gclk_clock_change_notify_list_t ccnl[GCLK_FREQ_LIMIT_CLKS_NUMOF];
+
 } gclk_manager_ctx_t;
 
 /* @brief global clock manager context. */
 static gclk_manager_ctx_t _mgr_ctx;
-
-/* Core-clock change notification list */
-static gclk_clock_change_notify_list_t ccnl[GCLK_FREQ_LIMIT_CLKS_NUMOF];
 
 
 /* is used decide in which group a specific frequency should be put */
@@ -2521,7 +2523,7 @@ static void _lazy_reg_freq_limit_clk_change_cbs(void) {
         for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
             /* DVS just re-uses the notification mechanism to change the
              * voltage to an appropriate value before/after the frequency is adapted */
-            gclk_manager_register_clk_change_cb(gclk_freq_conf_limits[i].clk, &ccnl[i],
+            gclk_manager_register_clk_change_cb(gclk_freq_conf_limits[i].clk, &_mgr_ctx.ccnl[i],
                     _dvs_wsa_freq_constraint_change_cb);
         }
     }
@@ -2532,7 +2534,7 @@ static void _lazy_unreg_freq_limit_clk_change_cbs(void) {
     if (!(auto_vscale_enabled || auto_wsadapt_enabled)) {
         /* only disable if enabled */
         for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
-            gclk_manager_unregister_clk_change_cb(&ccnl[i]);
+            gclk_manager_unregister_clk_change_cb(&_mgr_ctx.ccnl[i]);
         }
     }
 }
