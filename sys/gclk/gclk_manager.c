@@ -246,28 +246,6 @@ int current_dfs_freq_idx = MAX_DFS_FREQ_VALUES_NUM - 1;
  * the first applicable setting for the active topology (if there is any). */
 static const gclk_scale_setting_t *active_core_scale_setting = NULL;
 
-/* @brief max number of prepared clock configs to allocate memory for.
- * By default allocate enough space to store one prepared config per DFS frequency step. */
-#define GCLK_MANAGER_PREP_CONFS_MAX_NUMOF (MAX_DFS_FREQ_VALUES_NUM)
-
-/* @brief max number of clocks in a topology conf.
- * There can never be more clocks in any topology than there are clocks.
- * NOTE: this is a very pessimistic estimation, as in practice the number of clocks
- *       which are part of the core clock (sub-)topology is by far lower than this.
- * TODO: add testing code to automatically determine a more realistic platform-specific
- *       upper bound for this by exploring the maximum length of any possible
- *       core (sub-)topology. */
-#define GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN (GCLK_NUM_OF_CLOCKS)
-
-/* @brief max number of steps in a prepared reconfiguration sequence.
- * By default we assume a reconfiguration sequence will touch each clock once at most.
- * NOTE: this is a very pessimistic estimation, as in practice reconfiguration sequences
- *       involve far less operations.
- * TODO: add testing code to automatically determine a more realistic platform-specific
- *       upper bound for this by exploring a representative set of possible
- *       reconfiguration sequences. */
-#define GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN (GCLK_NUM_OF_CLOCKS)
-
 static clk_topology_entry_t topology_conf_cache[GCLK_MANAGER_PREP_CONFS_MAX_NUMOF][GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN];
 static gclk_manager_sequence_step_t prepared_rescale_sequences[MAX_DFS_FREQ_VALUES_NUM][GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN];
 static int prepared_rescale_sequence_lengths[MAX_DFS_FREQ_VALUES_NUM];
