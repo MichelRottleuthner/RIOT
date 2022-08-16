@@ -266,10 +266,10 @@ static const gclk_scale_setting_t *active_core_scale_setting = NULL;
  * TODO: add testing code to automatically determine a more realistic platform-specific
  *       upper bound for this by exploring a representative set of possible
  *       reconfiguration sequences. */
-#define MAX_PREPARED_SEQUENCE_LEN (GCLK_NUM_OF_CLOCKS)
+#define GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN (GCLK_NUM_OF_CLOCKS)
 
 static clk_topology_entry_t topology_conf_cache[GCLK_MANAGER_PREP_CONFS_MAX_NUMOF][GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN];
-static gclk_manager_sequence_step_t prepared_rescale_sequences[MAX_DFS_FREQ_VALUES_NUM][MAX_PREPARED_SEQUENCE_LEN];
+static gclk_manager_sequence_step_t prepared_rescale_sequences[MAX_DFS_FREQ_VALUES_NUM][GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN];
 static int prepared_rescale_sequence_lengths[MAX_DFS_FREQ_VALUES_NUM];
 
 /* this gets updated with a list of possible frequencies when setting the clock handle that is used
@@ -1347,7 +1347,8 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
                     dfs_frequencies[matched] = leaf_freq;
                     gclk_manager_sequence_step_t *seq = &prepared_rescale_sequences[matched][0];
                     int seq_size = gclk_manager_derive_sequence(current_core_topology, current_core_topolen,
-                                                                topology, max_involved_clks, seq, MAX_PREPARED_SEQUENCE_LEN);
+                                                                topology, max_involved_clks, seq,
+                                                                GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN);
                     if (seq_size > 0) {
                         prepared_rescale_sequence_lengths[matched] = seq_size;
                         matched++;
