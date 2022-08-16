@@ -116,19 +116,42 @@ static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, g
  */
 static inline uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in);
 
-/* gclk_manager state variable that stores whether the automatic voltage scaling feature is currently enabled.
+/* @brief Voltage scaling enabled state.
+ *
+ * Stores whether the automatic voltage scaling feature is currently enabled.
  * Never change directly! Use @gclk_manager_enable_voltage_auto_scale() to update this at runtime instead.*/
 static bool auto_vscale_enabled = false;
 
-/* gclk_manager state variable that stores whether the automatic wait state adaptation feature is currently enabled.
+/* @brief Flash wait-state adaptation enabled state.
+ *
+ * Stores whether the automatic wait state adaptation feature is currently enabled.
  * Never change directly! Use @gclk_manager_enable_flashws_auto_update() to update this at runtime instead.*/
 static bool auto_wsadapt_enabled = false;
+
+/* @brief Clock change notification list.
+ *
+ * This list holds one list of notification callbacks per clock that callbacks were registered for.
+ **/
+static list_node_t clock_change_notify_list;
+
+/* @brief Number of registered clock change notifications.
+ *
+ * Registrations are simply counted on reg/unreg operations. This allows a fast check on whether
+ * ther are no active registrations in the \ref clock_change_notify_list. */
+static unsigned int registered_clk_change_cb_cnt = 0;
+
+/* @brief The last core frequency value set up by the clock manager */
+volatile uint32_t current_core_freq;
+
+/* @brief The core frequency before DFS got enabled.
+ *
+ * This old frequency setting is restored when DFS is disabled again. */
+uint32_t pre_dfs_enable_freq = 0;
 
 /* mutex used by the manager to guard critical sections like complex topology switch operations.
  * NOTE: As of now the manager should only be used by a single controller entity.
  *       Multiple simultaneous operators are not tested. */
 mutex_t clock_conf_mutex = MUTEX_INIT;
-
 
 /* @brief Frequency cycler context.
  *
@@ -143,7 +166,7 @@ typedef struct {
                                            This value applies per thread, not for the whole PUA-cycle. */
     uint32_t thread_schedule_threshold; /*< minimum number of thread shedules (per thread) that must
                                             happen before the collected data is considered enough. */
-    uint32_t pu_stats_requested. /*< bit field that marks if PU statistics were requested for a thread.
+    uint32_t pu_stats_requested; /*< bit field that marks if PU statistics were requested for a thread.
                                      Bit N refers to thread pid N. */
     uint32_t pu_stats_pending_cur_freq; /*< similar to \ref pu_stats_requested but holds the state for
                                             pending pu stats for each freq step of the cycle.
@@ -169,47 +192,36 @@ typedef struct {
     uint32_t schedules; /*< number of times the task was scheduled */
 } task_util_metrics_t;
 
-/* @brief Clock change notification list.
+/* @brief Scheduler statistics used by the clock manager.
  *
- * This list holds one list of notification callbacks per clock that callbacks were registered for.
- **/
-static list_node_t clock_change_notify_list;
-
-/* @brief Number of registered clock change notifications.
- *
- * Registrations are simply counted on reg/unreg operations. This allows a fast check on whether
- * ther are no active registrations in the \ref clock_change_notify_list. */
-static unsigned int registered_clk_change_cb_cnt = 0;
-
-/* @brief The last core frequency value set up by the clock manager */
-volatile uint32_t current_core_freq;
-
-/* @brief The core frequency before DFS got enabled.
- *
- * This old frequency setting is restored when DFS is disabled again. */
-uint32_t pre_dfs_enable_freq = 0;
-
-/* variables used to collect metadata on scheduling and busy/idle time to calculate
+ * These variables are used to collect metadata on scheduling and busy/idle time to calculate
  * overall CPU utilization and the performance utilization metric for running threads */
-uint64_t t_went_idle;
-uint64_t t_left_idle;
-uint64_t t_cur_thread_start;
-volatile uint32_t enter_idle_cnt;
-volatile uint32_t idle_ticks;
-volatile uint32_t busy_ticks;
-volatile uint32_t utilization;
+typedef struct {
+    uint64_t t_went_idle; /*< timestamp when the scheduler went to idle state last */
+    uint64_t t_left_idle; /*< timestamp when the schduler left the idle state last */
+    uint64_t t_cur_thread_start; /*< timestamp when the current thread got scheduled last */
+    volatile uint32_t enter_idle_cnt; /*< number of times the scheduler went to idle state */
+    volatile uint32_t idle_ticks; /*< number of ticks the scheduler was idle last */
+    volatile uint32_t busy_ticks; /*< number of ticks the scheduler was busy last */
+    volatile uint32_t utilization; /*< last utilization calculated via ratio of busy and idle time */
+    /* basic averages of the above to reduce feedback speed and improve stability against outliers */
+    volatile uint32_t busy_ticks_avg; /*< (moving) average number of ticks the scheduler was busy */
+    volatile uint32_t idle_ticks_avg; /*< (moving) average number of ticks the scheduler was idle */
+    volatile uint32_t utilization_avg; /*< (moving) average utilization based on busy/idle ratio */
+    /* min max values just for debugging/testing purposes (e.g. to provide insight of the value
+     * ranges and to evaluate how tick resolution affects accuracy */
+    volatile uint32_t idle_ticks_min; /*< lowest number of idle ticks observed */
+    volatile uint32_t idle_ticks_max; /*< highest number of idle ticks observed */
+    volatile uint32_t busy_ticks_min; /*< lowest number of busy ticks observed */
+    volatile uint32_t busy_ticks_max; /*< highest number of busy ticks observed */
+} gclk_manager_sched_stats_t;
 
-/* basic averages of the above to reduce feedback speed and improve stability against outliers */
-volatile uint32_t busy_ticks_avg;
-volatile uint32_t utilization_avg;
-volatile uint32_t idle_ticks_avg;
-
-/* min max values just for debugging/testing purposes to provide insight of the value ranges and
- * help deciding if tick resolution is limiting accuracy */
-volatile uint32_t idle_ticks_min = 0xFFFFFFFF;
-volatile uint32_t idle_ticks_max = 0;
-volatile uint32_t busy_ticks_min = 0xFFFFFFFF;
-volatile uint32_t busy_ticks_max = 0;
+static gclk_manager_sched_stats_t _sched_stats = {
+    .idle_ticks_min = 0xFFFFFFFF,
+    .idle_ticks_max = 0,
+    .busy_ticks_min = 0xFFFFFFFF,
+    .busy_ticks_max = 0,
+};
 
 /* Max number of threads to reserve memory for, that stores task util metrics */
 #define TASK_UTIL_TASK_NUM       (10)
@@ -1470,12 +1482,12 @@ void gclk_manager_clear_performance_util_data(void) {
 
     fc_ctx.pu_stats_requested = 0;
     fc_ctx.pu_stats_pending_cur_freq = 0;
-    enter_idle_cnt = 0;
+    _sched_stats.enter_idle_cnt = 0;
 }
 
 void gclk_manager_pre_sched_hook(kernel_pid_t next_thread) {
     if (pu_metadata_collection_enabled) {
-        t_cur_thread_start = idle_timer_read();
+        _sched_stats.t_cur_thread_start = idle_timer_read();
     }
     if (pre_sched_pu_dfs_enabled) {
         if (task_performance_util[next_thread] >= pre_sched_freq_boost_threshold &&
@@ -1492,7 +1504,7 @@ void gclk_manager_pre_sched_hook(kernel_pid_t next_thread) {
 
 void gclk_manager_post_sched_hook(kernel_pid_t desched_thread) {
     if (pu_metadata_collection_enabled) {
-        uint32_t busy_ticks = idle_timer_read() - t_cur_thread_start;
+        uint32_t busy_ticks = idle_timer_read() - _sched_stats.t_cur_thread_start;
         _append_performance_util_data(desched_thread, current_core_freq, busy_ticks);
         _do_freq_cycle_step_if_ready();
     }
@@ -1505,24 +1517,23 @@ void gclk_manager_post_sched_hook(kernel_pid_t desched_thread) {
    @todo: issue an upscaling callback when idle is not reached within a dynamically set boundry */
 void gclk_manager_on_idle_hook(void) {
     //CYCCNT_pre = DWT->CYCCNT;
-    t_went_idle = idle_timer_read();
+    _sched_stats.t_went_idle = idle_timer_read();
 
     /* cancel the critical busy time if not already happened busy-callback */
-    if (enter_idle_cnt) {
-        busy_ticks = t_went_idle - t_left_idle;
+    if (_sched_stats.enter_idle_cnt) {
+        _sched_stats.busy_ticks = _sched_stats.t_went_idle - _sched_stats.t_left_idle;
 
-        if (busy_ticks > busy_ticks_max) {
-            busy_ticks_max = busy_ticks;
+        if (_sched_stats.busy_ticks > _sched_stats.busy_ticks_max) {
+            _sched_stats.busy_ticks_max = _sched_stats.busy_ticks;
         }
 
-        if (busy_ticks < busy_ticks_min) {
-            busy_ticks_min = busy_ticks;
+        if (_sched_stats.busy_ticks < _sched_stats.busy_ticks_min) {
+            _sched_stats.busy_ticks_min = _sched_stats.busy_ticks;
         }
 
-        busy_ticks_avg = (3 * busy_ticks_avg + busy_ticks) >> 2;
+        _sched_stats.busy_ticks_avg = (3 * _sched_stats.busy_ticks_avg + _sched_stats.busy_ticks) >> 2;
     }
-    enter_idle_cnt++;
-    /* @todo: start ll_timer, set callback for *next_xtimer*-equivalent timeout */
+    _sched_stats.enter_idle_cnt++;
 }
 
 void gclk_manager_enable_dynamic_frequency_scaling(bool enable) {
@@ -1573,29 +1584,29 @@ void gclk_manager_post_idle_hook(void) {
     //CYCCNT_diff = CYCCNT_post - CYCCNT_pre;
     //CYCCNT_diff_avg = ((CYCCNT_diff_avg * 9) + CYCCNT_diff) / 10;
 
-    t_left_idle = idle_timer_read();
-    idle_ticks = t_left_idle - t_went_idle;
-    if (idle_ticks > idle_ticks_max) {
-        idle_ticks_max = idle_ticks;
+    _sched_stats.t_left_idle = idle_timer_read();
+    _sched_stats.idle_ticks = _sched_stats.t_left_idle - _sched_stats.t_went_idle;
+    if (_sched_stats.idle_ticks > _sched_stats.idle_ticks_max) {
+        _sched_stats.idle_ticks_max = _sched_stats.idle_ticks;
     }
 
-    if (idle_ticks < idle_ticks_min) {
-        idle_ticks_min = idle_ticks;
+    if (_sched_stats.idle_ticks < _sched_stats.idle_ticks_min) {
+        _sched_stats.idle_ticks_min = _sched_stats.idle_ticks;
     }
 
-    idle_ticks_avg = (3 * idle_ticks_avg + idle_ticks) >> 2;
+    _sched_stats.idle_ticks_avg = (3 * _sched_stats.idle_ticks_avg + _sched_stats.idle_ticks) >> 2;
 
     /* @todo: schedule some kind of callback to notify when reaching a "critical high" busy time */
-    utilization = (201 * busy_ticks + idle_ticks) / ((idle_ticks + busy_ticks) * 2);
-    utilization_avg = (3 * utilization_avg + utilization) >> 2;
+    _sched_stats.utilization = (201 * _sched_stats.busy_ticks + _sched_stats.idle_ticks) / ((_sched_stats.idle_ticks + _sched_stats.busy_ticks) * 2);
+    _sched_stats.utilization_avg = (3 * _sched_stats.utilization_avg + _sched_stats.utilization) >> 2;
     //uint32_t utilization_avg = busy_ticks_avg / ((idle_ticks_avg + busy_ticks_avg) / 100);
     if (cpu_util_based_dvfs_enabled) {
         //printf("busy: %lu idle %lu util: %lu avg_util: %lu\n", busy_ticks, idle_ticks, utilization, utilization_avg);
         //printf("performing DVFS for %lu %% utilization\n", utilization_avg);
-        if (idle_ticks == 0) {
-            _dvfs(utilization_avg);
+        if (_sched_stats.idle_ticks == 0) {
+            _dvfs(_sched_stats.utilization_avg);
         } else {
-            _dvfs(utilization);
+            _dvfs(_sched_stats.utilization);
         }
     }
 }
@@ -1604,16 +1615,16 @@ void gclk_manager_print_util_metrics(void) {
     //uint32_t utilization = (busy_ticks * 100) / (idle_ticks + busy_ticks);
     //uint32_t utilization_avg = (busy_ticks_avg * 100) / (idle_ticks_avg + busy_ticks_avg);
     printf("done working @ %lu MHz\n", gclk_get_current_freq(gclk_manager_get_core_clock_handle()) / 1000000);
-    printf("idle_cycles:    %lu\n", idle_ticks);
-    printf("working_cycles: %lu\n", busy_ticks);
-    printf("idle_ticks_min: %lu\n", idle_ticks_min);
-    printf("idle_ticks_max: %lu\n", idle_ticks_max);
-    printf("idle_ticks_avg: %lu\n", idle_ticks_avg);
-    printf("busy_ticks_min: %lu\n", busy_ticks_min);
-    printf("busy_ticks_max: %lu\n", busy_ticks_max);
-    printf("busy_ticks_avg: %lu\n", busy_ticks_avg);
-    printf("utilization:    %lu\n", utilization);
-    printf("util_avg:       %lu\n", utilization_avg);
+    printf("idle_cycles:    %lu\n", _sched_stats.idle_ticks);
+    printf("working_cycles: %lu\n", _sched_stats.busy_ticks);
+    printf("idle_ticks_min: %lu\n", _sched_stats.idle_ticks_min);
+    printf("idle_ticks_max: %lu\n", _sched_stats.idle_ticks_max);
+    printf("idle_ticks_avg: %lu\n", _sched_stats.idle_ticks_avg);
+    printf("busy_ticks_min: %lu\n", _sched_stats.busy_ticks_min);
+    printf("busy_ticks_max: %lu\n", _sched_stats.busy_ticks_max);
+    printf("busy_ticks_avg: %lu\n", _sched_stats.busy_ticks_avg);
+    printf("utilization:    %lu\n", _sched_stats.utilization);
+    printf("util_avg:       %lu\n", _sched_stats.utilization_avg);
 
     for (unsigned i = 0; i < dfs_frequencies_cnt; i++) {
         printf("used %lu Hz for %lu schedules\n", dfs_frequencies[i], freq_sched_cnt[i]);
