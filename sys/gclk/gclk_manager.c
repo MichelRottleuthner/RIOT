@@ -343,12 +343,6 @@ typedef struct {
 /* @brief global clock manager context. */
 static gclk_manager_ctx_t _mgr_ctx;
 
-
-/* is used decide in which group a specific frequency should be put */
-/* defines how the history is weighted for moving average calculation of
-   time frequency products */
-#define TASK_UTIL_MAVG_STEPS     (10)
-
 static void _freq_change_scale_auto(uint32_t new_freq) {
     gclk_manager_scale_core_freq(new_freq);
 }
