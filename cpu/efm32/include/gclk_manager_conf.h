@@ -207,7 +207,7 @@ static const gclk_t* core_clock_sources[] = {
 
 #define CORE_CLOCK_SOURCES_NUMOF   (ARRAY_SIZE(core_clock_sources))
 
-const gclk_t* gclock_core_clock_handle = &gclk_efm32_hfcorepresc_scaler.base;
+const gclk_t* gclk_core_clock_handle = &gclk_efm32_hfcorepresc_scaler.base;
 
 //TODO: those do not add actual constraints (max value same as possible config)
 // - just here for testing for now
