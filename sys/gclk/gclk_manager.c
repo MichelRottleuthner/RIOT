@@ -41,34 +41,6 @@ extern timer_cb_t __ztimer_perph_timer_cb;
 static unsigned int _timer_cnt_backup = 0;
 extern void timer_write(tim_t tim, unsigned int cnt);
 
-/* @brief Sets up a topology configuration that 'works well' with the given scale setting.
- *
- * Shall be called with the currently active scale setting and will affect the core clock
- * topology configuration. The initial configuration that will be set up aims for the highest
- * allowed DFS frequency.
- *
- * NOTE: the used scaling approach directly affects if there are constraints on how the initial
- * topology and frequency config must be set up.
- * (1) If the scaling approach involves adjusting multiple clocks (as is the case for
- * the SCALE_INTERMEDIATE_TOPO_AUTO), the initial configuration is subject to less constraints
- * becasue each scaling step can set multiple involved clocks to another config. This variant
- * allows full reconfiguration of the topology config (i.e. multiple scaler instances). It
- * therfore must only ensure each individual config to be valid on its own.
- * (2) A scaling approach meant to change as few settings as possible (e.g., with
- * SCALE_DIRECT or SCALE_UPTREE approach) the initial configuration of the topology significantly
- * impacts properties and applicablility of different frequency steps. In this case, the
- * preliminary config setup must be evaluated in more detail because DFS adjustents will only
- * touch a single scaler instance. The fixed part of the config must therfore apply to *all* steps.
- * Fixing a part of the topology to a static config like that limits the applicability of frequency
- * steps more severely. It therefore prioritzes maximizing the number of frequency options to ensure
- * adjusting the single scaler still gives enough range for DFS adjustment. Lower power configuration
- * variants are still preferred but this is given less priority than more DFS frequency options.
- *
- * @param scs    scale setting structure describing how DFS shall be performed
- *
- */
-static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs);
-
 /*
  * @brief get the subset of clock constraints which are applicable to the given topology.
  *
@@ -361,7 +333,7 @@ int gclk_mananger_set_default_dfs_frequencies(void) {
         return 0;
     }
     uint64_t t_1 = xtimer_now_usec64();
-    _setup_default_dfs_topology_config(_mgr_ctx.active_core_scale_setting);
+    gclk_manager_setup_default_dfs_topo_conf(_mgr_ctx.active_core_scale_setting);
     uint64_t t_2 = xtimer_now_usec64();
 
     uint32_t t_default_topo_setup = (uint32_t)((t_2 - t_1)/1000);
@@ -579,7 +551,7 @@ int gclk_manager_init(void) {
 
     _update_cached_state_vars();
 
-    //_setup_default_dfs_topology_config(active_core_scale_setting);
+    //gclk_manager_setup_default_dfs_topo_conf(active_core_scale_setting);
 
     gclk_mananger_set_default_dfs_frequencies();
 
@@ -1102,7 +1074,7 @@ static void _get_scale_factor_limits(const gclk_t *scaler, gclk_freq_limit_t *f_
     }
 }
 
-static bool _setup_default_dfs_topology_config(const gclk_scale_setting_t *scs) {
+bool gclk_manager_setup_default_dfs_topo_conf(const gclk_scale_setting_t *scs) {
     /* params needed to run config exploration */
     uint32_t max_involved_clks = _mgr_ctx.max_clocks_in_core_topology;
     clk_topology_entry_t ttopo[max_involved_clks];

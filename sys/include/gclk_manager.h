@@ -615,6 +615,34 @@ uint32_t gclk_manager_brute_force_freq_conf(const gclk_t *clk, clk_topology_entr
                                             int *topo_idx, gclk_cmp_func_t cmp_func, void *cmp_func_ctx, size_t *ret_n_valid, int force_nth,
                                             gclk_exploration_result_cb_conf_t *valid_conf_found_cb_conf);
 
+/* @brief Sets up a topology configuration that 'works well' with the given scale setting.
+ *
+ * Shall be called with the currently active scale setting and will affect the core clock
+ * topology configuration. The initial configuration that will be set up aims for the highest
+ * allowed DFS frequency.
+ *
+ * NOTE: the used scaling approach directly affects if there are constraints on how the initial
+ * topology and frequency config must be set up.
+ * (1) If the scaling approach involves adjusting multiple clocks (as is the case for
+ * the SCALE_INTERMEDIATE_TOPO_AUTO), the initial configuration is subject to less constraints
+ * becasue each scaling step can set multiple involved clocks to another config. This variant
+ * allows full reconfiguration of the topology config (i.e. multiple scaler instances). It
+ * therfore must only ensure each individual config to be valid on its own.
+ * (2) A scaling approach meant to change as few settings as possible (e.g., with
+ * SCALE_DIRECT or SCALE_UPTREE approach) the initial configuration of the topology significantly
+ * impacts properties and applicablility of different frequency steps. In this case, the
+ * preliminary config setup must be evaluated in more detail because DFS adjustents will only
+ * touch a single scaler instance. The fixed part of the config must therfore apply to *all* steps.
+ * Fixing a part of the topology to a static config like that limits the applicability of frequency
+ * steps more severely. It therefore prioritzes maximizing the number of frequency options to ensure
+ * adjusting the single scaler still gives enough range for DFS adjustment. Lower power configuration
+ * variants are still preferred but this is given less priority than more DFS frequency options.
+ *
+ * @param scs    scale setting structure describing how DFS shall be performed
+ *
+ */
+bool gclk_manager_setup_default_dfs_topo_conf(const gclk_scale_setting_t *scs);
+
 void gclk_manager_print_step_sequence(gclk_manager_sequence_step_t *seq, size_t len);
 
 void gclk_manager_default_stdio_reinit_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
