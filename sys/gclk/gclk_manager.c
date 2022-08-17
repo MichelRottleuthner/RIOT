@@ -343,13 +343,13 @@ int gclk_mananger_set_default_dfs_frequencies(void) {
 }
 
 const gclk_t* gclk_manager_get_core_clock_handle(void) {
-    return gclock_core_clock_handle;
+    return gclk_core_clock_handle;
 }
 
 /* crude helper to force update of cached state */
 static void _update_cached_state_vars(void) {
-    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclock_core_clock_handle);
-    _mgr_ctx.current_core_topology[0].clk = gclock_core_clock_handle;
+    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclk_core_clock_handle);
+    _mgr_ctx.current_core_topology[0].clk = gclk_core_clock_handle;
     gclk_get_current_topology_config(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
     _mgr_ctx.current_core_topo_id = gclk_topology2id(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
 
@@ -358,7 +358,7 @@ static void _update_cached_state_vars(void) {
     /* select first appliccable scale setting for the current core topology as the active scale setting
      * that will be used by automatic scale operations (e.g., via gclk_manager_scale_core_freq()) */
     for (unsigned i = 0; i < SCALE_SETTINGS_NUMOF; i++) {
-        if (scale_settings[i].output_clk == gclock_core_clock_handle &&
+        if (scale_settings[i].output_clk == gclk_core_clock_handle &&
             scale_settings[i].topology_id == _mgr_ctx.current_core_topo_id) {
             _mgr_ctx.active_core_scale_setting = &scale_settings[i];
             break;
@@ -530,7 +530,7 @@ int gclk_manager_init(void) {
     _sched_stats.busy_ticks_max = 0;
 
     _mgr_ctx.max_clocks_in_topology = gclk_get_max_topology_depth();
-    _mgr_ctx.max_clocks_in_core_topology = gclk_get_clk_subtree_max_depth(gclock_core_clock_handle, 0) + 1;
+    _mgr_ctx.max_clocks_in_core_topology = gclk_get_clk_subtree_max_depth(gclk_core_clock_handle, 0) + 1;
 
 
     _init_dvs_wsa_constraint_cache();
@@ -1006,7 +1006,7 @@ static uint32_t _get_best_factor(const gclk_t *clk, uint32_t f_in, uint32_t targ
 clk_topology_entry_t *_clear_core_topology_cache(clk_topology_entry_t *cacheloc) {
     clk_topology_entry_t *topology = cacheloc;
     memset(topology, 0, sizeof(clk_topology_entry_t) * _mgr_ctx.max_clocks_in_core_topology);
-    topology[0].clk = gclock_core_clock_handle;
+    topology[0].clk = gclk_core_clock_handle;
     topology[0].clk_freq = GCLK_INVALID_FREQ;
     return topology;
 }
@@ -1156,7 +1156,7 @@ bool gclk_manager_setup_default_dfs_topo_conf(const gclk_scale_setting_t *scs) {
         return false;
     }
 
-    uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, ttopo, &max_involved_clks,
+    uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclk_core_clock_handle, ttopo, &max_involved_clks,
                                                             &tid, cmp_func, cmpctx, &valid_cnt, force_nth, NULL);
 
     if (leaf_freq == GCLK_INVALID_FREQ) {
@@ -1191,7 +1191,7 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
         }
     }
 
-    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclock_core_clock_handle);
+    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclk_core_clock_handle);
     gclk_get_current_topology_config(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
     _mgr_ctx.current_core_topo_id = gclk_topology2id(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
 
@@ -1298,7 +1298,7 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
             int tid = _mgr_ctx.active_core_scale_setting->topology_id;
             size_t valid_cnt = 0;
             int force_nth = -1;
-            uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, topology, &max_involved_clks,
+            uint32_t leaf_freq = gclk_manager_brute_force_freq_conf(gclk_core_clock_handle, topology, &max_involved_clks,
                                                                     &tid, cmp_func, (void*)&target_freq, &valid_cnt, force_nth, NULL);
             if (leaf_freq != GCLK_INVALID_FREQ) {
                 /* ignore duplicates on the fly */
@@ -1312,7 +1312,7 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
                         _mgr_ctx.prepared_rescale_sequence_lengths[matched] = seq_size;
                         matched++;
                     } else {
-                        LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), _mgr_ctx.current_core_topo_id, _mgr_ctx.current_core_topo_id);
+                        LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(gclk_core_clock_handle), _mgr_ctx.current_core_topo_id, _mgr_ctx.current_core_topo_id);
                     }
                 }
             }
@@ -3014,7 +3014,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
         return false;
     }
 
-    LOG_DEBUG("%s: scale freq of [%s](topo %d) to %luHz\n", __FUNCTION__, gclk_get_name(gclock_core_clock_handle), _mgr_ctx.current_core_topo_id, freq);
+    LOG_DEBUG("%s: scale freq of [%s](topo %d) to %luHz\n", __FUNCTION__, gclk_get_name(gclk_core_clock_handle), _mgr_ctx.current_core_topo_id, freq);
 
     const gclk_t *adapted_clk = s->scale_clk;
 
@@ -3060,7 +3060,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
             break;
         case SCALE_SEQUENCE:
             _gclk_manager_run_sequence__dyn_freq(s->sequence, s->sequence_len, freq);
-            new_freq = gclk_get_current_freq(gclock_core_clock_handle);
+            new_freq = gclk_get_current_freq(gclk_core_clock_handle);
             break;
         case SCALE_INTERMEDIATE_TOPO_AUTO:
             {
@@ -3083,14 +3083,14 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
                 uint32_t max_topo_len = _mgr_ctx.max_clocks_in_core_topology;
                 clk_topology_entry_t target_topology[max_topo_len];
                 memset(target_topology, 0, sizeof(clk_topology_entry_t) * max_topo_len);
-                target_topology[0].clk = gclock_core_clock_handle;
+                target_topology[0].clk = gclk_core_clock_handle;
                 target_topology[0].clk_freq = GCLK_INVALID_FREQ;
                 gclk_cmp_func_t cmp_func = gclk_cmp_topology_for_closest_leaf_freq;
                 uint32_t target_freq = freq;
                 size_t valid_cnt = 0;
                 int force_nth = -1;
                 /* brute force a configuration for the current topology */
-                new_freq = gclk_manager_brute_force_freq_conf(gclock_core_clock_handle, target_topology, &max_topo_len, &_mgr_ctx.current_core_topo_id,
+                new_freq = gclk_manager_brute_force_freq_conf(gclk_core_clock_handle, target_topology, &max_topo_len, &_mgr_ctx.current_core_topo_id,
                         cmp_func, (void*)&target_freq, &valid_cnt, force_nth, NULL);
 
                 seq_len = gclk_manager_derive_sequence(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen,
@@ -3101,9 +3101,9 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
             if (seq_len > 0) {
                 //gclk_manager_print_step_sequence(seq, seq_len);
                 _gclk_manager_run_sequence__dyn_freq(seq, seq_len, freq);
-                new_freq = gclk_get_current_freq(gclock_core_clock_handle);
+                new_freq = gclk_get_current_freq(gclk_core_clock_handle);
             } else {
-                printf("transition from [%s] topology from %d to %d infeasible!\n", gclk_get_name(gclock_core_clock_handle), _mgr_ctx.current_core_topo_id, _mgr_ctx.current_core_topo_id);
+                printf("transition from [%s] topology from %d to %d infeasible!\n", gclk_get_name(gclk_core_clock_handle), _mgr_ctx.current_core_topo_id, _mgr_ctx.current_core_topo_id);
             }
 
             }
