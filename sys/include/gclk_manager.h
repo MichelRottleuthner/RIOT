@@ -70,7 +70,17 @@ extern "C" {
 /* declare clock instance array that is provided by the platform implementation */
 extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
 
-/* This type sepcifies the interface to be used for pre- and post- clock change callback functions */
+/* @brief Clock change notififcation callback prototype.
+ *
+ * Defines the interface to be used for pre- and post- clock change callback functions.
+ *
+ * @param[in] altered_clk     The clock that was modified causing the callback to trigger.
+ * @param[in] affected_clk    The affected clock this callback was registered for.
+ * @param[in] f_old           The ololdrequency of the modified clock.
+ * @param[in] f_new           The new frequency of the modified clock.
+ * @param[in] post_change     True if the call indicates the change is about to happen.
+ *                            False if the change was already executed.
+ */
 typedef void (*clock_change_cb_t)(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
 /* This callback type is used to issue core clock changes. Depending on which implementation sits

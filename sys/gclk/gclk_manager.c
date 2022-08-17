@@ -384,6 +384,80 @@ static void _update_cached_state_vars(void) {
     }
 }
 
+/**
+ * @brief Contrained clock configs cache.
+ *
+ * Holds the state of clocks which put up limiting constaints on core voltage or flash access.
+ **/
+clk_topology_entry_t constrained_clocks_conf_cache[GCLK_FREQ_LIMIT_CLKS_NUMOF];
+
+/**
+ * @brief Initialize the cache that handles DVS/WS config constraints.
+ *
+ * This function saves a config copy of all clocks that put up constraints on DVS/WS settings.
+ * Based on the current configuration active DVS policy the best applicable settings for
+ * core voltage and wait states are determined and set up.
+ */
+void _init_dvs_wsa_constraint_cache(void) {
+
+    /* for all clock instances with assinged vcore/flash-waitstate constraints, load the current config into the cache */
+    for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
+        constrained_clocks_conf_cache[i].clk = gclk_freq_conf_limits[i].clk;
+        gclk_get_current_topology_config(&constrained_clocks_conf_cache[i], 1);
+    }
+
+    unsigned min_ws;
+    unsigned min_vc_idx;
+
+    /* determine the best configuration that fulfilll all constraints and set it up */
+    gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_NUM_OF_CLOCKS, &min_ws,  &min_vc_idx, _mgr_ctx.dvs_policy);
+
+    /* For testing purposes check if the initial config was optimal */
+    unsigned cur_ws = flash_opt_get_wait_states();
+    unsigned cur_vc = core_voltage_get();
+
+    if ((cur_ws != min_ws) || (cur_vc != min_vc_idx)) {
+        printf("WARNING! vcore/flash-waitstate settings werent set up to the best determined config!\n"
+               "(was %u WS and %u VC, instead of %u WS and %u VC)\n", cur_ws, min_ws, cur_vc, min_vc_idx);
+    }
+
+    flash_opt_set_wait_states(min_ws);
+    core_voltage_set(min_vc_idx);
+}
+
+/**
+ * @brief DVS/WSA update callback.
+ *
+ * Uses the gneric clock change callback mechanism to update the cache of constrained clock
+ * configurations. This state is used by \ref _post_notify_commit() later on in the
+ * recofiguration process to update the DVS/WSA config with the best applicable settings
+ * considering all constraints.
+ *
+ * @see \ref clock_change_cb_t for the interface documentation.
+ */
+void _dvs_wsa_freq_constraint_change_cb(const gclk_t* altered_clk, const gclk_t* affected_clk,
+                                        uint32_t f_old, uint32_t f_new, bool post_change) {
+    (void)altered_clk;
+    (void)f_old;
+    (void)post_change;
+
+    /* optimize storage lookup via context variable that gets initialized once on manager init */
+    for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
+        if (gclk_freq_conf_limits[i].clk == affected_clk) {
+            /* save the changed state to the cache to determine the tree-wide limit at the end of a multi-clock change */
+            constrained_clocks_conf_cache[i].clk = affected_clk;
+            constrained_clocks_conf_cache[i].clk_freq = f_new;
+        }
+    }
+
+}
+
+static void _print_conf_change(clk_topology_entry_t *old, clk_topology_entry_t *new) {
+    printf("%s changed from %8lu Hz (%s) to %8lu Hz (%s)\n", gclk_get_name(old->clk),
+                                                             old->clk_freq, old->enabled ? "enabled" : "disabled",
+                                                             new->clk_freq, new->enabled ? "enabled" : "disabled");
+}
+
 int gclk_mananger_set_default_dfs_frequencies(void) {
     if (!_mgr_ctx.active_core_scale_setting) {
         printf("no active core scale setting defined\n");
@@ -517,36 +591,6 @@ void gclk_get_min_required_ws_vc_from_tree_config(clk_topology_entry_t *tree_con
             *min_vc_idx = abs_req_min_vc_lv;
         }
     }
-}
-
-/* A cache that holds the state of clocks which put up limiting constaints on core voltage or flash access.
- **/
-clk_topology_entry_t constrained_clocks_conf_cache[GCLK_FREQ_LIMIT_CLKS_NUMOF];
-
-void _init_dvs_wsa_constraint_cache(void) {
-
-    /* for all clock instances with assinged vcore/flash-waitstate constraints, load the current config into the cache */
-    for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
-        constrained_clocks_conf_cache[i].clk = gclk_freq_conf_limits[i].clk;
-        gclk_get_current_topology_config(&constrained_clocks_conf_cache[i], 1);
-    }
-
-    unsigned min_ws;
-    unsigned min_vc_idx;
-
-    /* determine the best configuration that fulfilll all constraints and set it up */
-    gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_NUM_OF_CLOCKS, &min_ws,  &min_vc_idx, _mgr_ctx.dvs_policy);
-
-    unsigned cur_ws = flash_opt_get_wait_states();
-    unsigned cur_vc = core_voltage_get();
-
-    if ((cur_ws != min_ws) || (cur_vc != min_vc_idx)) {
-        printf("WARNING! vcore/flash-waitstate settings werent set up to the best determined config was %u WS and %u VC (instead of %u WS and %u VC)\n",
-                cur_ws, min_ws, cur_vc, min_vc_idx);
-    }
-
-    flash_opt_set_wait_states(min_ws);
-    core_voltage_set(min_vc_idx);
 }
 
 int gclk_manager_init(void) {
@@ -2082,7 +2126,7 @@ void gclk_manager_apply_sequence_to_tree_model(gclk_manager_sequence_step_t *seq
 /* Some kind of transaction mechanism is needed for when multiple callbacks modify the requirements for WS/Vcore
  * in a contradicting way.
  * Either :
- * - some state must be handed to the callback so it can determine if this is the final change_cb
+ * - some state must be handed to the callbacks so they can determine if this is the final change_cb
  * - the number of pending (relevant) cbs must be evaluated on the global view so that a flag
  *   like "commit changes" can be handed to the last relevant cb
  * - a concept of multi-level cbs could be used to first notify changes to distribute required information
@@ -2189,30 +2233,6 @@ void gclk_manager_get_abs_min_ws_min_vc(const gclk_t *clk, uint32_t freq, unsign
     }
     *ws = min_ws;
     *vc = min_vc;
-}
-
-void _dvs_wsa_freq_constraint_change_cb(const gclk_t* altered_clk, const gclk_t* affected_clk,
-                                        uint32_t f_old, uint32_t f_new, bool post_change) {
-    (void)altered_clk;
-    (void)f_old;
-    (void)post_change;
-
-    /* optimize storage lookup via context variable that gets initialized once on manager init */
-    for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
-        if (gclk_freq_conf_limits[i].clk == affected_clk) {
-            /* save the changed state to the cache to determine the tree-wide limit at the end of a multi-clock change */
-            constrained_clocks_conf_cache[i].clk = affected_clk;
-            constrained_clocks_conf_cache[i].clk_freq = f_new;
-            //gclk_get_current_topology_config(&constrained_clocks_conf_cache[i], 1);
-        }
-    }
-
-}
-
-static void _print_conf_change(clk_topology_entry_t *old, clk_topology_entry_t *new) {
-    printf("%s changed from %8lu Hz (%s) to %8lu Hz (%s)\n", gclk_get_name(old->clk),
-                                                             old->clk_freq, old->enabled ? "enabled" : "disabled",
-                                                             new->clk_freq, new->enabled ? "enabled" : "disabled");
 }
 
 /* TODO: There might be a use for a configurable (or clock-/tree-specific) notification policy.
