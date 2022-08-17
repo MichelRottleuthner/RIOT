@@ -196,6 +196,7 @@ typedef struct {
     volatile task_util_metrics_t task_perf_util_data[GCLK_MANAGER_PU_STATS_TASK_NUM][MAX_DFS_FREQ_VALUES_NUM];
 } gclk_manager_sched_stats_t;
 
+/* @brief global scheduler statistics data. */
 static gclk_manager_sched_stats_t _sched_stats;
 
 /* @brief Stores the state of the clock manager. */
@@ -312,17 +313,58 @@ static gclk_manager_ctx_t _mgr_ctx;
 /* @brief Core frequency scaling callback.
  *
  * A freq change implementation that automatically uses the scaling approach that applies to the current
- * topology (as defined by the active scale setting of the manager) */
+ * topology (as defined by the active scale setting of the manager).
+ * This function is not meant to be used to setup arbitrary frequency settings but to regularly switch
+ * between predetermined frequency settings (e.g., for D(V)FS).
+ *
+ * @param[in] new_freq      The new core frequency to set up. Must be a valid value. Can be ensured
+ *                          e.g. by calling this function only with values of the DFS cache.
+ */
 static void _freq_change_scale_auto(uint32_t new_freq) {
     gclk_manager_scale_core_freq(new_freq);
 }
 
+/* @brief Add DFS config entry to the config cache.
+ *
+ * @note In case of a single scaled clock there is no need the save the whole topology config.
+ *       The topology conf cache storage is reused regardless, but relevant data is just stored
+ *       in the first element of the data structure. For that reason, the topology conf cache
+ *       does not represent a full config and shall not be used by other methods that operate
+ *       on topology structures.
+ *
+ * @param[in] cidx     The configuration index (DFS frequency index) to store the data at.
+ * @param[in] freq     The resulting core frequency of the appended setting.
+ * @param[in] factor   The scaling factor used to obtain the core frequency @freq.
+ *
+ * */
 static void _append_dfs_cache_entry(unsigned cidx, uint32_t freq, uint32_t factor) {
     /* TODO for some use cases it could be benefitial to also precalculate/store the equivalent
-     *      downtree factors or the scale factors per instance. */
+     *      downtree factors or the scale factors per instance.
+     * TODO predetermined configurations can also cache VS/WS configs instead of using the
+     *      notification callback for that. */
     _mgr_ctx.topology_conf_cache[cidx][0].clk_freq = freq;
     _mgr_ctx.topology_conf_cache[cidx][0].factor = factor;
     _mgr_ctx.dfs_frequencies[cidx] = freq;
+}
+
+/* @brief crude helper to force update of cached state */
+static void _update_cached_state_vars(void) {
+    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclk_core_clock_handle);
+    _mgr_ctx.current_core_topology[0].clk = gclk_core_clock_handle;
+    gclk_get_current_topology_config(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
+    _mgr_ctx.current_core_topo_id = gclk_topology2id(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
+
+    /* always assume there is no applicable scale setting in case none can be found */
+    _mgr_ctx.active_core_scale_setting = NULL;
+    /* select first appliccable scale setting for the current core topology as the active scale setting
+     * that will be used by automatic scale operations (e.g., via gclk_manager_scale_core_freq()) */
+    for (unsigned i = 0; i < SCALE_SETTINGS_NUMOF; i++) {
+        if (scale_settings[i].output_clk == gclk_core_clock_handle &&
+            scale_settings[i].topology_id == _mgr_ctx.current_core_topo_id) {
+            _mgr_ctx.active_core_scale_setting = &scale_settings[i];
+            break;
+        }
+    }
 }
 
 int gclk_mananger_set_default_dfs_frequencies(void) {
@@ -344,26 +386,6 @@ int gclk_mananger_set_default_dfs_frequencies(void) {
 
 const gclk_t* gclk_manager_get_core_clock_handle(void) {
     return gclk_core_clock_handle;
-}
-
-/* crude helper to force update of cached state */
-static void _update_cached_state_vars(void) {
-    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclk_core_clock_handle);
-    _mgr_ctx.current_core_topology[0].clk = gclk_core_clock_handle;
-    gclk_get_current_topology_config(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
-    _mgr_ctx.current_core_topo_id = gclk_topology2id(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
-
-    /* always assume there is no applicable scale setting in case none can be found */
-    _mgr_ctx.active_core_scale_setting = NULL;
-    /* select first appliccable scale setting for the current core topology as the active scale setting
-     * that will be used by automatic scale operations (e.g., via gclk_manager_scale_core_freq()) */
-    for (unsigned i = 0; i < SCALE_SETTINGS_NUMOF; i++) {
-        if (scale_settings[i].output_clk == gclk_core_clock_handle &&
-            scale_settings[i].topology_id == _mgr_ctx.current_core_topo_id) {
-            _mgr_ctx.active_core_scale_setting = &scale_settings[i];
-            break;
-        }
-    }
 }
 
 void gclk_manager_default_stdio_reinit_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change) {
