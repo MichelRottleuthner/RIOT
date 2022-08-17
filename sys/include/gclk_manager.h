@@ -546,12 +546,7 @@ int gclk_mananger_set_default_dfs_frequencies(void);
 
 const gclk_scale_setting_t* gclk_mananger_get_active_scale_setting(void);
 
-/** @brief Return the clock handle that is currently used for automatic DVFS
- */
-const gclk_t* gclk_manager_get_dfs_clock_handle(void);
-
-/* @brief Return the clock handle that directly drives the CPU
- **/
+/** @brief Return the clock handle that directly drives the CPU */
 const gclk_t* gclk_manager_get_core_clock_handle(void);
 
 /* @brief Disable clocks that are currently not being used by other active clocks

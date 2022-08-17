@@ -452,6 +452,7 @@ void _dvs_wsa_freq_constraint_change_cb(const gclk_t* altered_clk, const gclk_t*
 
 }
 
+/** @brief Helper to print a configuration change. */
 static void _print_conf_change(clk_topology_entry_t *old, clk_topology_entry_t *new) {
     printf("%s changed from %8lu Hz (%s) to %8lu Hz (%s)\n", gclk_get_name(old->clk),
                                                              old->clk_freq, old->enabled ? "enabled" : "disabled",
