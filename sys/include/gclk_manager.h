@@ -249,7 +249,25 @@ typedef struct {
     const char *name;
 } topology_cmp_func_names_t;
 
-/* Context data used by the required gclk_manager_cmp_single_scaler_range_limited compare function */
+/**
+ * @brief Context for a topo conf cmp function which ties to fit a list of frequencies.
+ *
+ * The context data is used by the @ref gclk_manager_cmp_lowest_freq_list_abs_err compare function
+ * which tries to fit a list of frequencies as good as possible when only a single specific
+ * scaler can be adjusted.
+ **/
+typedef struct {
+    const uint32_t *freqs; /**< the target frequency values to aim for */
+    size_t target_freqs_cnt; /**< the number of target frequencies in @ref freqs that are aimed for
+                                  (which may not be possible or applicable). */
+    size_t match_freqs_cnt; /**< number of frequencies that shall be matched, which may be lower than
+                                 @ref target_freqs_cnt if the scaled clock has less options than the
+                                 number of 'wished for' target frequencies. */
+    uint32_t lowest_err; /**< lowest error of the combined absolute frequency found so far. */
+    const gclk_t *scale_clk; /**< the single clock scaler that will be used for DFS adaptations. */
+} lflae_cmp_fun_ctx_t;
+
+/* Context data used by the @ref gclk_manager_cmp_single_scaler_range_limited compare function */
 typedef struct {
     const gclk_t *scale_clk;      /*< the single clock scaler that will be used for DFS adaptations */
     unsigned scale_clk_topo_idx;  /*< the topology entry index that refers to the above clock.
@@ -270,6 +288,19 @@ typedef struct {
     uint32_t min_infeasible_cnt; /*< cached count of infeasible scale factors of previous comparisons.
                                      The lower this value, the more frequency steps were found  */
 } range_limit_cmp_fun_ctx_t;
+
+
+/**
+ * @brief Topology compare function for explicit frequency list fitting.
+ *
+ * A compare function that evaluates how well a configuration is suitable for DFS when using a single scaler
+ * for the frequency adaptation. This function is applicable if an explicit list of target frequencies
+ * shall e fitted as good as possible.
+ * A pointer to a properly initialized @lflae_cmp_fun_ctx_t struct must be given as context.
+ */
+gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t *topo_best, size_t len1,
+                                                            clk_topology_entry_t *topo_cmp, size_t len2,
+                                                            void *arg);
 
 /* a compare function that evaluates how well a configuration is suitable for DFS when using a single scaler
  * for the frequency adaptation.
