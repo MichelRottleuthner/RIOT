@@ -41,23 +41,23 @@
 /* custom RIOT-specific hooks required to tap into peripheral re-init code for clock config changes */
 extern ztimer_periph_timer_t *___ztimer_periph_timer_instance;
 extern timer_cb_t __ztimer_perph_timer_cb;
-static unsigned int _timer_cnt_backup = 0;
 extern void timer_write(tim_t tim, unsigned int cnt);
+static unsigned int _timer_cnt_backup = 0;
 
-/*
- * @brief get the subset of clock constraints which are applicable to the given topology.
+/**
+ * @brief  Get the subset of clock constraints which are applicable to the given topology.
  *
  * @pre (ARRAY_SIZE(acc) >= GLOBAL_CLOCK_CONSTRAINTS_NUMOF)
  *
- * @param[out] acc      location where all clock constraints that apply will be stored.
- * @param[in] topo      topology of which all clocks will be checked for constraints.
- * @param[in] topo_len  number of clock instances in @topo.
+ * @param[out] acc       location where all clock constraints that apply will be stored.
+ * @param[in]  topo      topology of which all clocks will be checked for constraints.
+ * @param[in]  topo_len  number of clock instances in @topo.
  *
- * @return    The number of found constraints that apply to the given topology.
+ * @return     The number of found constraints that apply to the given topology.
  */
 static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *acc, clk_topology_entry_t *topo, uint32_t topo_len);
 
-/*
+/**
  * @brief propagates a clock config change down the clock tree model
  *
  * Can be used to evaluate how a specific change will affect (the properties of) other clocks.
@@ -71,7 +71,7 @@ static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *a
  */
 static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size);
 
-/*
+/**
  * @brief calculates the down-tree output freq with given parameters.
  *
  * @param[in]  clk     the clock scaler @p factor and @p f_in are applied to.
@@ -82,7 +82,7 @@ static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_
  */
 static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, gclk_fraction_t *dtf, uint32_t factor);
 
-/*
+/**
  * @brief calculates the output freq of a clock for given input freq and factor.
  *
  * @param[in]  clk     the clock scaler @p factor and @p f_in are applied to.
@@ -91,44 +91,56 @@ static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, g
  */
 static inline uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in);
 
-/* @brief Voltage scaling enabled state.
+/**
+ * @brief Voltage scaling enabled state.
  *
  * Stores whether the automatic voltage scaling feature is currently enabled.
  * Never change directly! Use @gclk_manager_enable_voltage_auto_scale() to update this at runtime instead.*/
 static bool auto_vscale_enabled = false;
 
-/* @brief Flash wait-state adaptation enabled state.
+/**
+ * @brief Flash wait-state adaptation enabled state.
  *
  * Stores whether the automatic wait state adaptation feature is currently enabled.
  * Never change directly! Use @gclk_manager_enable_flashws_auto_update() to update this at runtime instead.*/
 static bool auto_wsadapt_enabled = false;
 
-/* @brief Clock change notification list.
+/**
+ * @brief Clock change notification list.
  *
  * This list holds one list of notification callbacks per clock that callbacks were registered for.
  **/
 static list_node_t clock_change_notify_list;
 
-/* @brief Number of registered clock change notifications.
+/**
+ * @brief Number of registered clock change notifications.
  *
  * Registrations are simply counted on reg/unreg operations. This allows a fast check on whether
  * ther are no active registrations in the \ref clock_change_notify_list. */
 static unsigned int registered_clk_change_cb_cnt = 0;
 
-/* @brief The last core frequency value set up by the clock manager */
+/**
+ * @brief The last core frequency value set up by the clock manager
+ */
 volatile uint32_t current_core_freq;
 
-/* @brief The core frequency before DFS got enabled.
+/**
+ * @brief The core frequency before DFS got enabled.
  *
- * This old frequency setting is restored when DFS is disabled again. */
+ * This old frequency setting is restored when DFS is disabled again.
+ */
 uint32_t pre_dfs_enable_freq = 0;
 
-/* mutex used by the manager to guard critical sections like complex topology switch operations.
+/**
+ * @brief Clock Manager mutex.
+ *
+ * mutex used by the manager to guard critical sections like complex topology switch operations.
  * NOTE: As of now the manager should only be used by a single controller entity.
  *       Multiple simultaneous operators are not tested. */
 mutex_t clock_conf_mutex = MUTEX_INIT;
 
-/* @brief Frequency cycler context.
+/**
+ * @brief Frequency cycler context.
  *
  * Holds state of the frequency cycler which is used for automatic performance utilization
  * assemssment (PUA). This process changes the core frequency to a number of different
@@ -158,16 +170,17 @@ typedef struct {
                                  Is set to true on cycle start and cleared when all data was collected */
 } freq_cycle_thread_context_t;
 
-/* Use the static initializer for the mutex, all other members are set up when starting the frequency cycler */
-freq_cycle_thread_context_t fc_ctx = { .done_mutex = MUTEX_INIT, };
+/** @brief Frequency-cycle thread context. */
+freq_cycle_thread_context_t fc_ctx;
 
-/* @brief struct for storing task-specific scheduling metrics */
+/** @brief Struct for storing task-specific scheduling metrics */
 typedef struct {
     uint32_t cpu_time_ticks; /*< sum of cpu time the task was scheduled in ticks */
     uint32_t schedules; /*< number of times the task was scheduled */
 } task_util_metrics_t;
 
-/* @brief Scheduler statistics used by the clock manager.
+/**
+ * @brief Scheduler statistics used by the clock manager.
  *
  * These variables are used to collect metadata on scheduling and busy/idle time to calculate
  * overall CPU utilization and the performance utilization metric for running threads */
@@ -196,12 +209,13 @@ typedef struct {
     volatile task_util_metrics_t task_perf_util_data[GCLK_MANAGER_PU_STATS_TASK_NUM][MAX_DFS_FREQ_VALUES_NUM];
 } gclk_manager_sched_stats_t;
 
-/* @brief global scheduler statistics data. */
+/** @brief Global scheduler statistics data. */
 static gclk_manager_sched_stats_t _sched_stats;
 
-/* @brief Stores the state of the clock manager. */
+/** @brief Stores the state of the clock manager. */
 typedef struct {
-    /* @brief Currently active (DFS) frequency scale idx.
+    /**
+     * @brief Currently active (DFS) frequency scale idx.
      *
      * This value refers to the frequency value in the prepopulated \ref dfs_frequencies array, which
      * holds frequency values that are applicable to the current frequency scaling settings defined
@@ -210,7 +224,8 @@ typedef struct {
      * tracks its freq scale idx separately as it may use another (PUA-specific) set of frequencies. */
     int current_dfs_freq_idx;
 
-    /* @brief Currently active D(V)FS setting.
+    /**
+     * @brief Currently active D(V)FS setting.
      *
      * The scale setting that is applied for scaling the core clock via D(V)FS.
      * Different options for this setting should be defined in the gclk_manager_conf file
@@ -222,12 +237,12 @@ typedef struct {
     gclk_manager_sequence_step_t prepared_rescale_sequences[MAX_DFS_FREQ_VALUES_NUM][GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN];
     int prepared_rescale_sequence_lengths[MAX_DFS_FREQ_VALUES_NUM];
 
-    /* this gets updated with a list of possible frequencies when setting the clock handle that is used
+    /* This gets updated with a list of possible frequencies when setting the clock handle that is used
      * for dynamic frequency scaling. If the handle that is set up supports more values than this can hold
      * a subset of possible values is stored instead */
     uint32_t dfs_frequencies[MAX_DFS_FREQ_VALUES_NUM];
 
-    /* the holds the number of valid frequency settings contained in dfs_frequencies */
+    /* Holds the number of valid frequency settings contained in dfs_frequencies */
     unsigned int dfs_frequencies_cnt;
 
     /* For the simple case where a PU threshold is used for D(V)FS control, this defines the min. level
@@ -307,10 +322,11 @@ typedef struct {
     gclk_manager_core_freq_reconf_cb_t freq_change_cb;
 } gclk_manager_ctx_t;
 
-/* @brief global clock manager context. */
+/** @brief Global clock manager context. */
 static gclk_manager_ctx_t _mgr_ctx;
 
-/* @brief Core frequency scaling callback.
+/**
+ * @brief Core frequency scaling callback.
  *
  * A freq change implementation that automatically uses the scaling approach that applies to the current
  * topology (as defined by the active scale setting of the manager).
@@ -324,7 +340,8 @@ static void _freq_change_scale_auto(uint32_t new_freq) {
     gclk_manager_scale_core_freq(new_freq);
 }
 
-/* @brief Add DFS config entry to the config cache.
+/**
+ * @brief Add DFS config entry to the config cache.
  *
  * @note In case of a single scaled clock there is no need the save the whole topology config.
  *       The topology conf cache storage is reused regardless, but relevant data is just stored
@@ -336,7 +353,7 @@ static void _freq_change_scale_auto(uint32_t new_freq) {
  * @param[in] freq     The resulting core frequency of the appended setting.
  * @param[in] factor   The scaling factor used to obtain the core frequency @freq.
  *
- * */
+ */
 static void _append_dfs_cache_entry(unsigned cidx, uint32_t freq, uint32_t factor) {
     /* TODO for some use cases it could be benefitial to also precalculate/store the equivalent
      *      downtree factors or the scale factors per instance.
@@ -347,7 +364,7 @@ static void _append_dfs_cache_entry(unsigned cidx, uint32_t freq, uint32_t facto
     _mgr_ctx.dfs_frequencies[cidx] = freq;
 }
 
-/* @brief crude helper to force update of cached state */
+/** @brief Helper to update cached state. */
 static void _update_cached_state_vars(void) {
     _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclk_core_clock_handle);
     _mgr_ctx.current_core_topology[0].clk = gclk_core_clock_handle;
@@ -1387,6 +1404,7 @@ void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedule
     fc_ctx.freq_cnt = _mgr_ctx.dfs_frequencies_cnt;
     fc_ctx.cur_freq_idx = 0;
     fc_ctx.freq_change_cb = _freq_change_scale_auto;
+    mutex_init(&fc_ctx.done_mutex);
 
     /* indicate that all PU stats for the first frequency are still pending for each requested thread */
     fc_ctx.pu_stats_pending_cur_freq = fc_ctx.pu_stats_requested;
