@@ -1428,11 +1428,9 @@ int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
 
     printf("took %lu ms for populate\n", t_populate_dfs);
 
-    if (res > 0) {
-        _mgr_ctx.dfs_frequencies_cnt = res;
-    }
+    _mgr_ctx.dfs_frequencies_cnt = res > 0 ? res : 0;
 
-    return 0;
+    return res;
 }
 
 void gclk_manager_enable_pu_assessment(bool enable) {
