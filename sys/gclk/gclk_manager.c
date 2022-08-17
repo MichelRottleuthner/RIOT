@@ -12,6 +12,9 @@
  * @file
  * @brief    High-level clock manager implementation
  *
+ * TODO make use of min/max utility functions in several functions that set sched stat values
+ * TODO unify naming fo task/thread
+ *
  * @author   Michel Rottleuthner <michel.rottleuthner@haw-hamburg.de>
  *
  * @}
@@ -195,15 +198,6 @@ typedef struct {
 
 static gclk_manager_sched_stats_t _sched_stats;
 
-//TODO make use of min/max utility functions in several functions that set sched stat values
-//TODO unify naming fo task/thread
-//TODO move _sched_stats init to init function (to move many bytes from data section to few bytes in text)
-
-/* A freq change implementation that automatically uses the scaling approach that applies to the current
- * topology (as defined by the active scale setting of the manager) */
-static void _freq_change_scale_auto(uint32_t new_freq);
-
-
 /* @brief Stores the state of the clock manager. */
 typedef struct {
     /* @brief Currently active (DFS) frequency scale idx.
@@ -315,13 +309,17 @@ typedef struct {
 /* @brief global clock manager context. */
 static gclk_manager_ctx_t _mgr_ctx;
 
+/* @brief Core frequency scaling callback.
+ *
+ * A freq change implementation that automatically uses the scaling approach that applies to the current
+ * topology (as defined by the active scale setting of the manager) */
 static void _freq_change_scale_auto(uint32_t new_freq) {
     gclk_manager_scale_core_freq(new_freq);
 }
 
 static void _append_dfs_cache_entry(unsigned cidx, uint32_t freq, uint32_t factor) {
-    //TODO it could be benefitial to store either the equivalent downtree factors or the scale factors that correspond to the
-    //     frequencies that are being set up (to avoid translating between freq and factor ad hoc)
+    /* TODO for some use cases it could be benefitial to also precalculate/store the equivalent
+     *      downtree factors or the scale factors per instance. */
     _mgr_ctx.topology_conf_cache[cidx][0].clk_freq = freq;
     _mgr_ctx.topology_conf_cache[cidx][0].factor = factor;
     _mgr_ctx.dfs_frequencies[cidx] = freq;
@@ -457,11 +455,6 @@ void gclk_get_min_required_ws_vc_from_tree_config(clk_topology_entry_t *tree_con
                 &abs_req_min_ws_ff,  &abs_req_min_vc_ff, &abs_req_min_ws_lv, &abs_req_min_vc_lv);
     }
 
-    //printf("abs_req_min_ws_ff: %u\n", abs_req_min_ws_ff);
-    //printf("abs_req_min_vc_ff: %u\n", abs_req_min_vc_ff);
-    //printf("abs_req_min_ws_lv: %u\n", abs_req_min_ws_lv);
-    //printf("abs_req_min_vc_lv: %u\n", abs_req_min_vc_lv);
-
     bool optimize_ws = dvspolicy == DVS_PREFER_FAST_FLASH ? true : false;
 
     if (optimize_ws) {
@@ -536,13 +529,6 @@ int gclk_manager_init(void) {
     _sched_stats.busy_ticks_min = 0xFFFFFFFF;
     _sched_stats.busy_ticks_max = 0;
 
-
-    //TODO: this should be updated with code that checks the initial clock config (active topology), and saves the
-    //      most appliccable scale_setting instead of the dfs_clock_handle. The actual DFS clock handle may not even
-    //      be a single instance (e.g. for a multi-instance PLL configuration) and this info should not be needed from
-    //      outside of the manager anyway.
-    /* set default clock handle for dynamic scaling from static clock manager configuration. */
-    //gclk_manager_set_dfs_clock_handle(scale_settings[0].clk);
     _mgr_ctx.max_clocks_in_topology = gclk_get_max_topology_depth();
     _mgr_ctx.max_clocks_in_core_topology = gclk_get_clk_subtree_max_depth(gclock_core_clock_handle, 0) + 1;
 
