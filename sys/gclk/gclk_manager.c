@@ -116,7 +116,7 @@ static list_node_t clock_change_notify_list;
  * @brief Number of registered clock change notifications.
  *
  * Registrations are simply counted on reg/unreg operations. This allows a fast check on whether
- * ther are no active registrations in the \ref clock_change_notify_list. */
+ * ther are no active registrations in the @ref clock_change_notify_list. */
 static unsigned int registered_clk_change_cb_cnt = 0;
 
 /**
@@ -148,16 +148,16 @@ mutex_t clock_conf_mutex = MUTEX_INIT;
  * The collected data is used to determine the workload-specific PU metric to rate its scalability. */
 typedef struct {
     uint32_t *freqs; /*< pointer to frequency values used for PU assessment freq-cycle. */
-    unsigned freq_cnt; /*< number of elements in \ref freqs. */
+    unsigned freq_cnt; /*< number of elements in @ref freqs. */
     uint32_t cpu_time_threshold_ticks; /*< minimum duration of cpu time to collect data for in tick.
                                            This value applies per thread, not for the whole PUA-cycle. */
     uint32_t thread_schedule_threshold; /*< minimum number of thread shedules (per thread) that must
                                             happen before the collected data is considered enough. */
     uint32_t pu_stats_requested; /*< bit field that marks if PU statistics were requested for a thread.
                                      Bit N refers to thread pid N. */
-    uint32_t pu_stats_pending_cur_freq; /*< similar to \ref pu_stats_requested but holds the state for
+    uint32_t pu_stats_pending_cur_freq; /*< similar to @ref pu_stats_requested but holds the state for
                                             pending pu stats for each freq step of the cycle.
-                                            Is set to \ref pu_stats_requested before collecting data at
+                                            Is set to @ref pu_stats_requested before collecting data at
                                             each cycle freq. */
     unsigned cur_freq_idx; /*< index of the currently assessed frequency setting. Starts at 0 for a new
                                PUA cycle and is incremented for each frequency step till all frequencies
@@ -217,10 +217,10 @@ typedef struct {
     /**
      * @brief Currently active (DFS) frequency scale idx.
      *
-     * This value refers to the frequency value in the prepopulated \ref dfs_frequencies array, which
+     * This value refers to the frequency value in the prepopulated @ref dfs_frequencies array, which
      * holds frequency values that are applicable to the current frequency scaling settings defined
-     * by \ref active_core_scale_setting.
-     * This variable is only set by \ref _dvfs(). The explicit freq. scaler used for PUA
+     * by @ref active_core_scale_setting.
+     * This variable is only set by @ref _dvfs(). The explicit freq. scaler used for PUA
      * tracks its freq scale idx separately as it may use another (PUA-specific) set of frequencies. */
     int current_dfs_freq_idx;
 
@@ -229,7 +229,7 @@ typedef struct {
      *
      * The scale setting that is applied for scaling the core clock via D(V)FS.
      * Different options for this setting should be defined in the gclk_manager_conf file
-     * according to hardware capabilities. The \ref gclk_manager_init() function sets this up to
+     * according to hardware capabilities. The @ref gclk_manager_init() function sets this up to
      * the first applicable setting for the active topology (if there is any). */
     const gclk_scale_setting_t *active_core_scale_setting;
 
@@ -255,16 +255,16 @@ typedef struct {
      *       should also be evaluated in more detail */
     volatile int pre_sched_freq_boost_threshold;
 
-    /* Same as \ref pre_sched_freq_boost_threshold but marks the limit for lower frequency operation.
+    /* Same as @ref pre_sched_freq_boost_threshold but marks the limit for lower frequency operation.
      * I.e., defines if a lower frequency should be set up for execution. */
     volatile int pre_sched_freq_throttle_threshold;
 
     /* fast boost frequency that is applied if a thread has a 'high' PU value as indicated
-     * by \ref pre_sched_freq_boost_threshold. */
+     * by @ref pre_sched_freq_boost_threshold. */
     volatile uint32_t pre_sched_boost_freq;
 
     /* slow throttle frequency that is applied if a thread has a 'low' PU value
-     * as indicated by \ref pre_sched_freq_boost_threshold */
+     * as indicated by @ref pre_sched_freq_boost_threshold */
     volatile uint32_t pre_sched_throttle_freq;
 
     /* controls whether dynamic frequency scaling is applied before scheduling a thread */
@@ -284,11 +284,11 @@ typedef struct {
     gclk_manager_dvs_policy_t dvs_policy;
 
     /* absolute maximum number of clocks involved in a (sub-)topology of any clock.
-     * This is determined once at \ref gclk_manager_init(). */
+     * This is determined once at @ref gclk_manager_init(). */
     unsigned int max_clocks_in_topology;
 
     /* absolute maximum number of clocks involved in a topology that drives the core clock.
-     * This is determined once at \ref gclk_manager_init(). */
+     * This is determined once at @ref gclk_manager_init(). */
     unsigned int max_clocks_in_core_topology;
 
     /* NOTE: below values are cached for faster operation an therefore need
@@ -429,11 +429,11 @@ void _init_dvs_wsa_constraint_cache(void) {
  * @brief DVS/WSA update callback.
  *
  * Uses the gneric clock change callback mechanism to update the cache of constrained clock
- * configurations. This state is used by \ref _post_notify_commit() later on in the
+ * configurations. This state is used by @ref _post_notify_commit() later on in the
  * recofiguration process to update the DVS/WSA config with the best applicable settings
  * considering all constraints.
  *
- * @see \ref clock_change_cb_t for the interface documentation.
+ * @see @ref clock_change_cb_t for the interface documentation.
  */
 void _dvs_wsa_freq_constraint_change_cb(const gclk_t* altered_clk, const gclk_t* affected_clk,
                                         uint32_t f_old, uint32_t f_new, bool post_change) {
