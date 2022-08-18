@@ -69,10 +69,15 @@ extern "C" {
 #define GCLK_MANAGER_MIN_PU_STATS_SCHEDULES (10)
 
 
-/* declare clock instance array that is provided by the platform implementation */
+/**
+ * @brief Clock instance array that is provided by the platform implementation.
+ *
+ * This is defined in the low-level (hardware-specific) part of the implementation.
+ */
 extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
 
-/* @brief Clock change notififcation callback prototype.
+/**
+ * @brief Clock change notififcation callback prototype.
  *
  * Defines the interface to be used for pre- and post- clock change callback functions.
  *
@@ -85,7 +90,10 @@ extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
  */
 typedef void (*clock_change_cb_t)(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
-/* This callback type is used to issue core clock changes. Depending on which implementation sits
+/**
+ * @brief Core frequency reconfiguration callback type.
+ *
+ * This callback type is used to issue core clock changes. Depending on which implementation sits
  * behind it, that may be a very efficient operation (only changing a prescaler), a slightly more
  * expensive variant that also (pre- and post-) notifies registered clients that are affected by
  * this change, or even a very complex one that temporarily adapts the source topology of the clock
@@ -95,64 +103,102 @@ typedef void (*clock_change_cb_t)(const gclk_t* altered_clk, const gclk_t* affec
  * Things that use this interface are e.g. the frequency-cycler-thread that changes the core
  * frequency while collecting metadata to calculate the PU metric for the different running threads.
  * Another use for this is when actually applying DVFS to switch to the most appropriate frequency
- * of the thread being executed */
+ * of the thread being executed.
+ */
 typedef void (*gclk_manager_core_freq_reconf_cb_t)(uint32_t new_freq);
 
-/* Stores one entry of a callback that is executed once before and after a clock frequency change */
+/**
+ * @brief Clock change callback list type.
+ *
+ * A linkable type that stores one callback that is executed before and after
+ * a clock frequency is changed.
+ */
 typedef struct {
-    list_node_t      node;
-    clock_change_cb_t change_cb;
+    list_node_t node; /**< base type for constructing a linked list. */
+    clock_change_cb_t change_cb; /**< callback that is executed as notification. */
 } gclk_change_cb_list_t;
 
-/* Stores a clock and registered callbacks to be notified about its frequency change */
+/**
+ * @brief Clock change callback registration type.
+ *
+ * A linkable type that stores a clock and registered callbacks to be notified about
+ * its frequency changes. For each clock that has registrations one such element constitutes
+ * the entry point. Further registrations for the same clock are then linked via the
+ * @ref change_cb_list member so that once a clock was identified to have pending
+ * notifications all callcacks can iterated more quickly. */
 typedef struct {
-    list_node_t          node;
-    const gclk_t          *clk;
-    gclk_change_cb_list_t change_cb_list;
+    list_node_t node; /**< base type for constructing a linked list. */
+    const gclk_t *clk; /**< the clock this registration notifies changes for. */
+    gclk_change_cb_list_t change_cb_list; /**< a list of all callbacks registered for
+                                               this clock */
 } gclk_clock_change_notify_list_t;
 
-/* Stores limits that apply to frequency, flash waitstates and core voltage */
+/**
+ * @brief Desriptor for core voltage, frequency, and flash waitstate limits.
+ *
+ * Used to store platform-specific limits that apply to frequency, flash waitstates,
+ * and core voltage. */
 typedef struct {
-    uint32_t     freq_max;
-    uint8_t      vc_idx_min;
-    uint8_t      ws_min;
+    uint32_t freq_max; /**< maximum frequency up to which the below properties are applicable. */
+    uint8_t vc_idx_min; /**< minimum required core voltage index. */
+    uint8_t ws_min; /**< minimum required flash wait states. */
 } freq_conf_limit_t;
 
+/**
+ * @brief Policies that affect which optimization goal is prioritized for DVS.
+ *
+ * There are cases where platform limits mutually exclude voltage or frequency optimizations.
+ * I.e., further optimization of one parameter limits optimization of the other.
+ * In those ranges, the (runtime configurable) policy decides what to prefer. */
 typedef enum {
-    DVS_PREFER_LOW_VOLTAGE,
-    DVS_PREFER_FAST_FLASH,
+    DVS_PREFER_LOW_VOLTAGE, /**< prefer lower voltage operation over faster flash access. */
+    DVS_PREFER_FAST_FLASH,  /**< prefer faster flash access over lower voltage operation. */
 } gclk_manager_dvs_policy_t;
 
-/* Type to encode basic operations to be performed via the gclk API. */
+/**
+ * @brief Basic operation types to be performed on clock instances.
+ *
+ * Those operations can be used to describe clock reconfiguration steps that operate
+ * on the abstract clock configuration interface. This is useful to define complex reconfiguration
+ * procedures as multistep sequences. Those may be prepared ahead of time ot even automatically
+ * derived by dynamic exploration mechanisms.
+ */
 typedef enum {
-    CLK_SET_FREQ,       /*< set a predefined frequency (fixed value given by sequence step) */
-    CLK_SET_FACTOR,     /*< set a predefined factor (fixed value given by sequence step) */
-    CLK_SET_PARENT,     /*< set a predefined parent (fixed value given by sequence step) */
-    CLK_SET_PARENT_IDX, /*< set a predefined parent via index (fixed value given by sequence step) */
-    CLK_ENABLE,         /*< guess what ;) */
-    CLK_DISABLE,        /*< guess what ;) */
-    CLK_CONFIG_TARGET,  /*< this is a placeholder operation to express the clock that this
+    CLK_SET_FREQ,       /**< set a predefined frequency (fixed value given by sequence step) */
+    CLK_SET_FACTOR,     /**< set a predefined factor (fixed value given by sequence step) */
+    CLK_SET_PARENT,     /**< set a predefined parent (fixed value given by sequence step) */
+    CLK_SET_PARENT_IDX, /**< set a predefined parent via index (fixed value given by sequence step) */
+    CLK_ENABLE,         /**< guess what ;) */
+    CLK_DISABLE,        /**< guess what ;) */
+    CLK_CONFIG_TARGET,  /**< this is a placeholder operation to express the clock that this
                             sequence step is operating on, shall be set to the value it holds
                             in the target config.
                             Note: only sets parent/factor configs whereas enable/disable operations
                             must be encoded explicitly */
-    /* only for debugging purposes */
-    BUSY_SPIN,          /*< does some busy CPU spinning to delay further execution */
-    SET_LED,            /*< enables /disables the debug led based on numval (1/0) */
+    /* Below types are only used for basic debugging/visualization purposes concerned with aspects
+     * that appear during the execution of multi-step clock adjustments, where other debugging
+     * are severely constrained or too invasive. */
+    BUSY_SPIN,          /**< does some busy CPU spinning to delay further execution */
+    SET_LED,            /**< enables /disables the debug led based on numval (1/0) */
 } gclk_manager_op_id_t;
 
-/* This descriptor is meant to be used to build more complex high-level transition patterns
- * on top of the low-level API e.g. to express a specific configuration step that involves
- * multiple topology and frequency configuration cahnges.
- * Further it may be used to store (cache) automatically detected transition steps that are
- * expensive to discover but otherwise fast to execute */
+/**
+ * @brief Clock reconfiguration step descriptor.
+ *
+ * This descriptor is meant to be used for building more complex high-level transition patterns
+ * on top of the low-level API e.g. to express a specific configuration step which involves
+ * multiple topology and frequency configuration changes.
+ * Further it may be used to store (cache) automatically detected transition steps which are
+ * expensive to discover but otherwise fast to execute. */
 typedef struct {
     gclk_manager_op_id_t op;    /**< the operation to execute in this step */
-    const gclk_t *clk;          /**< the clock to operate on or NULL if not needed for op*/
-    /* depending on the operation there is only one possible argument */
+    const gclk_t *clk;          /**< the clock to operate on or NULL if not needed for @ref op*/
+    /** The parameter used by @ref op. Depending on the operation there is only one possible argument,
+     *  hence the union. */
     union {
-        gclk_t const *clk_arg;  /**< points to a clock if op needs a clock as input */
-        uint32_t num_arg; /**< points to a number if op needs a number (e.g. a frequency/factor/idx) as input */
+        gclk_t const *clk_arg;  /**< points to a clock if op takes a clock as parameter. */
+        uint32_t num_arg; /**< holds a number if op needs a number as parameter
+                               (e.g. a frequency/factor/idx). */
     };
 } gclk_manager_sequence_step_t;
 
