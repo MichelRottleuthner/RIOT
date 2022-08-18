@@ -202,13 +202,21 @@ typedef struct {
     };
 } gclk_manager_sequence_step_t;
 
-/* For now it is intended to be used only for the core clock so it does not hold a clock reference
- * and the topology ids always refer to the core-clock specific topology ids */
+/**
+ * @brief Topology switch descriptor.
+ *
+ * Points to a sequence that switches from one topology to another one and carries
+ * related metadata. For now it is intended to be used only for the core clock so
+ * it does not hold a clock reference. Topology ids always refer to the core-clock
+ * specific topology ids.
+ */
 typedef struct {
-    const gclk_manager_sequence_step_t *steps;
-    uint8_t src_topo_id;
-    uint8_t dst_topo_id;
-    uint8_t step_cnt;
+    const gclk_manager_sequence_step_t *steps; /**< pointer to the first sequence step */
+    uint8_t src_topo_id; /**< core-clock specific topology id that must be active before this
+                              sequence can be applied. Refers to the n-th topology variant
+                              able to drive the core clock, i.e., the topology with that index.*/
+    uint8_t dst_topo_id; /**< topology id the transition will configure the clock to. */
+    uint8_t step_cnt; /**< number of sequence steps in @ref steps */
 } gclk_manager_topo_switch_desc_t;
 
 /* TODO: conclude what kind of these we would need to be expressive enough.
