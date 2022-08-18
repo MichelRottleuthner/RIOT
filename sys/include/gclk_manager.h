@@ -6,13 +6,15 @@
  * directory for more details.
  */
 /**
+ * @defgroup    sys_gclk_manager Clock configuration manager
  * @ingroup     sys_gclk
  *
  * @{
  *
  * @file
  * @brief       Generic clock configuriton API
- * @brief       Interface for high-level control of gclk and its interaction with related modules
+ *
+ * Interface for high-level control of gclk and its interaction with related modules
  *
  * @author      Michel Rottleuthner <michel.rottleuthner@haw-hamburg.de>
  */
