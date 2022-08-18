@@ -380,6 +380,16 @@ void gclk_manager_run_sequence(gclk_manager_sequence_step_t *steps, size_t step_
  */
 const gclk_freq_constraint_t* gclk_manager_conf_breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo, uint32_t topo_len);
 
+/*
+ * @brief Get an equivalent fraction that combines all involved scaling factors.
+ *
+ * @param[in]     topo       The topology all scaling factors will be combined of.
+ * @param[in]     topo_len   Length of @p topo.
+ * @param[in,out] f          Pointer to where equivalent factor will be stored.
+ *
+ */
+void gclk_manager_get_combined_topology_fraction(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *f);
+
 void gclk_manager_notify_multi_clk_change(gclk_manager_sequence_step_t *seq, size_t seq_len,
                                           clk_topology_entry_t *old_topo, size_t old_topo_len,
                                           clk_topology_entry_t *new_topo, size_t new_topo_len,

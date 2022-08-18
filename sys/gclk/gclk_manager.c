@@ -459,22 +459,6 @@ static void _print_conf_change(clk_topology_entry_t *old, clk_topology_entry_t *
                                                              new->clk_freq, new->enabled ? "enabled" : "disabled");
 }
 
-static void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *dtf) {
-    uint32_t m = 1;
-    uint32_t d = 1;
-
-    for (unsigned i = 0; i < topo_len; i++) {
-        if (gclk_is_divider(topo[i].clk)) {
-            d *= topo[i].factor;
-        } else if (gclk_is_multiplier(topo[i].clk)) {
-            m *= topo[i].factor;
-        }
-    }
-
-    dtf->n = m;
-    dtf->d = d;
-}
-
 static uint32_t _min(uint32_t a, uint32_t b) {
     return (a <= b) ? a : b;
 }
@@ -527,7 +511,7 @@ static int _clk_to_entry_idx(clk_topology_entry_t *topo, size_t len, const gclk_
 static void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, gclk_fraction_t *dtf, bool incl_src) {
     int idx = _clk_to_entry_idx(topo, len, src);
     if (idx > 0) {
-        _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), dtf);
+        gclk_manager_get_combined_topology_fraction(topo, len - (len - idx) + (incl_src ? 1 : 0), dtf);
     } else {
         printf("given src is not in topology!\n");
     }
@@ -1425,6 +1409,22 @@ static const gclk_manager_topo_switch_desc_t *_get_intermediate_topo_switch_desc
         }
     }
     return desc;
+}
+
+void gclk_manager_get_combined_topology_fraction(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *f) {
+    uint32_t m = 1;
+    uint32_t d = 1;
+
+    for (unsigned i = 0; i < topo_len; i++) {
+        if (gclk_is_divider(topo[i].clk)) {
+            d *= topo[i].factor;
+        } else if (gclk_is_multiplier(topo[i].clk)) {
+            m *= topo[i].factor;
+        }
+    }
+
+    f->n = m;
+    f->d = d;
 }
 
 int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
