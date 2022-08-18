@@ -459,18 +459,29 @@ static void _print_conf_change(clk_topology_entry_t *old, clk_topology_entry_t *
                                                              new->clk_freq, new->enabled ? "enabled" : "disabled");
 }
 
+/** @brief get minimum of both values. */
 static uint32_t _min(uint32_t a, uint32_t b) {
     return (a <= b) ? a : b;
 }
 
+/** @brief get maximum of both values. */
 static uint32_t _max(uint32_t a, uint32_t b) {
     return (a >= b) ? a : b;
 }
 
+/** @brief get asbolute difference between both values. */
 static uint32_t _abs_diff(uint32_t a, uint32_t b) {
     return (a > b) ? (a - b) : (b - a);
 }
 
+/**
+ * @brief Get min and max equivalent scale fraction of a topology.
+ *
+ * @param[in]      topo      The topology to get min/max equivalent scale fractions from.
+ * @param[in]      topo_len  Length of @p topo.
+ * @param[in,out]  min       Where the minimum possible fraction will be stored.
+ * @param[in,out]  max       Where the maximum possible fraction will be stored.
+ */
 static void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len,
                                                        gclk_fraction_t *min, gclk_fraction_t *max) {
     uint32_t minfm = 1;
@@ -498,6 +509,16 @@ static void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *top
     max->d = maxfd;
 }
 
+/**
+ * @brief Find the config entry for a given clock in a topology.
+ *
+ * @param[in]   topo  The topology that will be searched for @clk.
+ * @param[in]   len   Length of @p topo.
+ * @param[in]   clk   The clock to search for in @p topo.
+ *
+ * @return      index of the configuration struct referring to @p clk.
+ *              -1 if no entry in @topo refers to @clk.
+ */
 static int _clk_to_entry_idx(clk_topology_entry_t *topo, size_t len, const gclk_t *clk) {
     for (unsigned i = 0; i < len; i++) {
         if (topo[i].clk == clk) {
@@ -507,7 +528,15 @@ static int _clk_to_entry_idx(clk_topology_entry_t *topo, size_t len, const gclk_
     return -1;
 }
 
-/* returns the equivalent factors */
+/**
+ * @brief Get the equivalent down-tree scale fraction of a topology configuration.
+ *
+ * @param[in]       topo      The topology to get the equivalent factor of.
+ * @param[in]       len       Length of @p topo.
+ * @param[in]       src       The source clock at which to start the down-tree scale fraction determination.
+ * @param[in,out]   dtf       Where to store the equivalent downtree factor at.
+ * @param[in]       incl_src  Whether to also include the factor of @src.
+ */
 static void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, gclk_fraction_t *dtf, bool incl_src) {
     int idx = _clk_to_entry_idx(topo, len, src);
     if (idx > 0) {
