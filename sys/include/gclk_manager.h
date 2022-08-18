@@ -291,23 +291,31 @@ typedef struct {
 
 
 /**
- * @brief Topology compare function for explicit frequency list fitting.
+ * @brief Topology configuration compare function for explicit frequency list fitting.
  *
  * A compare function that evaluates how well a configuration is suitable for DFS when using a single scaler
- * for the frequency adaptation. This function is applicable if an explicit list of target frequencies
- * shall e fitted as good as possible.
+ * for the frequency adaptation. This function is applicable if an explicit list of given target frequencies
+ * shall be fitted as good as possible. Simply put, this tries to minimize sum(abs(ft_i - f_i))), where
+ * tf_i is the target frequency and f_i is the closest possible frequency, i being an element of
+ * (0 ... *num of target freqs*).
  * A pointer to a properly initialized @lflae_cmp_fun_ctx_t struct must be given as context.
  */
 gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t *topo_best, size_t len1,
                                                             clk_topology_entry_t *topo_cmp, size_t len2,
                                                             void *arg);
 
-/* a compare function that evaluates how well a configuration is suitable for DFS when using a single scaler
- * for the frequency adaptation.
+/**
+ * @brief Topology configuration compare function maximizing applicable frequency steps.
+ * Compares configurations on how well they are suitable for DFS when using a single scaler for the
+ * frequency adaptation. Opposed to @ref gclk_manager_cmp_lowest_freq_list_abs_err this performs
+ * a more complex check on the applicability of all resulting frequency steps to ensure configurations
+ * are not only fitting the factors well but also result in a greater number of feasible settings.
  * A pointer to a properly initialized @range_limit_cmp_fun_ctx_t struct must be given as context.
+ * This function is applicable if no particular list of target frequencies is given as target
+ * but instead the goal is to exploit the available range of the single used scaler as good as possible.
  * Configurations are compared regarding the following aspects (in descending priority):
- * - Configs that result in a frequency that is closer to the target frequency are better
- * - Configs enabling more frequency steps are better
+ * - Configs matching the single given target frequency closer are better (with the initial factor)
+ * - Configs enabling a greater number of frequency steps are better
  * - Configs that result in lower power consumption are better */ 
 gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entry_t *topo_best, size_t len1,
                                                                clk_topology_entry_t *topo_cmp, size_t len2,
