@@ -1680,7 +1680,7 @@ gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entr
     if (topo_cmp[ctx->scale_clk_topo_idx].factor != ctx->scaler_factor_target) {
         return GCLK_CONF_INVALID;
     }
-    if (!_freq_within_limit(topo_cmp[ctx->scale_clk_topo_idx].clk_freq, &ctx->scaler_fo_limits)) {
+    if (!gclk_freq_within_limit(topo_cmp[ctx->scale_clk_topo_idx].clk_freq, &ctx->scaler_fo_limits)) {
         return GCLK_CONF_INVALID;
     }
 
