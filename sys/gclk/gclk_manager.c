@@ -942,6 +942,586 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
     return match_freq_cnt;
 }
 
+uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t busy_ticks) {
+    (void)freq; /* currently, performance util data is only collected when the frequency cycler is
+                   is used, and in that case the frequency (or actually its index) is known out-of-band,
+                   (via the freq cycler context), therfore, translation from freq to index can be skipped */
+    uint32_t freq_idx = fc_ctx.cur_freq_idx;
+    _sched_stats.task_perf_util_data[task_id][freq_idx].cpu_time_ticks += busy_ticks;
+    _sched_stats.task_perf_util_data[task_id][freq_idx].schedules++;
+
+    if (_sched_stats.task_perf_util_data[task_id][freq_idx].cpu_time_ticks >= fc_ctx.cpu_time_threshold_ticks &&
+        _sched_stats.task_perf_util_data[task_id][freq_idx].schedules >= fc_ctx.thread_schedule_threshold) {
+        /* mark that enough stats were collected for this thread */
+        fc_ctx.pu_stats_pending_cur_freq &= ~(1 << task_id);
+    }
+    return 0;
+}
+
+static void _dvfs(uint32_t utilization) {
+
+    unsigned state = irq_disable();
+    /* dfs can only be applied if there are multiple freq settings available */
+    if (_mgr_ctx.dfs_frequencies_cnt > 0) {
+        int old_scale_idx = _mgr_ctx.current_dfs_freq_idx;
+
+        if (utilization > 80) {
+            _mgr_ctx.current_dfs_freq_idx++;
+        } else if (utilization < 60){
+            _mgr_ctx.current_dfs_freq_idx--;
+        }
+
+        if (_mgr_ctx.current_dfs_freq_idx < 0) {
+            _mgr_ctx.current_dfs_freq_idx = 0;
+        } else if ((uint32_t)_mgr_ctx.current_dfs_freq_idx >= _mgr_ctx.dfs_frequencies_cnt){
+            _mgr_ctx.current_dfs_freq_idx =  _mgr_ctx.dfs_frequencies_cnt - 1;
+        }
+
+        if(_mgr_ctx.current_dfs_freq_idx != old_scale_idx) {
+            gclk_manager_scale_core_freq(_mgr_ctx.dfs_frequencies[_mgr_ctx.current_dfs_freq_idx]);
+        }
+
+        _sched_stats.freq_sched_cnt[_mgr_ctx.current_dfs_freq_idx]++;
+    }
+
+    irq_restore(state);
+}
+
+bool _is_clk_modification_step(gclk_manager_sequence_step_t *step) {
+    switch (step->op) {
+        case CLK_SET_FREQ:
+        case CLK_SET_FACTOR:
+        case CLK_SET_PARENT:
+        case CLK_SET_PARENT_IDX:
+        case CLK_ENABLE:
+        case CLK_DISABLE:
+            return true;
+        case CLK_CONFIG_TARGET:
+        case BUSY_SPIN:
+        case SET_LED:
+            return false;
+        default:
+            printf("Illegal sequence step type!\n");
+            return false;
+        }
+}
+
+static clk_topology_entry_t *_get_clock_conf_from_tree_conf(const gclk_t *clk, clk_topology_entry_t *tree_conf, size_t tree_clock_cnt) {
+    for (unsigned i = 0; i < tree_clock_cnt; i++) {
+        if (tree_conf[i].clk == clk) {
+            return &tree_conf[i];
+        }
+    }
+    return NULL;
+}
+
+/* if either uptree_parent or chid are NULL, this returns false. */
+bool _gclk_manager_is_derived_from_clock(const gclk_t *uptree_parent, const gclk_t *child, clk_topology_entry_t *tree_conf, size_t tree_clock_cnt) {
+
+    if ((uptree_parent == NULL) || (child == NULL)) {
+        return false;
+    } else if (uptree_parent == child) {
+       return true;
+    }
+
+    clk_topology_entry_t *tmp_conf = _get_clock_conf_from_tree_conf(child, tree_conf, tree_clock_cnt);
+
+    while (true) {
+        if (gclk_is_source(tmp_conf->clk)) {
+            return false;
+        }
+        const gclk_t *parent = gclk_idx2parent(tmp_conf->clk, tmp_conf->par_idx);
+        if (parent == NULL) {
+            return false;
+        }
+        if (parent == uptree_parent) {
+            return true;
+        }
+        tmp_conf = _get_clock_conf_from_tree_conf(parent, tree_conf, tree_clock_cnt);
+    }
+}
+
+/* returns the root source conf along the quivalent factors for the path from cc to its source */
+static clk_topology_entry_t *_model_get_equivalent_uptree_factors(clk_topology_entry_t *tree_model, size_t tree_size, clk_topology_entry_t *cc, uint32_t *mul, uint32_t *div) {
+    uint32_t m = 1;
+    uint32_t d = 1;
+    while (true) {
+        /* handle the special case where a clock config strictly depends on an uptree node.
+         * Since we are not considering the current state of config registers but the virtual memory instead , the
+         * method to get the respective factor for the clock needs to have access to te clock tree state that is investigated */
+        if (cc->clk->flags.topology_flags & GCLK_STRICT_UPTREE_DEPENDENT) {
+            /* update the dependent clock config state based on the tree state */
+            cc->factor = gclk_get_uptree_dependent_factor(cc->clk, tree_model, tree_size);
+        }
+        if (gclk_is_divider(cc->clk)) {
+            LOG_DEBUG("%s: div of %s: %u\n", __FUNCTION__, gclk_get_name(cc->clk), cc->factor);
+            d *= cc->factor;
+        } else if (gclk_is_multiplier(cc->clk)) {
+            LOG_DEBUG("%s: mul of %s: %u\n", __FUNCTION__, gclk_get_name(cc->clk), cc->factor);
+            m *= cc->factor;
+        } else {
+            LOG_DEBUG("%s: %s is no scaler!\n", __FUNCTION__, gclk_get_name(cc->clk));
+        }
+
+        if (gclk_is_source(cc->clk)) {
+            break;
+        }
+        const gclk_t *pclk = gclk_idx2parent(cc->clk, cc->par_idx);
+        /* if a clock points to NULL as parent that means this subtree is completely disconnected.
+         * E.e., the equivalent mul factor becomes zero for all clocks downtree */
+        if (pclk != NULL) {
+            cc = _get_clock_conf_from_tree_conf(pclk, tree_model, tree_size);
+        } else {
+            m = 0;
+            break;
+        }
+    };
+
+    *mul = m;
+    *div = d;
+    return cc;
+}
+
+static uint32_t _get_minmax_freq_at_fixed_uptree_conf(clk_topology_entry_t *topology, uint32_t len, bool max) {
+
+    if (!len || !topology[0].clk) {
+        LOG_DEBUG("%s: max freq of an empty topology or NULL is always 0\n", __FUNCTION__);
+        return 0;
+    }
+
+    uint32_t m = 1;
+    uint32_t d = 1;
+
+    clk_topology_entry_t *root_conf;
+    const gclk_t *clk = topology[0].clk;
+
+    if (len > 1) {
+        root_conf = _model_get_equivalent_uptree_factors(&topology[1], len - 1, &topology[0], &m, &d);
+    } else {
+        root_conf = &topology[0];
+    }
+
+    uint32_t root_input_freq = gclk_get_input_freq(root_conf->clk);
+
+    if (!root_input_freq) {
+        return 0;
+    }
+
+    if ((gclk_is_divider(clk) && max) ||
+        (gclk_is_multiplier(clk) && !max)) {
+        d *= gclk_factor_min(clk);
+    } else if ((gclk_is_multiplier(clk) && max) ||
+               ((gclk_is_divider(clk) && !max))) {
+        m *= gclk_factor_max(clk);
+    }
+
+    return root_input_freq * m / d;
+}
+
+static void _model_update_to_parent_changes(clk_topology_entry_t *tree_model, size_t tree_size, clk_topology_entry_t *child_conf) {
+    LOG_DEBUG("%s: update model to parent changes...\n", __FUNCTION__);
+    uint32_t mul = 1;
+    uint32_t div = 1;
+    clk_topology_entry_t *root_conf = _model_get_equivalent_uptree_factors(tree_model, tree_size, child_conf, &mul, &div);
+    LOG_DEBUG("%s: root_conf of %s is %s\n", __FUNCTION__, gclk_get_name(child_conf->clk), gclk_get_name(root_conf->clk));
+    LOG_DEBUG("%s: equiv mul is %lu\n", __FUNCTION__, mul);
+    LOG_DEBUG("%s: equiv div is %lu\n", __FUNCTION__, div);
+    uint32_t new_freq;
+    //TODO: optimize calculation based on actual values (e.g. very high mul/div vals..)
+    if (mul == 0) {
+        new_freq = 0;
+    } else {
+        new_freq = root_conf->clk_freq * mul / div;
+    }
+    LOG_DEBUG("%s: updating freq of %s from %lu to %lu\n", __FUNCTION__, gclk_get_name(child_conf->clk), child_conf->clk_freq, new_freq);
+    child_conf->clk_freq = new_freq;
+}
+
+/* returns true if new propagations were marked */
+static clk_topology_entry_t *_mark_pending_propagation_on_children(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size) {
+    clk_topology_entry_t *next = NULL;
+    for (unsigned i = 0; i < tree_model_size; i++) {
+        /* mark all children of the changed clock. (which is never a source clock) */
+        if (!gclk_is_source(tree_model[i].clk)) {
+            if (gclk_idx2parent(tree_model[i].clk, tree_model[i].par_idx) == changed_conf->clk) {
+                LOG_DEBUG("%s: mark %s for propagation update\n", __FUNCTION__, gclk_get_name(tree_model[i].clk));
+                tree_model[i].propagation_pending = true;
+                /* save the first encountered children to return it for further propagation */
+                if (!next) {
+                    next = &tree_model[i];
+                }
+            }
+        }
+    }
+    return next;
+}
+
+static clk_topology_entry_t *_find_next_pending_propagation(clk_topology_entry_t *tree_model, size_t tree_model_size) {
+    for (unsigned i = 0; i < tree_model_size; i++) {
+        clk_topology_entry_t *c = &tree_model[i];
+        if (c->propagation_pending) {
+            return c;
+        }
+    }
+    return NULL;
+}
+
+static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size) {
+    clk_topology_entry_t *pc = changed_conf;
+    pc->propagation_pending = true;
+    while (pc) {
+        /* update the currently selected pending clock */
+        _model_update_to_parent_changes(tree_model, tree_model_size, pc);
+
+        /* check if there are further pending propagations */
+        clk_topology_entry_t *next = _mark_pending_propagation_on_children(pc, tree_model, tree_model_size);
+
+        /* clear pending propagation after updating its state and marking all its children for propagation */
+        pc->propagation_pending = false;
+
+        /* if we found another downtree node affected by this change continue propagation there */
+        if (next != NULL) {
+            pc = next;
+        } else {
+            /* otherwise check if there is another pending change somewhere in the tree */
+            pc = _find_next_pending_propagation(tree_model, tree_model_size);
+            if (pc == NULL) {
+                LOG_DEBUG("%s: no further pending config found! -> finished propagation!\n", __FUNCTION__);
+            }
+        }
+    }
+}
+
+/* Some kind of transaction mechanism is needed for when multiple callbacks modify the requirements for WS/Vcore
+ * in a contradicting way.
+ * Either :
+ * - some state must be handed to the callbacks so they can determine if this is the final change_cb
+ * - the number of pending (relevant) cbs must be evaluated on the global view so that a flag
+ *   like "commit changes" can be handed to the last relevant cb
+ * - a concept of multi-level cbs could be used to first notify changes to distribute required information
+ *   and then a commit cb is called were the final consistent state (updated by previous level notify cbs)
+ *   can be considered to perform required updates.
+ * - For the special case of flash WS/vcore updates a separate callback like this one may be explicitly called
+ *   after all callbacks were issued.
+ *
+ * Note: with step-wise notifications this would not be needed but additional update steps would likely introduce
+ *       back-and-forth updates during complex sequences.
+ *
+ * Note: as a performance improvement measure a parameter could indicate whether any cbs were executed before.
+ *       Alternatively it could be made convention to only call if cbs were executed in a reconfiguration.
+ */
+void _post_notify_commit(bool post_change) {
+    if (auto_vscale_enabled || auto_wsadapt_enabled) {
+        unsigned min_ws;
+        unsigned min_vc_idx;
+
+        gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_FREQ_LIMIT_CLKS_NUMOF, &min_ws,  &min_vc_idx, _mgr_ctx.dvs_policy);
+
+        if (auto_wsadapt_enabled &&
+            ((!post_change &&  (flash_opt_get_wait_states() < min_ws)) ||
+             (post_change && (flash_opt_get_wait_states() > min_ws)))) {
+            flash_opt_set_wait_states(min_ws);
+        }
+
+        if (auto_vscale_enabled &&
+            ((!post_change &&  ((unsigned)core_voltage_get() < min_vc_idx)) ||
+             (post_change && ((unsigned)core_voltage_get() > min_vc_idx)))) {
+            core_voltage_set(min_vc_idx);
+        }
+    }
+}
+
+/* the vcore value is fed into the calculation as mV*V value which in worst case becomes
+ * 1200 * 1.2 = 1440.
+ * shifting down by 11 (division by 2048) therefore provides enough space to accomodate the voltage value */
+#define CLOCK_MANAGER_PM_PRE_VCORE_MUL_SHIFT (11)
+
+static uint32_t _get_system_consumption_nW_from_power_model(clk_topology_entry_t *topo_conf, size_t len) {
+    uint32_t p_sum_nW = 0;
+
+    unsigned min_ws;
+    unsigned min_vc;
+    /* we are interested in p_min so always opt for low voltage policy */
+    gclk_get_min_required_ws_vc_from_tree_config(topo_conf, len, &min_ws, &min_vc, DVS_PREFER_LOW_VOLTAGE);
+
+    uint32_t vcore_mv = core_voltage_idx2mv(min_vc);
+
+    /* the voltage value is squared and held in unit "mV * V" to keep the precision but still reduce the bit-width */
+    uint32_t vcore_mVV = vcore_mv * vcore_mv / 1000;
+
+    for (unsigned i = 0; i < len; i++) {
+#if GLOBAL_CLOCK_POWER_MODEL_AVAILABLE > 0
+        for (unsigned x = 0; x < GLOBAL_CLOCK_POWER_MODEL_PROPERTIES_NUMOF; x++) {
+            if (topo_conf[i].clk == clock_power_model[x].clk) {
+                /* scaled freq unit is 10kHz */
+                uint32_t f_clk_scaled = topo_conf[i].clk_freq / 10000;
+                //TODO: ensure the enabled state is also initialized on topology brute force settings that do not
+                //      use the derive sequence method, then the enabed flag can be used directly instead of a freq check
+                //uint32_t p_clk_nW = topo_conf[i].clk_freq > 0 ? clock_power_model[x].P_en_nW : 0;
+                /* in this context (a topo_cmp function) we only compare active topologies. I.e. topologies where every clock is enabled.
+                 * Therefore we can always add the clock specific static consumption if a clock is present in the given topology */
+                uint32_t p_clk_nW = clock_power_model[x].P_en_nW;
+                uint32_t C_fF = clock_power_model[x].C_fF;
+                uint32_t p_clk_dyn_shifted =  ((f_clk_scaled * C_fF) >> CLOCK_MANAGER_PM_PRE_VCORE_MUL_SHIFT) * vcore_mVV;
+
+                // ------ calculation step --------|------------------- operation ----------|-- effective combined operation ---|
+                // scale mV*V to V*V               | / 1000;                                |  / 1000
+                // scale fF to nF                  | / 1000000;                             |  / 1000000000
+                // undo freq scaling, 10 kHz -> Hz | * 10000;                               |  / 100000
+                // undo pre-vcore mul shift        | * (2^11); i.e. * 2048; i.e. * 32 * 64; |  / 3125 * 64
+                // The unit after this operation is Hz * nF * V * V.  i.e., nW
+                p_clk_dyn_shifted = p_clk_dyn_shifted / 3125 * 64;
+
+                p_sum_nW += (p_clk_dyn_shifted + p_clk_nW);
+
+                // found the power property for this clock -> stop iteration
+                break;
+            }
+        }
+#else
+        (void)topo_conf;
+        (void)vcore_mVV;
+#endif
+    }
+    return p_sum_nW + GCLK_MANAGER_CONF_SYS_PSTATIC_NW;
+}
+
+static bool _contains(unsigned *list, size_t len, unsigned elem) {
+    for (unsigned i = 0; i < len; i++) {
+        if (list[i] == elem) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static size_t _append_if_not_contained(unsigned *list, size_t len, unsigned val) {
+    if (!_contains(list, len, val)) {
+        list[len] = val;
+        return 1;
+    }
+    return 0;
+}
+
+static unsigned _get_unique_topo_cnt(const gclk_manager_topo_switch_desc_t *sds, unsigned cnt) {
+    /* as data is encoded only in transitions (edges between topologies),
+     * we assume the worst case number of possible topologies first */
+    unsigned topos[cnt * 2];
+    unsigned topo_cnt = 0;
+
+    for (unsigned i = 0; i < cnt; i++) {
+        topo_cnt += _append_if_not_contained(topos, topo_cnt, sds[i].src_topo_id);
+        topo_cnt += _append_if_not_contained(topos, topo_cnt, sds[i].dst_topo_id);
+    }
+
+    return topo_cnt;
+}
+
+static int _get_elem_idx(unsigned *list, size_t len, unsigned elem) {
+    for (unsigned i = 0; i < len; i++) {
+        if (list[i] == elem) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+/* TODO: this can still be heavily simplified and improved (splitting code, using bitmasks to avoid iterations etc.) */
+/* topo_cnt must be the number of possible topologies the leaf clock can be set to. This value also forms an upper bound
+ * on how many sequences any transition may take in the worst case. seq_chain *must* be have enough capacity to take
+ * up to topo_cnt-1 elements. */
+extern int _derive_sequence_chain(int stid, int ttid, unsigned *seq_chain, size_t topo_cnt) {
+    unsigned unique_tids = _get_unique_topo_cnt(core_clk_topo_switch_descs, CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF);
+
+    /* stores the mapping from unique topology numbers (0 to n) for every topology id (e.g. 2,6,8) */
+    unsigned tidx_tid[unique_tids];
+    unsigned added = 0;
+    for (unsigned i = 0; i < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; i++) {
+        added += _append_if_not_contained(tidx_tid, added, core_clk_topo_switch_descs[i].src_topo_id);
+        added += _append_if_not_contained(tidx_tid, added, core_clk_topo_switch_descs[i].dst_topo_id);
+        if (added == unique_tids) {
+            break;
+        }
+    }
+
+    int tid_graph[unique_tids][unique_tids];
+    for (unsigned i = 0; i < unique_tids; i++) {
+        for (unsigned j = 0; j < unique_tids; j++) {
+            tid_graph[i][j] = -1;
+        }
+    }
+
+    /* transform the transition-based encoding into a graph of topology ids */
+    for (unsigned i = 0; i < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; i++) {
+        unsigned sid = core_clk_topo_switch_descs[i].src_topo_id;
+        unsigned sidx = _get_elem_idx(tidx_tid, unique_tids, sid);
+
+        for (unsigned x = 0; x < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; x++) {
+            /* for all edges coming from the source topology populate all topologies that are reachable */
+            if (sid == core_clk_topo_switch_descs[x].src_topo_id) {
+                unsigned did = core_clk_topo_switch_descs[x].dst_topo_id;
+                unsigned didx = _get_elem_idx(tidx_tid, unique_tids, did);
+                /* for now we use the same wheight everywhere, more complex approaches could consider different weights
+                 * depending on how complex the transitions are and how this is affected by the current configuration/constraints */
+                tid_graph[sidx][didx] = 1;
+            }
+        }
+    }
+
+    /* distance form start topology to each other topology */
+    unsigned dist[unique_tids];
+
+    /* will hold the shortest path to reach ttid from stid */
+    int path[unique_tids];
+
+    /* markers to store which node was already visited */
+    int visited[unique_tids];
+
+    for (unsigned i = 0; i < unique_tids; i++) {
+        dist[i] = 0xFFFFFFFE;
+        visited[i] = 0;
+        path[i] = -1;
+    }
+
+    /* get graph table idx of start topology idx */
+    unsigned sidx = _get_elem_idx(tidx_tid, unique_tids, stid);
+
+    /* distance from start to itself is always 0 */
+    dist[sidx] = 0;
+
+    int current = sidx;
+
+    /* list of nodes to be visited */
+    int node_queue[unique_tids];
+    unsigned queuelen = 0;
+
+    while (true) {
+
+        visited[current] = 1;
+
+        for (unsigned i = 0; i < unique_tids; i++) {
+            /* for all reachable children */
+            if (tid_graph[current][i] != -1) {
+                if (visited[i]) {
+                    continue;
+                } else {
+                    node_queue[queuelen++] = i;
+
+                    /* for now we assume same weight of 1 everywhere */
+                    unsigned cur_i_dist = 1;
+
+                    /* calculate distance from 'start' to 'i' via 'current' */
+                    unsigned s_dist = dist[current] + cur_i_dist;
+
+                    /* check if path via 'current' is shorter than previous best path */
+                    if (s_dist < dist[i]) {
+                        dist[i] = s_dist;
+                        /* shortest path to 'i' is via 'current' */
+                        path[i] = current;
+                    }
+                }
+            }
+        }
+
+        /* remove 'current' from queue */
+        for (unsigned i = 0; i < queuelen; i++) {
+            if (node_queue[i] == current) {
+                /* move entries down if there are any after current */
+                for (unsigned x = i; x < (queuelen - 1); x++) {
+                    node_queue[x] = node_queue[x+1];
+                }
+                queuelen--;
+                break;
+            }
+        }
+
+        if (queuelen == 0) {
+            /* no nodes left to be visited */
+            break;
+        }
+
+        unsigned min_dist = 0xFFFFFFFE;
+        unsigned index = 0;
+
+        for (unsigned i = 0; i < queuelen; i++) {
+            if (dist[node_queue[i]] < min_dist) {
+                index = node_queue[i];
+            }
+        }
+        current = index;
+    }
+
+    unsigned didx = _get_elem_idx(tidx_tid, unique_tids, ttid);
+
+    if (dist[didx] != 0xFFFFFFFE) {
+        unsigned seq_steps = dist[didx];
+
+        if (seq_steps > (topo_cnt - 1)) {
+            /* can not store sequence chain in destination buffer */
+            return -1;
+        }
+
+        unsigned tidxs[seq_steps +1];
+        unsigned pos = seq_steps -1;
+
+        for (unsigned i = path[didx];; i = path[i]) {
+            tidxs[pos--] = i;
+            if (i == sidx) {
+                break;
+            }
+        }
+        tidxs[seq_steps] = didx;
+
+        for (unsigned i = 0; i < seq_steps; i++) {
+            unsigned src_tid = tidx_tid[tidxs[i]];
+            unsigned dst_tid = tidx_tid[tidxs[i+1]];
+            for (unsigned x = 0; x < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; x++) {
+                if ((core_clk_topo_switch_descs[x].src_topo_id == src_tid) &&
+                    (core_clk_topo_switch_descs[x].dst_topo_id == dst_tid)) {
+                    seq_chain[i] = x;
+                }
+            }
+        }
+
+        return seq_steps;
+    }
+
+    /* no feasible sequence chain found */
+    return -2;
+}
+
+static bool _can_be_changed_otf(const clk_topology_entry_t *src_topo, uint32_t src_len) {
+    for (unsigned i = 0; i < src_len; i++) {
+        uint32_t flags = src_topo[i].clk->flags.topology_flags;
+        /* TODO this is a rather simplified check that is pretty conservative as these flags do not nessesarily
+         * impose restirictions on clocks far down or up the clock (where the actual change takes place).
+         * A more reasonable approach would be to check those flags only against a "topology diff".
+         * NOTE: if this is addressed the below method to derive a same-to-same topology config sequence
+         * must be updated to not run into temporary invalid configs see the other TODO down there */
+        if ((flags & GCLK_STOP_CHILDREN_FOR_UPDATE) ||
+                (flags & GCLK_STOP_PARENT_FOR_UPDATE) ||
+                (flags & GCLK_STOP_FOR_UPDATE)) {
+            return false;
+            LOG_DEBUG("%s: [%s] prohibits OTF update\n", __FUNCTION__, gclk_get_name(src_topo[i].clk));
+        }
+    }
+    return true;
+}
+
+static const gclk_manager_topo_switch_desc_t *_get_intermediate_topo_switch_desc(unsigned int src_tid) {
+    const gclk_manager_topo_switch_desc_t *desc = NULL;
+    for (unsigned i = 0; i < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; i++) {
+        /* direct transition available to some other topology */
+        if ((core_clk_topo_switch_descs[i].src_topo_id == src_tid) &&
+            (core_clk_topo_switch_descs[i].dst_topo_id != src_tid)) {
+            desc = &core_clk_topo_switch_descs[i];
+            //return desc; // should be valid - but must be tested as it changes behavior
+        }
+    }
+    return desc;
+}
+
 int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
     /* reset dfs count before setting new values */
     _mgr_ctx.dfs_frequencies_cnt = 0;
@@ -1514,22 +2094,6 @@ int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print) {
     return _sched_stats.task_performance_util[task_id];
 }
 
-uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t busy_ticks) {
-    (void)freq; /* currently, performance util data is only collected when the frequency cycler is
-                   is used, and in that case the frequency (or actually its index) is known out-of-band,
-                   (via the freq cycler context), therfore, translation from freq to index can be skipped */
-    uint32_t freq_idx = fc_ctx.cur_freq_idx;
-    _sched_stats.task_perf_util_data[task_id][freq_idx].cpu_time_ticks += busy_ticks;
-    _sched_stats.task_perf_util_data[task_id][freq_idx].schedules++;
-
-    if (_sched_stats.task_perf_util_data[task_id][freq_idx].cpu_time_ticks >= fc_ctx.cpu_time_threshold_ticks &&
-        _sched_stats.task_perf_util_data[task_id][freq_idx].schedules >= fc_ctx.thread_schedule_threshold) {
-        /* mark that enough stats were collected for this thread */
-        fc_ctx.pu_stats_pending_cur_freq &= ~(1 << task_id);
-    }
-    return 0;
-}
-
 void gclk_manager_enable_pu_stat_request_for_thread(kernel_pid_t tid) {
     fc_ctx.pu_stats_requested |= (1 << tid);
 }
@@ -1605,35 +2169,6 @@ void gclk_manager_enable_dynamic_frequency_scaling(bool enable) {
     } else {
         _mgr_ctx.freq_change_cb(pre_dfs_enable_freq);
     }
-}
-
-static void _dvfs(uint32_t utilization) {
-
-    unsigned state = irq_disable();
-    /* dfs can only be applied if there are multiple freq settings available */
-    if (_mgr_ctx.dfs_frequencies_cnt > 0) {
-        int old_scale_idx = _mgr_ctx.current_dfs_freq_idx;
-
-        if (utilization > 80) {
-            _mgr_ctx.current_dfs_freq_idx++;
-        } else if (utilization < 60){
-            _mgr_ctx.current_dfs_freq_idx--;
-        }
-
-        if (_mgr_ctx.current_dfs_freq_idx < 0) {
-            _mgr_ctx.current_dfs_freq_idx = 0;
-        } else if ((uint32_t)_mgr_ctx.current_dfs_freq_idx >= _mgr_ctx.dfs_frequencies_cnt){
-            _mgr_ctx.current_dfs_freq_idx =  _mgr_ctx.dfs_frequencies_cnt - 1;
-        }
-
-        if(_mgr_ctx.current_dfs_freq_idx != old_scale_idx) {
-            gclk_manager_scale_core_freq(_mgr_ctx.dfs_frequencies[_mgr_ctx.current_dfs_freq_idx]);
-        }
-
-        _sched_stats.freq_sched_cnt[_mgr_ctx.current_dfs_freq_idx]++;
-    }
-
-    irq_restore(state);
 }
 
 void gclk_manager_post_idle_hook(void) {
@@ -1766,137 +2301,6 @@ void gclk_manager_unregister_clk_change_cb(gclk_clock_change_notify_list_t *nle)
     }
 }
 
-bool _is_clk_modification_step(gclk_manager_sequence_step_t *step) {
-    switch (step->op) {
-        case CLK_SET_FREQ:
-        case CLK_SET_FACTOR:
-        case CLK_SET_PARENT:
-        case CLK_SET_PARENT_IDX:
-        case CLK_ENABLE:
-        case CLK_DISABLE:
-            return true;
-        case CLK_CONFIG_TARGET:
-        case BUSY_SPIN:
-        case SET_LED:
-            return false;
-        default:
-            printf("Illegal sequence step type!\n");
-            return false;
-        }
-}
-
-static clk_topology_entry_t *_get_clock_conf_from_tree_conf(const gclk_t *clk, clk_topology_entry_t *tree_conf, size_t tree_clock_cnt) {
-    for (unsigned i = 0; i < tree_clock_cnt; i++) {
-        if (tree_conf[i].clk == clk) {
-            return &tree_conf[i];
-        }
-    }
-    return NULL;
-}
-
-/* if either uptree_parent or chid are NULL, this returns false. */
-bool _gclk_manager_is_derived_from_clock(const gclk_t *uptree_parent, const gclk_t *child, clk_topology_entry_t *tree_conf, size_t tree_clock_cnt) {
-
-    if ((uptree_parent == NULL) || (child == NULL)) {
-        return false;
-    } else if (uptree_parent == child) {
-       return true;
-    }
-
-    clk_topology_entry_t *tmp_conf = _get_clock_conf_from_tree_conf(child, tree_conf, tree_clock_cnt);
-
-    while (true) {
-        if (gclk_is_source(tmp_conf->clk)) {
-            return false;
-        }
-        const gclk_t *parent = gclk_idx2parent(tmp_conf->clk, tmp_conf->par_idx);
-        if (parent == NULL) {
-            return false;
-        }
-        if (parent == uptree_parent) {
-            return true;
-        }
-        tmp_conf = _get_clock_conf_from_tree_conf(parent, tree_conf, tree_clock_cnt);
-    }
-}
-
-/* returns the root source conf along the quivalent factors for the path from cc to its source */
-static clk_topology_entry_t *_model_get_equivalent_uptree_factors(clk_topology_entry_t *tree_model, size_t tree_size, clk_topology_entry_t *cc, uint32_t *mul, uint32_t *div) {
-    uint32_t m = 1;
-    uint32_t d = 1;
-    while (true) {
-        /* handle the special case where a clock config strictly depends on an uptree node.
-         * Since we are not considering the current state of config registers but the virtual memory instead , the
-         * method to get the respective factor for the clock needs to have access to te clock tree state that is investigated */
-        if (cc->clk->flags.topology_flags & GCLK_STRICT_UPTREE_DEPENDENT) {
-            /* update the dependent clock config state based on the tree state */
-            cc->factor = gclk_get_uptree_dependent_factor(cc->clk, tree_model, tree_size);
-        }
-        if (gclk_is_divider(cc->clk)) {
-            LOG_DEBUG("%s: div of %s: %u\n", __FUNCTION__, gclk_get_name(cc->clk), cc->factor);
-            d *= cc->factor;
-        } else if (gclk_is_multiplier(cc->clk)) {
-            LOG_DEBUG("%s: mul of %s: %u\n", __FUNCTION__, gclk_get_name(cc->clk), cc->factor);
-            m *= cc->factor;
-        } else {
-            LOG_DEBUG("%s: %s is no scaler!\n", __FUNCTION__, gclk_get_name(cc->clk));
-        }
-
-        if (gclk_is_source(cc->clk)) {
-            break;
-        }
-        const gclk_t *pclk = gclk_idx2parent(cc->clk, cc->par_idx);
-        /* if a clock points to NULL as parent that means this subtree is completely disconnected.
-         * E.e., the equivalent mul factor becomes zero for all clocks downtree */
-        if (pclk != NULL) {
-            cc = _get_clock_conf_from_tree_conf(pclk, tree_model, tree_size);
-        } else {
-            m = 0;
-            break;
-        }
-    };
-
-    *mul = m;
-    *div = d;
-    return cc;
-}
-
-static uint32_t _get_minmax_freq_at_fixed_uptree_conf(clk_topology_entry_t *topology, uint32_t len, bool max) {
-
-    if (!len || !topology[0].clk) {
-        LOG_DEBUG("%s: max freq of an empty topology or NULL is always 0\n", __FUNCTION__);
-        return 0;
-    }
-
-    uint32_t m = 1;
-    uint32_t d = 1;
-
-    clk_topology_entry_t *root_conf;
-    const gclk_t *clk = topology[0].clk;
-
-    if (len > 1) {
-        root_conf = _model_get_equivalent_uptree_factors(&topology[1], len - 1, &topology[0], &m, &d);
-    } else {
-        root_conf = &topology[0];
-    }
-
-    uint32_t root_input_freq = gclk_get_input_freq(root_conf->clk);
-
-    if (!root_input_freq) {
-        return 0;
-    }
-
-    if ((gclk_is_divider(clk) && max) ||
-        (gclk_is_multiplier(clk) && !max)) {
-        d *= gclk_factor_min(clk);
-    } else if ((gclk_is_multiplier(clk) && max) ||
-               ((gclk_is_divider(clk) && !max))) {
-        m *= gclk_factor_max(clk);
-    }
-
-    return root_input_freq * m / d;
-}
-
 uint32_t gclk_manager_get_min_freq_at_fixed_uptree_conf(clk_topology_entry_t *topology, uint32_t len) {
    return _get_minmax_freq_at_fixed_uptree_conf(topology, len, false);
 }
@@ -1931,80 +2335,6 @@ void gclk_manager_print_topology_conf(clk_topology_entry_t *topology, uint32_t s
     }
 
     printf("\n");
-}
-
-static void _model_update_to_parent_changes(clk_topology_entry_t *tree_model, size_t tree_size, clk_topology_entry_t *child_conf) {
-    LOG_DEBUG("%s: update model to parent changes...\n", __FUNCTION__);
-    uint32_t mul = 1;
-    uint32_t div = 1;
-    clk_topology_entry_t *root_conf = _model_get_equivalent_uptree_factors(tree_model, tree_size, child_conf, &mul, &div);
-    LOG_DEBUG("%s: root_conf of %s is %s\n", __FUNCTION__, gclk_get_name(child_conf->clk), gclk_get_name(root_conf->clk));
-    LOG_DEBUG("%s: equiv mul is %lu\n", __FUNCTION__, mul);
-    LOG_DEBUG("%s: equiv div is %lu\n", __FUNCTION__, div);
-    uint32_t new_freq;
-    //TODO: optimize calculation based on actual values (e.g. very high mul/div vals..)
-    if (mul == 0) {
-        new_freq = 0;
-    } else {
-        new_freq = root_conf->clk_freq * mul / div;
-    }
-    LOG_DEBUG("%s: updating freq of %s from %lu to %lu\n", __FUNCTION__, gclk_get_name(child_conf->clk), child_conf->clk_freq, new_freq);
-    child_conf->clk_freq = new_freq;
-}
-
-/* returns true if new propagations were marked */
-static clk_topology_entry_t *_mark_pending_propagation_on_children(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size) {
-    clk_topology_entry_t *next = NULL;
-    for (unsigned i = 0; i < tree_model_size; i++) {
-        /* mark all children of the changed clock. (which is never a source clock) */
-        if (!gclk_is_source(tree_model[i].clk)) {
-            if (gclk_idx2parent(tree_model[i].clk, tree_model[i].par_idx) == changed_conf->clk) {
-                LOG_DEBUG("%s: mark %s for propagation update\n", __FUNCTION__, gclk_get_name(tree_model[i].clk));
-                tree_model[i].propagation_pending = true;
-                /* save the first encountered children to return it for further propagation */
-                if (!next) {
-                    next = &tree_model[i];
-                }
-            }
-        }
-    }
-    return next;
-}
-
-static clk_topology_entry_t *_find_next_pending_propagation(clk_topology_entry_t *tree_model, size_t tree_model_size) {
-    for (unsigned i = 0; i < tree_model_size; i++) {
-        clk_topology_entry_t *c = &tree_model[i];
-        if (c->propagation_pending) {
-            return c;
-        }
-    }
-    return NULL;
-}
-
-static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_conf, clk_topology_entry_t *tree_model, size_t tree_model_size) {
-    clk_topology_entry_t *pc = changed_conf;
-    pc->propagation_pending = true;
-    while (pc) {
-        /* update the currently selected pending clock */
-        _model_update_to_parent_changes(tree_model, tree_model_size, pc);
-
-        /* check if there are further pending propagations */
-        clk_topology_entry_t *next = _mark_pending_propagation_on_children(pc, tree_model, tree_model_size);
-
-        /* clear pending propagation after updating its state and marking all its children for propagation */
-        pc->propagation_pending = false;
-
-        /* if we found another downtree node affected by this change continue propagation there */
-        if (next != NULL) {
-            pc = next;
-        } else {
-            /* otherwise check if there is another pending change somewhere in the tree */
-            pc = _find_next_pending_propagation(tree_model, tree_model_size);
-            if (pc == NULL) {
-                LOG_DEBUG("%s: no further pending config found! -> finished propagation!\n", __FUNCTION__);
-            }
-        }
-    }
 }
 
 //TODO: rename params to unifiead scheme e.g., "tree_model"
@@ -2112,45 +2442,6 @@ void gclk_manager_apply_sequence_to_tree_model(gclk_manager_sequence_step_t *seq
     //      -> gernerate the before-after diff and execute reconfiguration callbacks before and after.
     //      -> call the reconfiguration callbacks before/after each individual modification that changes
     //         a relevant setting
-}
-
-/* Some kind of transaction mechanism is needed for when multiple callbacks modify the requirements for WS/Vcore
- * in a contradicting way.
- * Either :
- * - some state must be handed to the callbacks so they can determine if this is the final change_cb
- * - the number of pending (relevant) cbs must be evaluated on the global view so that a flag
- *   like "commit changes" can be handed to the last relevant cb
- * - a concept of multi-level cbs could be used to first notify changes to distribute required information
- *   and then a commit cb is called were the final consistent state (updated by previous level notify cbs)
- *   can be considered to perform required updates.
- * - For the special case of flash WS/vcore updates a separate callback like this one may be explicitly called
- *   after all callbacks were issued.
- *
- * Note: with step-wise notifications this would not be needed but additional update steps would likely introduce
- *       back-and-forth updates during complex sequences.
- *
- * Note: as a performance improvement measure a parameter could indicate whether any cbs were executed before.
- *       Alternatively it could be made convention to only call if cbs were executed in a reconfiguration.
- */
-void _post_notify_commit(bool post_change) {
-    if (auto_vscale_enabled || auto_wsadapt_enabled) {
-        unsigned min_ws;
-        unsigned min_vc_idx;
-
-        gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_FREQ_LIMIT_CLKS_NUMOF, &min_ws,  &min_vc_idx, _mgr_ctx.dvs_policy);
-
-        if (auto_wsadapt_enabled &&
-            ((!post_change &&  (flash_opt_get_wait_states() < min_ws)) ||
-             (post_change && (flash_opt_get_wait_states() > min_ws)))) {
-            flash_opt_set_wait_states(min_ws);
-        }
-
-        if (auto_vscale_enabled &&
-            ((!post_change &&  ((unsigned)core_voltage_get() < min_vc_idx)) ||
-             (post_change && ((unsigned)core_voltage_get() > min_vc_idx)))) {
-            core_voltage_set(min_vc_idx);
-        }
-    }
 }
 
 void gclk_manager_notify_diff_changes(clk_topology_entry_t *tree_before, clk_topology_entry_t *tree_after, size_t tree_size,
@@ -2481,43 +2772,6 @@ void _update_vcore_and_ws_config(const gclk_t *altered_clk, uint32_t f_new, gclk
     }
 }
 
-//static void _get_equivalent_uptree_factors(const gclk_t *dtc, const gclk_t *utc, uint32_t *mul, uint32_t *div) {
-//    uint32_t m = 1;
-//    uint32_t d = 1;
-//    do {
-//        if (gclk_is_divider(dtc)) {
-//            d *= gclk_get_current_factor(dtc);
-//        } else if (gclk_is_multiplier(dtc)) {
-//            m *= gclk_get_current_factor(dtc);
-//        }
-//        dtc = gclk_get_current_parent(dtc);
-//    } while (dtc != utc);
-//
-//    *mul = m;
-//    *div = d;
-//}
-
-//static void _core_clock_change_cb(const gclk_t* altered_clk, const gclk_t* affected_clk,
-//                                  uint32_t f_old, uint32_t f_new, bool post_change) {
-//
-//    /* if the changed clock is affected indirectly.. */
-//    if (altered_clk != affected_clk) {
-//        /* ..find out how the change to the altered clock affects the affected clock */
-//        uint32_t mul = 1;
-//        uint32_t div = 1;
-//        _get_equivalent_uptree_factors(affected_clk, altered_clk, &mul, &div);
-//
-//        altered_clk = affected_clk;
-//        f_old = f_old * mul / div;
-//        f_new = f_new * mul / div;
-//    }
-//
-//    if ((post_change && (f_new < f_old)) ||  /* the voltage can potentially be scaled down */
-//        (!post_change && (f_new > f_old))) { /* the voltage must potentially be scaled up */
-//        _update_vcore_and_ws_config(altered_clk, f_new, dvs_policy, (f_new > f_old) ? true : false);
-//    }
-//}
-
 static void _lazy_reg_freq_limit_clk_change_cbs(void) {
     /* only register new callback if no automatic adaption is enabled yet */
     if (!(auto_vscale_enabled || auto_wsadapt_enabled)) {
@@ -2538,6 +2792,29 @@ static void _lazy_unreg_freq_limit_clk_change_cbs(void) {
             gclk_manager_unregister_clk_change_cb(&_mgr_ctx.ccnl[i]);
         }
     }
+}
+
+void _gclk_manager_run_sequence__dyn_freq(gclk_manager_sequence_step_t *steps, size_t step_cnt, uint32_t freq) {
+    /* TODO: instead of a soingle freq variable this should contain a target topology conf */
+    (void)freq;
+
+    for (unsigned i = 0; i < step_cnt; i++) {
+        gclk_manager_sequence_step_t *step = &steps[i];
+        gclk_manager_execute_sequence_step(step);
+    }
+}
+
+static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *acc, clk_topology_entry_t *topo, uint32_t topo_len) {
+    unsigned rccnt = 0;
+    for (unsigned i = 0; i < topo_len; i++) {
+        for (unsigned c = 0; c < GLOBAL_CLOCK_CONSTRAINTS_NUMOF; c++) {
+            if (global_clock_constraints[c].clk == topo[i].clk) {
+                acc[rccnt] = global_clock_constraints[c];
+                rccnt++;
+            }
+        }
+    }
+    return rccnt;
 }
 
 void gclk_manager_enable_voltage_auto_scale(bool on) {
@@ -2656,6 +2933,7 @@ bool gclk_manager_set_freq(const gclk_t *clk, uint32_t freq) {
     return true;
 }
 
+//TODO: just make above function paramterized?
 /* clone of the above function with instrumentation for performance measurements */
 bool _gclk_manager_set_freq_instrumented(const gclk_t *clk, uint32_t freq) {
 
@@ -2715,29 +2993,6 @@ void gclk_manager_execute_sequence_step(gclk_manager_sequence_step_t *step) {
                 gpio_clear(LED0_PIN);
             }
     }
-}
-
-void _gclk_manager_run_sequence__dyn_freq(gclk_manager_sequence_step_t *steps, size_t step_cnt, uint32_t freq) {
-    /* TODO: instead of a soingle freq variable this should contain a target topology conf */
-    (void)freq;
-
-    for (unsigned i = 0; i < step_cnt; i++) {
-        gclk_manager_sequence_step_t *step = &steps[i];
-        gclk_manager_execute_sequence_step(step);
-    }
-}
-
-static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *acc, clk_topology_entry_t *topo, uint32_t topo_len) {
-    unsigned rccnt = 0;
-    for (unsigned i = 0; i < topo_len; i++) {
-        for (unsigned c = 0; c < GLOBAL_CLOCK_CONSTRAINTS_NUMOF; c++) {
-            if (global_clock_constraints[c].clk == topo[i].clk) {
-                acc[rccnt] = global_clock_constraints[c];
-                rccnt++;
-            }
-        }
-    }
-    return rccnt;
 }
 
 const gclk_freq_constraint_t* gclk_manager_conf_breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo_conf, uint32_t topo_len) {
@@ -2874,61 +3129,6 @@ end_search:
     *topo_idx = best_topo_idx;
     *topo_len = best_top_size;
     return best_topology[0].clk_freq;
-}
-
-/* the vcore value is fed into the calculation as mV*V value which in worst case becomes
- * 1200 * 1.2 = 1440.
- * shifting down by 11 (division by 2048) therefore provides enough space to accomodate the voltage value */
-#define CLOCK_MANAGER_PM_PRE_VCORE_MUL_SHIFT (11)
-
-static uint32_t _get_system_consumption_nW_from_power_model(clk_topology_entry_t *topo_conf, size_t len) {
-    uint32_t p_sum_nW = 0;
-
-    unsigned min_ws;
-    unsigned min_vc;
-    /* we are interested in p_min so always opt for low voltage policy */
-    gclk_get_min_required_ws_vc_from_tree_config(topo_conf, len, &min_ws, &min_vc, DVS_PREFER_LOW_VOLTAGE);
-
-    uint32_t vcore_mv = core_voltage_idx2mv(min_vc);
-
-    /* the voltage value is squared and held in unit "mV * V" to keep the precision but still reduce the bit-width */
-    uint32_t vcore_mVV = vcore_mv * vcore_mv / 1000;
-
-    for (unsigned i = 0; i < len; i++) {
-#if GLOBAL_CLOCK_POWER_MODEL_AVAILABLE > 0
-        for (unsigned x = 0; x < GLOBAL_CLOCK_POWER_MODEL_PROPERTIES_NUMOF; x++) {
-            if (topo_conf[i].clk == clock_power_model[x].clk) {
-                /* scaled freq unit is 10kHz */
-                uint32_t f_clk_scaled = topo_conf[i].clk_freq / 10000;
-                //TODO: ensure the enabled state is also initialized on topology brute force settings that do not
-                //      use the derive sequence method, then the enabed flag can be used directly instead of a freq check
-                //uint32_t p_clk_nW = topo_conf[i].clk_freq > 0 ? clock_power_model[x].P_en_nW : 0;
-                /* in this context (a topo_cmp function) we only compare active topologies. I.e. topologies where every clock is enabled.
-                 * Therefore we can always add the clock specific static consumption if a clock is present in the given topology */
-                uint32_t p_clk_nW = clock_power_model[x].P_en_nW;
-                uint32_t C_fF = clock_power_model[x].C_fF;
-                uint32_t p_clk_dyn_shifted =  ((f_clk_scaled * C_fF) >> CLOCK_MANAGER_PM_PRE_VCORE_MUL_SHIFT) * vcore_mVV;
-
-                // ------ calculation step --------|------------------- operation ----------|-- effective combined operation ---|
-                // scale mV*V to V*V               | / 1000;                                |  / 1000
-                // scale fF to nF                  | / 1000000;                             |  / 1000000000
-                // undo freq scaling, 10 kHz -> Hz | * 10000;                               |  / 100000
-                // undo pre-vcore mul shift        | * (2^11); i.e. * 2048; i.e. * 32 * 64; |  / 3125 * 64
-                // The unit after this operation is Hz * nF * V * V.  i.e., nW
-                p_clk_dyn_shifted = p_clk_dyn_shifted / 3125 * 64;
-
-                p_sum_nW += (p_clk_dyn_shifted + p_clk_nW);
-
-                // found the power property for this clock -> stop iteration
-                break;
-            }
-        }
-#else
-        (void)topo_conf;
-        (void)vcore_mVV;
-#endif
-    }
-    return p_sum_nW + GCLK_MANAGER_CONF_SYS_PSTATIC_NW;
 }
 
 gclk_cmp_result_t gclk_manager_cmp_topology_exact_leaf_freq_pmin(clk_topology_entry_t *topo_best, size_t len1,
@@ -3231,242 +3431,6 @@ void gclk_manager_run_sequence(gclk_manager_sequence_step_t *steps, size_t step_
     for (unsigned i = 0; i < step_cnt; i++) {
         gclk_manager_execute_sequence_step(&steps[i]);
     }
-}
-
-static bool contains(unsigned *list, size_t len, unsigned elem) {
-    for (unsigned i = 0; i < len; i++) {
-        if (list[i] == elem) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static size_t _append_if_not_contained(unsigned *list, size_t len, unsigned val) {
-    if (!contains(list, len, val)) {
-        list[len] = val;
-        return 1;
-    }
-    return 0;
-}
-
-static unsigned _get_unique_topo_cnt(const gclk_manager_topo_switch_desc_t *sds, unsigned cnt) {
-    /* as data is encoded only in transitions (edges between topologies),
-     * we assume the worst case number of possible topologies first */
-    unsigned topos[cnt * 2];
-    unsigned topo_cnt = 0;
-
-    for (unsigned i = 0; i < cnt; i++) {
-        topo_cnt += _append_if_not_contained(topos, topo_cnt, sds[i].src_topo_id);
-        topo_cnt += _append_if_not_contained(topos, topo_cnt, sds[i].dst_topo_id);
-    }
-
-    return topo_cnt;
-}
-
-static int _get_elem_idx(unsigned *list, size_t len, unsigned elem) {
-    for (unsigned i = 0; i < len; i++) {
-        if (list[i] == elem) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-/* TODO: this can still be heavily simplified and improved (splitting code, using bitmasks to avoid iterations etc.) */
-/* topo_cnt must be the number of possible topologies the leaf clock can be set to. This value also forms an upper bound
- * on how many sequences any transition may take in the worst case. seq_chain *must* be have enough capacity to take
- * up to topo_cnt-1 elements. */
-extern int _derive_sequence_chain(int stid, int ttid, unsigned *seq_chain, size_t topo_cnt) {
-    unsigned unique_tids = _get_unique_topo_cnt(core_clk_topo_switch_descs, CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF);
-
-    /* stores the mapping from unique topology numbers (0 to n) for every topology id (e.g. 2,6,8) */
-    unsigned tidx_tid[unique_tids];
-    unsigned added = 0;
-    for (unsigned i = 0; i < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; i++) {
-        added += _append_if_not_contained(tidx_tid, added, core_clk_topo_switch_descs[i].src_topo_id);
-        added += _append_if_not_contained(tidx_tid, added, core_clk_topo_switch_descs[i].dst_topo_id);
-        if (added == unique_tids) {
-            break;
-        }
-    }
-
-    int tid_graph[unique_tids][unique_tids];
-    for (unsigned i = 0; i < unique_tids; i++) {
-        for (unsigned j = 0; j < unique_tids; j++) {
-            tid_graph[i][j] = -1;
-        }
-    }
-
-    /* transform the transition-based encoding into a graph of topology ids */
-    for (unsigned i = 0; i < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; i++) {
-        unsigned sid = core_clk_topo_switch_descs[i].src_topo_id;
-        unsigned sidx = _get_elem_idx(tidx_tid, unique_tids, sid);
-
-        for (unsigned x = 0; x < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; x++) {
-            /* for all edges coming from the source topology populate all topologies that are reachable */
-            if (sid == core_clk_topo_switch_descs[x].src_topo_id) {
-                unsigned did = core_clk_topo_switch_descs[x].dst_topo_id;
-                unsigned didx = _get_elem_idx(tidx_tid, unique_tids, did);
-                /* for now we use the same wheight everywhere, more complex approaches could consider different weights
-                 * depending on how complex the transitions are and how this is affected by the current configuration/constraints */
-                tid_graph[sidx][didx] = 1;
-            }
-        }
-    }
-
-    /* distance form start topology to each other topology */
-    unsigned dist[unique_tids];
-
-    /* will hold the shortest path to reach ttid from stid */
-    int path[unique_tids];
-
-    /* markers to store which node was already visited */
-    int visited[unique_tids];
-
-    for (unsigned i = 0; i < unique_tids; i++) {
-        dist[i] = 0xFFFFFFFE;
-        visited[i] = 0;
-        path[i] = -1;
-    }
-
-    /* get graph table idx of start topology idx */
-    unsigned sidx = _get_elem_idx(tidx_tid, unique_tids, stid);
-
-    /* distance from start to itself is always 0 */
-    dist[sidx] = 0;
-
-    int current = sidx;
-
-    /* list of nodes to be visited */
-    int node_queue[unique_tids];
-    unsigned queuelen = 0;
-
-    while (true) {
-
-        visited[current] = 1;
-
-        for (unsigned i = 0; i < unique_tids; i++) {
-            /* for all reachable children */
-            if (tid_graph[current][i] != -1) {
-                if (visited[i]) {
-                    continue;
-                } else {
-                    node_queue[queuelen++] = i;
-
-                    /* for now we assume same weight of 1 everywhere */
-                    unsigned cur_i_dist = 1;
-
-                    /* calculate distance from 'start' to 'i' via 'current' */
-                    unsigned s_dist = dist[current] + cur_i_dist;
-
-                    /* check if path via 'current' is shorter than previous best path */
-                    if (s_dist < dist[i]) {
-                        dist[i] = s_dist;
-                        /* shortest path to 'i' is via 'current' */
-                        path[i] = current;
-                    }
-                }
-            }
-        }
-
-        /* remove 'current' from queue */
-        for (unsigned i = 0; i < queuelen; i++) {
-            if (node_queue[i] == current) {
-                /* move entries down if there are any after current */
-                for (unsigned x = i; x < (queuelen - 1); x++) {
-                    node_queue[x] = node_queue[x+1];
-                }
-                queuelen--;
-                break;
-            }
-        }
-
-        if (queuelen == 0) {
-            /* no nodes left to be visited */
-            break;
-        }
-
-        unsigned min_dist = 0xFFFFFFFE;
-        unsigned index = 0;
-
-        for (unsigned i = 0; i < queuelen; i++) {
-            if (dist[node_queue[i]] < min_dist) {
-                index = node_queue[i];
-            }
-        }
-        current = index;
-    }
-
-    unsigned didx = _get_elem_idx(tidx_tid, unique_tids, ttid);
-
-    if (dist[didx] != 0xFFFFFFFE) {
-        unsigned seq_steps = dist[didx];
-
-        if (seq_steps > (topo_cnt - 1)) {
-            /* can not store sequence chain in destination buffer */
-            return -1;
-        }
-
-        unsigned tidxs[seq_steps +1];
-        unsigned pos = seq_steps -1;
-
-        for (unsigned i = path[didx];; i = path[i]) {
-            tidxs[pos--] = i;
-            if (i == sidx) {
-                break;
-            }
-        }
-        tidxs[seq_steps] = didx;
-
-        for (unsigned i = 0; i < seq_steps; i++) {
-            unsigned src_tid = tidx_tid[tidxs[i]];
-            unsigned dst_tid = tidx_tid[tidxs[i+1]];
-            for (unsigned x = 0; x < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; x++) {
-                if ((core_clk_topo_switch_descs[x].src_topo_id == src_tid) &&
-                    (core_clk_topo_switch_descs[x].dst_topo_id == dst_tid)) {
-                    seq_chain[i] = x;
-                }
-            }
-        }
-
-        return seq_steps;
-    }
-
-    /* no feasible sequence chain found */
-    return -2;
-}
-
-static bool _can_be_changed_otf(const clk_topology_entry_t *src_topo, uint32_t src_len) {
-    for (unsigned i = 0; i < src_len; i++) {
-        uint32_t flags = src_topo[i].clk->flags.topology_flags;
-        /* TODO this is a rather simplified check that is pretty conservative as these flags do not nessesarily
-         * impose restirictions on clocks far down or up the clock (where the actual change takes place).
-         * A more reasonable approach would be to check those flags only against a "topology diff".
-         * NOTE: if this is addressed the below method to derive a same-to-same topology config sequence
-         * must be updated to not run into temporary invalid configs see the other TODO down there */
-        if ((flags & GCLK_STOP_CHILDREN_FOR_UPDATE) ||
-                (flags & GCLK_STOP_PARENT_FOR_UPDATE) ||
-                (flags & GCLK_STOP_FOR_UPDATE)) {
-            return false;
-            LOG_DEBUG("%s: [%s] prohibits OTF update\n", __FUNCTION__, gclk_get_name(src_topo[i].clk));
-        }
-    }
-    return true;
-}
-
-static const gclk_manager_topo_switch_desc_t *_get_intermediate_topo_switch_desc(unsigned int src_tid) {
-    const gclk_manager_topo_switch_desc_t *desc = NULL;
-    for (unsigned i = 0; i < CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF; i++) {
-        /* direct transition available to some other topology */
-        if ((core_clk_topo_switch_descs[i].src_topo_id == src_tid) &&
-            (core_clk_topo_switch_descs[i].dst_topo_id != src_tid)) {
-            desc = &core_clk_topo_switch_descs[i];
-            //return desc; // should be valid - but must be tested as it changes behavior
-        }
-    }
-    return desc;
 }
 
 int gclk_manager_derive_sequence(const clk_topology_entry_t *src_topo, uint32_t src_len,
