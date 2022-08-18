@@ -483,6 +483,10 @@ static uint32_t _max(uint32_t a, uint32_t b) {
     return (a >= b) ? a : b;
 }
 
+static uint32_t _abs_diff(uint32_t a, uint32_t b) {
+    return (a > b) ? (a - b) : (b - a);
+}
+
 static void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len,
                                                        gclk_fraction_t *min, gclk_fraction_t *max) {
     uint32_t minfm = 1;
@@ -600,14 +604,6 @@ static void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, s
 
     freq_limits->min = fmin;
     freq_limits->max = fmax;
-}
-
-static uint32_t _abs_diff(uint32_t a, uint32_t b) {
-    return (a > b) ? (a - b) : (b - a);
-}
-
-static bool _freq_within_limit(uint32_t freq, gclk_freq_limit_t *limit) {
-    return (freq < limit->max) && (freq > limit->min);
 }
 
 static bool _within_dfs_range(uint32_t freq) {
