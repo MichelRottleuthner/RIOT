@@ -6,9 +6,9 @@
  * directory for more details.
  */
 /**
- * @defgroup    sys_gclk generic clock config
+ * @defgroup    sys_gclk Generic clock configuration
  * @ingroup     sys
- * @brief       Provides a generic clock configuration
+ * @brief       Provides a generic clock configuration module
  *
  * This module is intended to configure and control platform specific clocks via a generic API.
  * Instances that might be controlled by this API could be one of the following (non exhaustive list):
