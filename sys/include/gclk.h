@@ -1006,6 +1006,14 @@ static inline unsigned int gclk_factor_max(const gclk_t *clk) {
     return gclk_idx2factor(clk, clk->flags.conf_cnt - 1);
 }
 
+/* @param[in]      clk     The clock to get the scaling factor for.
+ * @param[in,out]  limits  Combined factor limit holding both, the min and max factor.
+ */
+static inline void gclk_get_factor_minmax(const gclk_t *clk, gclk_factor_limit_t *limits) {
+  limits->min = gclk_factor_min(clk);
+  limits->max = gclk_factor_max(clk);
+}
+
 /**
  * @brief get the available options for parents that can be configured
  *
