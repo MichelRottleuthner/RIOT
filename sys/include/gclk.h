@@ -886,7 +886,7 @@ static inline bool gclk_freq_within_limit(uint32_t freq, const gclk_freq_limit_t
 uint32_t gclk_get_current_freq(const gclk_t *gclk);
 
 /**
- * @breif get an equivalent representation of uptree clocks
+ * @brief get an equivalent representation of uptree clocks
  *
  * @param[in] clk   clock instance for which the uptree config is read
  * @param[in,out] m    equivalent multiplier combining all uptree clocks (must be set to 1 before calling)
