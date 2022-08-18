@@ -871,6 +871,15 @@ const gclk_t* gclk_get_clk_by_name(const char *name);
  */
 int gclk_compare_fraction(gclk_fraction_t *a, gclk_fraction_t *b);
 
+/* @brief checks if a frequency is within a given limit.
+ *
+ * @retval   true   if @p freq is within @p limit.
+ * @retval   false  if @p freq is lower or higher than @p limit.
+ */
+static inline bool gclk_freq_within_limit(uint32_t freq, const gclk_freq_limit_t *limit) {
+    return (freq < limit->max) && (freq > limit->min);
+}
+
 /**
  * @brief get the current frequency of this clock
  */
