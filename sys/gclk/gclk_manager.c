@@ -482,28 +482,7 @@ static void _do_freq_cycle_step_if_ready(void) {
     }
 }
 
-void _get_equivalent_factors_after_source(const gclk_t *source, clk_topology_entry_t *topo,
-                                          size_t topo_len, uint32_t *mul, uint32_t *div) {
-    uint32_t m = 1;
-    uint32_t d = 1;
-
-    for (unsigned i = 0; i < topo_len; i++) {
-        /* only consider factors after the scaled clock till the output clock */
-        if (topo[i].clk == source) {
-            break;
-        }
-        if (gclk_is_divider(topo[i].clk)) {
-            d *= gclk_get_current_factor(topo[i].clk);
-        } else if (gclk_is_multiplier(topo[i].clk)) {
-            m *= gclk_get_current_factor(topo[i].clk);
-        }
-    }
-
-    *mul = m;
-    *div = d;
-}
-
-void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *dtf) {
+static void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *dtf) {
     uint32_t m = 1;
     uint32_t d = 1;
 
@@ -519,7 +498,7 @@ void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo
     dtf->d = d;
 }
 
-void _get_minmax_factors(const gclk_t *clk, gclk_factor_limit_t *limits) {
+static void _get_minmax_factors(const gclk_t *clk, gclk_factor_limit_t *limits) {
     size_t cnt = gclk_factor_cnt(clk);
 
     uint32_t mi = 0xFFFFFFFF;
@@ -538,8 +517,8 @@ void _get_minmax_factors(const gclk_t *clk, gclk_factor_limit_t *limits) {
     limits->max = ma;
 }
 
-void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len,
-                                                gclk_fraction_t *min, gclk_fraction_t *max) {
+static void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len,
+                                                       gclk_fraction_t *min, gclk_fraction_t *max) {
     uint32_t minfm = 1;
     uint32_t minfd = 1;
 
@@ -565,7 +544,7 @@ void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *topo, size
     max->d = maxfd;
 }
 
-int _clk_to_entry_idx(clk_topology_entry_t *topo, size_t len, const gclk_t *clk) {
+static int _clk_to_entry_idx(clk_topology_entry_t *topo, size_t len, const gclk_t *clk) {
     for (unsigned i = 0; i < len; i++) {
         if (topo[i].clk == clk) {
             return i;
@@ -579,26 +558,6 @@ static void _get_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, c
     int idx = _clk_to_entry_idx(topo, len, src);
     if (idx > 0) {
         _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), dtf);
-    } else {
-        printf("given src is not in topology!\n");
-    }
-}
-
-void _get_equivalent_dt_fraction(clk_topology_entry_t *topo, size_t len, const gclk_t *src, gclk_fraction_t *dtf, bool incl_src) {
-    int idx = _clk_to_entry_idx(topo, len, src);
-    if (idx > 0) {
-        _get_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0), dtf);
-    } else {
-        printf("given src is not in topology!\n");
-    }
-}
-
-void _get_minmax_equivalent_dt_factors(clk_topology_entry_t *topo, size_t len, const gclk_t *src, gclk_fraction_t *min, gclk_fraction_t *max,
-                                       bool incl_src) {
-    int idx = _clk_to_entry_idx(topo, len, src);
-    if (idx > 0) {
-        _get_minmax_equivalent_factors_of_topology(topo, len - (len - idx) + (incl_src ? 1 : 0),
-                                                   min, max);
     } else {
         printf("given src is not in topology!\n");
     }
@@ -631,14 +590,10 @@ static bool _get_minmax_constraint(const gclk_t *clk, gclk_freq_limit_t *limit) 
     return is_constrained;
 }
 
-void _print_constraint(const gclk_t *clk, gclk_freq_limit_t *freq_limits) {
-    printf("%s is constrained between %lu and %lu Hz\n", gclk_get_name(clk), freq_limits->min, freq_limits->max);
-}
-
 /* combines all constraints put up by clocks of the given topology into an absolute min/max frequency requirement
  * for the input to the topology. Returned limits indicate that it is not allowed to feed the topology with
  * a frequency that is lower than f_min or higher than f_max */
-void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, size_t len, gclk_freq_limit_t *freq_limits) {
+static void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, size_t len, gclk_freq_limit_t *freq_limits) {
 
     uint32_t fmin = 0;
     uint32_t fmax = 0xFFFFFFFF;
@@ -697,7 +652,7 @@ static bool _freq_within_limit(uint32_t freq, gclk_freq_limit_t *limit) {
     return (freq < limit->max) && (freq > limit->min);
 }
 
-bool _within_dfs_range(uint32_t freq) {
+static bool _within_dfs_range(uint32_t freq) {
     if ((freq < DFS_CYCLER_MIN_FREQ) || (freq > DFS_CYCLER_MAX_FREQ)) {
         return false;
     }
@@ -742,7 +697,7 @@ static uint32_t _get_best_factor(const gclk_t *clk, uint32_t f_in, uint32_t targ
     return best_factor;
 }
 
-clk_topology_entry_t *_clear_core_topology_cache(clk_topology_entry_t *cacheloc) {
+static clk_topology_entry_t *_clear_core_topology_cache(clk_topology_entry_t *cacheloc) {
     clk_topology_entry_t *topology = cacheloc;
     memset(topology, 0, sizeof(clk_topology_entry_t) * _mgr_ctx.max_clocks_in_core_topology);
     topology[0].clk = gclk_core_clock_handle;
@@ -799,7 +754,7 @@ static void _get_scale_factor_limits(const gclk_t *scaler, gclk_freq_limit_t *f_
     }
 }
 
-int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freqs, size_t cnt) {
+static int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freqs, size_t cnt) {
     size_t match_freq_cnt = 0;
     unsigned matched = 0;
 
@@ -942,7 +897,7 @@ int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_t *freq
     return match_freq_cnt;
 }
 
-uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t busy_ticks) {
+static uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t busy_ticks) {
     (void)freq; /* currently, performance util data is only collected when the frequency cycler is
                    is used, and in that case the frequency (or actually its index) is known out-of-band,
                    (via the freq cycler context), therfore, translation from freq to index can be skipped */
@@ -987,7 +942,7 @@ static void _dvfs(uint32_t utilization) {
     irq_restore(state);
 }
 
-bool _is_clk_modification_step(gclk_manager_sequence_step_t *step) {
+static bool _is_clk_modification_step(gclk_manager_sequence_step_t *step) {
     switch (step->op) {
         case CLK_SET_FREQ:
         case CLK_SET_FACTOR:
@@ -1016,7 +971,7 @@ static clk_topology_entry_t *_get_clock_conf_from_tree_conf(const gclk_t *clk, c
 }
 
 /* if either uptree_parent or chid are NULL, this returns false. */
-bool _gclk_manager_is_derived_from_clock(const gclk_t *uptree_parent, const gclk_t *child, clk_topology_entry_t *tree_conf, size_t tree_clock_cnt) {
+static bool _gclk_manager_is_derived_from_clock(const gclk_t *uptree_parent, const gclk_t *child, clk_topology_entry_t *tree_conf, size_t tree_clock_cnt) {
 
     if ((uptree_parent == NULL) || (child == NULL)) {
         return false;
@@ -1210,7 +1165,7 @@ static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_
  * Note: as a performance improvement measure a parameter could indicate whether any cbs were executed before.
  *       Alternatively it could be made convention to only call if cbs were executed in a reconfiguration.
  */
-void _post_notify_commit(bool post_change) {
+static void _post_notify_commit(bool post_change) {
     if (auto_vscale_enabled || auto_wsadapt_enabled) {
         unsigned min_ws;
         unsigned min_vc_idx;
@@ -1331,7 +1286,7 @@ static int _get_elem_idx(unsigned *list, size_t len, unsigned elem) {
 /* topo_cnt must be the number of possible topologies the leaf clock can be set to. This value also forms an upper bound
  * on how many sequences any transition may take in the worst case. seq_chain *must* be have enough capacity to take
  * up to topo_cnt-1 elements. */
-extern int _derive_sequence_chain(int stid, int ttid, unsigned *seq_chain, size_t topo_cnt) {
+int _derive_sequence_chain(int stid, int ttid, unsigned *seq_chain, size_t topo_cnt) {
     unsigned unique_tids = _get_unique_topo_cnt(core_clk_topo_switch_descs, CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF);
 
     /* stores the mapping from unique topology numbers (0 to n) for every topology id (e.g. 2,6,8) */
