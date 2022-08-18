@@ -459,27 +459,6 @@ static void _print_conf_change(clk_topology_entry_t *old, clk_topology_entry_t *
                                                              new->clk_freq, new->enabled ? "enabled" : "disabled");
 }
 
-static void _do_freq_cycle_step_if_ready(void) {
-    if (fc_ctx.freq_cycle_enabled) {
-        /* only try to advance to next freq if enough stats were collected for each thread of interest */
-        if (!fc_ctx.pu_stats_pending_cur_freq) {
-            /* if there are more frequencies advance to next, otherwise indicate end of cycle */
-            if (fc_ctx.cur_freq_idx < (fc_ctx.freq_cnt - 1)) {
-                fc_ctx.cur_freq_idx++;
-                uint32_t new_freq = fc_ctx.freqs[fc_ctx.cur_freq_idx];
-                fc_ctx.freq_change_cb(new_freq);
-                current_core_freq = new_freq;
-                /* set all previously requested thread pu stats to pending for the new freq */
-                fc_ctx.pu_stats_pending_cur_freq = fc_ctx.pu_stats_requested;
-            } else {
-                /* disable freq cycle after all freqs were measured */
-                fc_ctx.freq_cycle_enabled = false;
-                mutex_unlock(&fc_ctx.done_mutex);
-            }
-        }
-    }
-}
-
 static void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *dtf) {
     uint32_t m = 1;
     uint32_t d = 1;
@@ -2062,7 +2041,24 @@ void gclk_manager_post_sched_hook(kernel_pid_t desched_thread) {
     if (_mgr_ctx.pu_metadata_collection_enabled) {
         uint32_t busy_ticks = idle_timer_read() - _sched_stats.t_cur_thread_start;
         _append_performance_util_data(desched_thread, current_core_freq, busy_ticks);
-        _do_freq_cycle_step_if_ready();
+        if (fc_ctx.freq_cycle_enabled) {
+            /* only try to advance to next freq if enough stats were collected for each thread of interest */
+            if (!fc_ctx.pu_stats_pending_cur_freq) {
+                /* if there are more frequencies advance to next, otherwise indicate end of cycle */
+                if (fc_ctx.cur_freq_idx < (fc_ctx.freq_cnt - 1)) {
+                    fc_ctx.cur_freq_idx++;
+                    uint32_t new_freq = fc_ctx.freqs[fc_ctx.cur_freq_idx];
+                    fc_ctx.freq_change_cb(new_freq);
+                    current_core_freq = new_freq;
+                    /* set all previously requested thread pu stats to pending for the new freq */
+                    fc_ctx.pu_stats_pending_cur_freq = fc_ctx.pu_stats_requested;
+                } else {
+                    /* disable freq cycle after all freqs were measured */
+                    fc_ctx.freq_cycle_enabled = false;
+                    mutex_unlock(&fc_ctx.done_mutex);
+                }
+            }
+        }
     }
 }
 
