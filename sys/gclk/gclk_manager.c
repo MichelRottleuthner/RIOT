@@ -496,23 +496,12 @@ static void _get_equivalent_factors_of_topology(clk_topology_entry_t *topo, size
     dtf->d = d;
 }
 
-static void _get_minmax_factors(const gclk_t *clk, gclk_factor_limit_t *limits) {
-    size_t cnt = gclk_factor_cnt(clk);
+static uint32_t _min(uint32_t a, uint32_t b) {
+    return (a <= b) ? a : b;
+}
 
-    uint32_t mi = 0xFFFFFFFF;
-    uint32_t ma = 1;
-
-    for (unsigned i = 0; i < cnt; i++) {
-        uint32_t fact = gclk_idx2factor(clk, i);
-        if (fact < mi) {
-            mi = fact;
-        }
-        if (fact > ma) {
-            ma = fact;
-        }
-    }
-    limits->min = mi;
-    limits->max = ma;
+static uint32_t _max(uint32_t a, uint32_t b) {
+    return (a >= b) ? a : b;
 }
 
 static void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *topo, size_t topo_len,
@@ -525,7 +514,7 @@ static void _get_minmax_equivalent_factors_of_topology(clk_topology_entry_t *top
 
     for (unsigned i = 0; i < topo_len; i++) {
         gclk_factor_limit_t limits;
-        _get_minmax_factors(topo[i].clk, &limits);
+        gclk_get_factor_minmax(topo[i].clk, &limits);
 
         if (gclk_is_divider(topo[i].clk)) {
             minfd *= limits.max;
@@ -570,14 +559,10 @@ static bool _get_minmax_constraint(const gclk_t *clk, gclk_freq_limit_t *limit) 
         if (global_clock_constraints[c].clk == clk) {
             is_constrained = true;
             if (global_clock_constraints[c].type == GCLK_ENSURE_MIN_FREQ) {
-                if (global_clock_constraints[c].freq > fmin) {
-                    fmin = global_clock_constraints[c].freq;
-                }
+                fmin = _max(global_clock_constraints[c].freq, fmin);
             }
             if (global_clock_constraints[c].type == GCLK_ENSURE_MAX_FREQ) {
-                if (global_clock_constraints[c].freq < fmax) {
-                    fmax = global_clock_constraints[c].freq;
-                }
+                fmax = _min(global_clock_constraints[c].freq, fmax);
             }
         }
     }
@@ -606,14 +591,10 @@ static void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, s
         if (_get_minmax_constraint(topo[i].clk, &fo_lim)) {
             /* in case this clock requires a higher minimum freq than its children,
              * update the absolute constraint accordingly */
-            if (fo_lim.min > fmin) {
-                fmin = fo_lim.min;
-            }
+            fmin = _max(fo_lim.min, fmin);
             /* in case this clock enforces a lower maximim freq than its children,
              * update the absolute constraint accordingly */
-            if (fo_lim.max < fmax) {
-                fmax = fo_lim.max;
-            }
+            fmax = _min(fo_lim.max,fmax);
         }
 
         /* calculate the constraints for the *input* side of this clock.
@@ -621,7 +602,7 @@ static void _get_minmax_applicable_topo_input_freq(clk_topology_entry_t *topo, s
          * the input side of the current clock to the output side of the parent (by iterating uptree) */
         gclk_factor_limit_t fact_lim;
         if (gclk_is_scalable(topo[i].clk)) {
-            _get_minmax_factors(topo[i].clk, &fact_lim);
+            gclk_get_factor_minmax(topo[i].clk, &fact_lim);
             // TODO: in case there are configurations where !(freq>>factor), rounding could become relevant
             if (gclk_is_multiplier(topo[i].clk)) {
                 /* minimum frequency that must be fed into this clock so that it is still able to fulfill constraints.
@@ -742,12 +723,8 @@ static void _get_scale_factor_limits(const gclk_t *scaler, gclk_freq_limit_t *f_
         _get_scaler_min_max_freq(scaler, factor, f_in, &limits_at_this_factor);
 
         if (!_limits_are_disjunct(&limits_at_this_factor, f_out)) {
-            if (factor < factor_limits->min) {
-                factor_limits->min = factor;
-            }
-            if (factor > factor_limits->max) {
-                factor_limits->max = factor;
-            }
+            factor_limits->min = _min(factor, factor_limits->min);
+            factor_limits->max = _max(factor, factor_limits->max);
         }
     }
 }
