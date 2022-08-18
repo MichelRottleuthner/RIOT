@@ -471,8 +471,6 @@ static void _do_freq_cycle_step_if_ready(void) {
                 current_core_freq = new_freq;
                 /* set all previously requested thread pu stats to pending for the new freq */
                 fc_ctx.pu_stats_pending_cur_freq = fc_ctx.pu_stats_requested;
-                //idle_timer_wait((ctx->cycle_us + 500) / 1000);
-                //xtimer_usleep(ctx->cycle_us);
             } else {
                 /* disable freq cycle after all freqs were measured */
                 fc_ctx.freq_cycle_enabled = false;
