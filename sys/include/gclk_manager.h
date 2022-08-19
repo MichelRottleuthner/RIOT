@@ -239,11 +239,7 @@ typedef enum {
 
 /**
  * @brief Defines for one clock instance how it can be scaled.
- * TODO: the scaling methods should define for which topology this applies.
- *       E.g., in case of nucleo-l476rg SYSCLK may be scaled by a direct change of MSIRANGE in case of topology 1 ([SYSCLK]-->[MSI]-->[MSIMUX]-->[MSIRANGE]-->[MSI_BASE]),
- *       but in case of topology 6 ([SYSCLK]-->[PLL_R]-->[PLL_VCO]-->[PLL_M]-->[PLL_PREDIV_MUX]-->[MSI]-->[MSIMUX]-->[MSIRANGE]-->[MSI_BASE]) it is only possible to update it indirectly.
- *       Overall it seems more applicable to define scale settings per topology of the clock handle.
- *       */
+ */
 typedef struct {
     const gclk_t *output_clk;   /**< the clock that we want to update to a new frequency (i.e. the core clock in most cases) */
     union {
