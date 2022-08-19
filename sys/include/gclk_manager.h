@@ -220,7 +220,7 @@ typedef struct {
 } gclk_manager_topo_switch_desc_t;
 
 /**
- * @breif Different scaling approaches.
+ * @brief Different scaling approaches.
  *
  * Different options of how clock scaling is performed.
  */
