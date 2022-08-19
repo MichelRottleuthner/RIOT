@@ -219,14 +219,6 @@ typedef struct {
     uint8_t step_cnt; /**< number of sequence steps in @ref steps */
 } gclk_manager_topo_switch_desc_t;
 
-/* TODO: conclude what kind of these we would need to be expressive enough.
- * Type to encode templated transition steps that will be used to deduce actual sequence steps at runtime. */
-typedef enum {
-    SEQ_UPDATE_LEAF,
-    SEQ_SET_TARGET_CONFIG,
-    SEQ_DISABLE_PARTIAL_TARGET,
-} gclk_template_op_id_t;
-
 /* Encodes how a clock can be scaled */
 typedef enum {
     SCALE_DIRECT,            /**< clock can be scaled by changing a single scale factor of a clock instance directly. */
