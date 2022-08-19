@@ -237,7 +237,8 @@ typedef enum {
     /* TODO: another feasible approach would be muxing between preconfigured HF and LF clock(-topologies). */
 } gclk_scale_approach_t;
 
-/* Defines for one clock instance how it can be scaled
+/**
+ * @brief Defines for one clock instance how it can be scaled.
  * TODO: the scaling methods should define for which topology this applies.
  *       E.g., in case of nucleo-l476rg SYSCLK may be scaled by a direct change of MSIRANGE in case of topology 1 ([SYSCLK]-->[MSI]-->[MSIMUX]-->[MSIRANGE]-->[MSI_BASE]),
  *       but in case of topology 6 ([SYSCLK]-->[PLL_R]-->[PLL_VCO]-->[PLL_M]-->[PLL_PREDIV_MUX]-->[MSI]-->[MSIMUX]-->[MSIRANGE]-->[MSI_BASE]) it is only possible to update it indirectly.
