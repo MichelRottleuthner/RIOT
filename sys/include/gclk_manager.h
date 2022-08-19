@@ -229,13 +229,12 @@ typedef enum {
     SCALE_UPTREE_RELATIVE,   /**< clock can only be scaled indirectly by changing a single clock scaler up the tree,
                                   where the scaled clock frequency is not the same as the frequency at the output clock.
                                   I.e., the scaled clock is still subject to some sort of scaling before feeding the output clock. */
-    //TODO: for predefined sequences it could make sense to provide one for up and down, or even a list/LUT for a set of target frequencies
     SCALE_SEQUENCE,          /**< clock can be scaled by a predefined multi-step sequence */
     SCALE_INTERMEDIATE_TOPO_AUTO,  /**< clock can be scaled by temporarily changing to another topology before
                                         adapting the current one and switching back to it. AUTO refers to the
                                         fact that not a fixed intermediate topology must be used but instead the most
                                         viable option can be selected at runtime, depending on active constraints */
-    //TODO: another feasible approach would be to do a plain mux between preconfigured HF and LF clocks
+    /* TODO: another feasible approach would be muxing between preconfigured HF and LF clock(-topologies). */
 } gclk_scale_approach_t;
 
 /* Defines for one clock instance how it can be scaled
