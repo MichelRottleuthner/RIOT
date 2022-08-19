@@ -219,7 +219,11 @@ typedef struct {
     uint8_t step_cnt; /**< number of sequence steps in @ref steps */
 } gclk_manager_topo_switch_desc_t;
 
-/* Encodes how a clock can be scaled */
+/**
+ * @breif Different scaling approaches.
+ *
+ * Different options of how clock scaling is performed.
+ */
 typedef enum {
     SCALE_DIRECT,            /**< clock can be scaled by changing a single scale factor of a clock instance directly. */
     SCALE_UPTREE_RELATIVE,   /**< clock can only be scaled indirectly by changing a single clock scaler up the tree,
