@@ -617,7 +617,18 @@ void gclk_manager_enable_voltage_auto_scale(bool on);
 void gclk_manager_enable_flashws_auto_update(bool on);
 
 /**
- * @brief Enable/disable automatic adaptation of core frequency
+ * @brief Enable/disable automatic adaptation of the core frequency.
+ *
+ * @param[in]  enabled  true for enable.
+ *                      false for disable.
+ * @note When **enabled**, the manger will automatically adapt the core frequency to task demands.
+ *       This is triggered via a scheduler hook (see @ref gclk_manager_pre_sched_hook())).
+ *       On the enable call the manager will store the currently active frequency, which
+ *       will be restored once it is disabled again. Other manager functions to adjust the
+ *       frequency/topology shall *not* be used for manual reconfigurations while this feature is
+ *       active.
+ *       When **disabled** the manager will not perform any core clock adjustments on it own and
+ *       manual adjustments via manager functions are allowed again.
  */
 void gclk_manager_enable_dynamic_frequency_scaling(bool enable);
 
