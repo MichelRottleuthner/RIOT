@@ -2746,7 +2746,7 @@ static void _lazy_unreg_freq_limit_clk_change_cbs(void) {
 }
 
 void _gclk_manager_run_sequence__dyn_freq(gclk_manager_sequence_step_t *steps, size_t step_cnt, uint32_t freq) {
-    /* TODO: instead of a soingle freq variable this should contain a target topology conf */
+    /* TODO: update the static prepared sequence with the target freq. */
     (void)freq;
 
     for (unsigned i = 0; i < step_cnt; i++) {
