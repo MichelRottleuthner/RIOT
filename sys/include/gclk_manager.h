@@ -314,15 +314,21 @@ typedef enum {
                           @note This is mainly useful for debugging (observing the exploration). */
 } gclk_exploration_result_cb_mode_t;
 
-typedef struct gclk_exploration_result_cb_conf {
-    gclk_exploration_result_cb_t valid_conf_found_cb;
-    void *ctx;
-    gclk_exploration_result_cb_mode_t cb_mode;
+/**
+ * @brief Configuration of the exploration result callback.
+ */
+typedef struct {
+    gclk_exploration_result_cb_t valid_conf_found_cb; /**< The callback to execute per result. */
+    void *ctx; /**< The context pointer handed to the callback. */
+    gclk_exploration_result_cb_mode_t cb_mode; /**< Mode that defines which results the cb shall be called for. */
 } gclk_exploration_result_cb_conf_t;
 
+/**
+ * @brief Tuple that maps a clock config compare function to a human readable name.
+ */
 typedef struct {
-    gclk_cmp_func_t func;
-    const char *name;
+    gclk_cmp_func_t func; /**< The function that compares two clock configurations. */
+    const char *name; /**< The human readable name of the compare function. */
 } topology_cmp_func_names_t;
 
 /**
@@ -343,26 +349,31 @@ typedef struct {
     const gclk_t *scale_clk; /**< the single clock scaler that will be used for DFS adaptations. */
 } lflae_cmp_fun_ctx_t;
 
-/* Context data used by the @ref gclk_manager_cmp_single_scaler_range_limited compare function */
+
+/**
+ * @brief Context used by the @ref gclk_manager_cmp_single_scaler_range_limited compare function.
+ */
 typedef struct {
-    const gclk_t *scale_clk;      /*< the single clock scaler that will be used for DFS adaptations */
-    unsigned scale_clk_topo_idx;  /*< the topology entry index that refers to the above clock.
-                                      Note: this must be valid for all calls of the compare function.
-                                            I.e. the compare function is not suitable for comparing different
-                                            topologies (but different factor configs of the same topology). */
-    uint32_t target_freq;               /*< The target frequency of the last clock in the topology. This usually
-                                            refers to the core clock */
-    gclk_freq_limit_t scaler_fo_limits; /*< absolute limits for the output freq. at the scaled clock */
-    uint32_t scaler_factor_target; /*< one specific factor of the scaled clock instance that defines the subset
-                                       of configurations that will be evaluated in more detail.
-                                       Used to skip the more complex comparison step for all other factors 
-                                       (because every comparison step always considers every possible factor anyway) */ 
-    gclk_factor_limit_t scaler_factor_limits; /*< factor limits for the scaled clock instance. Every config that is out
-                                                  of this limits could already be predetermined to be invalid. */ 
-    uint32_t min_error; /*< cached value of the minimum target frequency error found during previous comparisons.
-                            Should be initialized to the highest value possible before starting comparison. */
-    uint32_t min_infeasible_cnt; /*< cached count of infeasible scale factors of previous comparisons.
-                                     The lower this value, the more frequency steps were found  */
+    const gclk_t *scale_clk;      /**< Single clock scaler that will be used for DFS adaptations */
+    unsigned scale_clk_topo_idx;  /**< Topology entry index (specific to scale_clock memeber).
+                                       Note: this must be valid for all calls of the compare function.
+                                             I.e. this compare function is not suitable for comparing different
+                                             topologies (but different factor configs of the same topology). */
+    uint32_t target_freq;               /**< The target frequency of the last clock in the topology. This usually
+                                             refers to the core clock. */
+    gclk_freq_limit_t scaler_fo_limits; /**< Absolute limits for the output freq. at the scaled clock. */
+    uint32_t scaler_factor_target; /**< One specific factor of the scaled clock instance that defines the subset
+                                        of configurations that will be evaluated in more detail. Used to skip the
+                                        more complex comparison step for all other factors (as every comparison
+                                        step always considers every possible factor anyway). */
+    gclk_factor_limit_t scaler_factor_limits; /**< Factor limits for the scaled clock instance such that every
+                                                   config that is out of these limits could already be ruled out
+                                                   as being invalid. */
+    uint32_t min_error; /**< Cached value of the minimum target frequency error found during previous comparisons.
+                             Should be initialized to the highest value possible before starting the exploration. */
+    uint32_t min_infeasible_cnt; /**< Cached count of infeasible scale factors of previous comparisons.
+                                      A lower value means more valid frequency steps were found to be achievable
+                                      at the respective configuration found. */
 } range_limit_cmp_fun_ctx_t;
 
 
