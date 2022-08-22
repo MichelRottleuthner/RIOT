@@ -248,13 +248,14 @@ typedef struct gclk_scale_setting {
                                       @note @ref SCALE_DIRECT does *not* necessarily imply the factor of output_clk handle itself is
                                       adapted. It only defines that there are no other scaling factors active between scale_clk and
                                       output_clk, (i.e., both run at the same frequency, but scaling is done via scale_clk). */
-        gclk_manager_sequence_step_t *sequence; /**< A sequence of steps to update the frequency */
+        gclk_manager_sequence_step_t *sequence; /**< A predefined sequence of steps to update the frequency. */
     };
-    size_t sequence_len; /**< In case the approach uses @ref gclk_scale_setting_t.sequence, it defines the length. */
-    const uint32_t *default_freqs;       /**< preferable default frequencies for this scale setting (NULL tells the manager to derive frequencies dynamically) */
-    unsigned topology_id: 8;            /**< the topology (of the core clock handle) at which this scaling method is applicable */
-    unsigned default_freqs_cnt: 8;      /**< number of default frequencies for this scale setting */
-    gclk_scale_approach_t approach: 8;
+    size_t sequence_len; /**< For approaches that use the sequence field, it defines the sequence length. */
+    const uint32_t *default_freqs; /**< Default frequencies for this scale setting. Should be set to values preferred by the hardware.
+                                        Setting this to NULL instructs the manager to determine frequencies automatically. */
+    unsigned default_freqs_cnt: 8; /**< Number of default frequencies for this scale setting, if default_freqs != NULL. */
+    unsigned topology_id: 8; /**< Topology (output_clk-specific ID) at which this scaling method is applicable. */
+    gclk_scale_approach_t approach: 8; /**< The scaling approach used to adjust the frequency. */
 } gclk_scale_setting_t;
 
 /* Wait state value to indicate a don't care condition for a frequency conf limit */
