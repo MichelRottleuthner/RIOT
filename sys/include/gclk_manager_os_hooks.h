@@ -26,28 +26,36 @@
 extern "C" {
 #endif
 
-/*
+/**
  * @brief Hook to be called when the scheduler switches to idle
- * @note  This should be called as soon as the scheduler 'detects' idle condition, i.e., if there
- *        is no other thread ready. It is important that this is called *before* any low power mode
- *        or wait-for-interrupt instruction is executed. Think of it as *idle time starts now* callback */
+ *
+ * This should be called as soon as the scheduler 'detects' idle condition, i.e., if there
+ * is no other thread ready. It is important that this is called *before* any low power mode
+ * or wait-for-interrupt instruction is executed. Think of it as *idle time starts now* callback
+ */
 void gclk_manager_on_idle_hook(void);
 
-/*
+/**
  * @brief Hook to be called after the idle
- * @note  This should be called as soon as the idle condition is left, i.e., before the scheduler continues
- *        to run the next thread. Think of it as *idle time ends now* callback */
+ *
+ * This should be called as soon as the idle condition is left, i.e., before the scheduler continues
+ * to run the next thread. Think of it as *idle time ends now* callback
+ */
 void gclk_manager_post_idle_hook(void);
 
-/*
+/**
  * @brief Hook to be called before the next thread is scheduled
- * @note  This should be called directly before the scheduler continues
- *        to run the next thread. */
+ *
+ * This should be called directly before the scheduler continues
+ * to run the next thread.
+ */
 void gclk_manager_pre_sched_hook(kernel_pid_t next_thread);
 
-/*
+/**
  * @brief Hook to be called before the next thread is scheduled
- * @note  This should be called directly after a thread was descheduled. */
+ *
+ * This should be called directly after a thread was descheduled.
+ */
 void gclk_manager_post_sched_hook(kernel_pid_t desched_thread);
 
 #ifdef __cplusplus
