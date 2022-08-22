@@ -258,9 +258,6 @@ typedef struct gclk_scale_setting {
     gclk_scale_approach_t approach: 8; /**< The scaling approach used to adjust the frequency. */
 } gclk_scale_setting_t;
 
-/* Wait state value to indicate a don't care condition for a frequency conf limit */
-#define GCLK_WS_NOSPEC (255)
-
 typedef struct {
     const freq_conf_limit_t *limits; /* Core voltage and Wait state limits that apply to a clock */
     const size_t            len;     /* The number of limits pointed to by limits */

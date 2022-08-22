@@ -2663,7 +2663,6 @@ const freq_conf_limit_t *gclk_manager_get_freq_conf_limit(const gclk_t *clk, uin
         /* if config applies to this frequency */
         if (limitspec->limits[i].freq_max >= freq) {
             if ((ws_optimal_idx < 0) ||
-                (limitspec->limits[ws_optimal_idx].ws_min == GCLK_WS_NOSPEC) ||
                 (limitspec->limits[ws_optimal_idx].ws_min > limitspec->limits[i].ws_min) ||
                 ((limitspec->limits[ws_optimal_idx].ws_min == limitspec->limits[i].ws_min) &&
                  (limitspec->limits[ws_optimal_idx].vc_idx_min > limitspec->limits[i].vc_idx_min)) ) {
