@@ -1691,8 +1691,8 @@ unsigned int gclk_manager_get_dfs_freqs(uint32_t **freqs) {
 }
 
 gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entry_t *topo_best,
-                            size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg) {
-    range_limit_cmp_fun_ctx_t *ctx = (range_limit_cmp_fun_ctx_t*)arg;
+                            size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *ctx) {
+    range_limit_cmp_fun_ctx_t *c = (range_limit_cmp_fun_ctx_t*)ctx;
 
     (void)topo_best;
     (void)len1;
@@ -1702,37 +1702,37 @@ gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entr
      * Further down there is a check that considers all appliccable factors so skip all but one factor
      * to perform the more complex check only on a subset of the proposed configs. The other factors will
      * still be implicitly considered by the check below. */
-    if (topo_cmp[ctx->scale_clk_topo_idx].factor != ctx->scaler_factor_target) {
+    if (topo_cmp[c->scale_clk_topo_idx].factor != c->scaler_factor_target) {
         return GCLK_CONF_INVALID;
     }
-    if (!gclk_freq_within_limit(topo_cmp[ctx->scale_clk_topo_idx].clk_freq, &ctx->scaler_fo_limits)) {
+    if (!gclk_freq_within_limit(topo_cmp[c->scale_clk_topo_idx].clk_freq, &c->scaler_fo_limits)) {
         return GCLK_CONF_INVALID;
     }
 
-    uint32_t err = _abs_diff(ctx->target_freq, topo_cmp[0].clk_freq);
+    uint32_t err = _abs_diff(c->target_freq, topo_cmp[0].clk_freq);
 
     /* prefer configs that are closer to the targeted frequency */
-    if(err <= ctx->min_error) {
-        ctx->min_error = err;
+    if(err <= c->min_error) {
+        c->min_error = err;
 
         uint32_t infeasible = 0;
-        uint32_t sc_backup_freq = topo_cmp[ctx->scale_clk_topo_idx].clk_freq;
-        uint32_t sc_backup_factor = topo_cmp[ctx->scale_clk_topo_idx].factor;
+        uint32_t sc_backup_freq = topo_cmp[c->scale_clk_topo_idx].clk_freq;
+        uint32_t sc_backup_factor = topo_cmp[c->scale_clk_topo_idx].factor;
 
         /* to evaluate how good this config is suitable for dfs with a single scaler instance, some
          * more complex checks are performed so configs that enable more frequency options are preferred */
-        for (unsigned i = 0; i < gclk_factor_cnt(ctx->scale_clk); i++) {
-            uint32_t factor = gclk_idx2factor(ctx->scale_clk,i);
-            if ((factor >= ctx->scaler_factor_limits.min) &&
-                (factor <= ctx->scaler_factor_limits.max)) {
+        for (unsigned i = 0; i < gclk_factor_cnt(c->scale_clk); i++) {
+            uint32_t factor = gclk_idx2factor(c->scale_clk,i);
+            if ((factor >= c->scaler_factor_limits.min) &&
+                (factor <= c->scaler_factor_limits.max)) {
 
-                uint32_t f_sclr = _apply_scale_factor(ctx->scale_clk, factor, topo_cmp[ctx->scale_clk_topo_idx + 1].clk_freq);
+                uint32_t f_sclr = _apply_scale_factor(c->scale_clk, factor, topo_cmp[c->scale_clk_topo_idx + 1].clk_freq);
 
                 /* update the proposed topology config at the scaler clock position to determine the scaling effects
                  * NOTE: this must be undone before returning! */
-                topo_cmp[ctx->scale_clk_topo_idx].clk_freq = f_sclr;
-                topo_cmp[ctx->scale_clk_topo_idx].factor = factor;
-                _model_propagate_conf_change_downtree(&topo_cmp[ctx->scale_clk_topo_idx], topo_cmp, len2);
+                topo_cmp[c->scale_clk_topo_idx].clk_freq = f_sclr;
+                topo_cmp[c->scale_clk_topo_idx].factor = factor;
+                _model_propagate_conf_change_downtree(&topo_cmp[c->scale_clk_topo_idx], topo_cmp, len2);
 
                 if (gclk_manager_conf_breaks_constraint(global_clock_constraints, GLOBAL_CLOCK_CONSTRAINTS_NUMOF, topo_cmp, len2)) {
                     infeasible++;
@@ -1741,16 +1741,16 @@ gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entr
         }
 
         /* restore state before feasibility check */
-        topo_cmp[ctx->scale_clk_topo_idx].clk_freq = sc_backup_freq;
-        topo_cmp[ctx->scale_clk_topo_idx].factor = sc_backup_factor;
-        _model_propagate_conf_change_downtree(&topo_cmp[ctx->scale_clk_topo_idx], topo_cmp, len2);
+        topo_cmp[c->scale_clk_topo_idx].clk_freq = sc_backup_freq;
+        topo_cmp[c->scale_clk_topo_idx].factor = sc_backup_factor;
+        _model_propagate_conf_change_downtree(&topo_cmp[c->scale_clk_topo_idx], topo_cmp, len2);
 
-        if (infeasible < ctx->min_infeasible_cnt) {
-            ctx->min_infeasible_cnt = infeasible;
+        if (infeasible < c->min_infeasible_cnt) {
+            c->min_infeasible_cnt = infeasible;
             return GCLK_CONF_BETTER;
-        } else if (infeasible == ctx->min_infeasible_cnt) {
+        } else if (infeasible == c->min_infeasible_cnt) {
             gclk_cmp_result_t pmin_res = gclk_manager_cmp_topology_closest_leaf_freq_pmin(topo_best, len1,
-                                                                                          topo_cmp, len2, &ctx->target_freq);
+                                                                                          topo_cmp, len2, &c->target_freq);
             if (pmin_res == GCLK_CONF_BETTER) {
                 return GCLK_CONF_BETTER;
             }
@@ -1762,39 +1762,39 @@ gclk_cmp_result_t gclk_manager_cmp_single_scaler_range_limited(clk_topology_entr
 
 gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t *topo_best, size_t len1,
                                                             clk_topology_entry_t *topo_cmp, size_t len2,
-                                                            void *arg) {
-    lflae_cmp_fun_ctx_t *ctx = (lflae_cmp_fun_ctx_t*)arg;
+                                                            void *ctx) {
+    lflae_cmp_fun_ctx_t *c = (lflae_cmp_fun_ctx_t*)ctx;
 
     (void)topo_best;
     (void)len1;
 
     gclk_fraction_t dtf;
-    _get_equivalent_dt_factors(topo_cmp, len2, ctx->scale_clk, &dtf, false);
+    _get_equivalent_dt_factors(topo_cmp, len2, c->scale_clk, &dtf, false);
 
     uint32_t abs_err = 0;
-    size_t possible_freq_cnt = gclk_factor_cnt(ctx->scale_clk);
+    size_t possible_freq_cnt = gclk_factor_cnt(c->scale_clk);
 
-    int srcidx = _clk_to_entry_idx(topo_cmp, len2, ctx->scale_clk);
+    int srcidx = _clk_to_entry_idx(topo_cmp, len2, c->scale_clk);
 
     uint32_t input_freq = topo_cmp[srcidx+1].clk_freq;
     uint32_t possible_freqs[possible_freq_cnt];
 
     for (unsigned i = 0; i < possible_freq_cnt; i++) {
-        uint32_t factor = gclk_idx2factor(ctx->scale_clk, i);
-        possible_freqs[i] = _get_freq_for_factors(ctx->scale_clk, input_freq, &dtf, factor);
+        uint32_t factor = gclk_idx2factor(c->scale_clk, i);
+        possible_freqs[i] = _get_freq_for_factors(c->scale_clk, input_freq, &dtf, factor);
     }
 
     //uint32_t prev_freq = 0;
-    for (unsigned i = 0; i < ctx->match_freqs_cnt; i++) {
+    for (unsigned i = 0; i < c->match_freqs_cnt; i++) {
         uint32_t min_diff = 0xFFFFFFFF;
         //uint32_t best_freq = 0;
         for (unsigned x = 0; x < possible_freq_cnt; x++) {
-            uint32_t diff = (ctx->freqs[i] >= possible_freqs[x]) ? (ctx->freqs[i] - possible_freqs[x]) : (possible_freqs[x] - ctx->freqs[i]);
+            uint32_t diff = (c->freqs[i] >= possible_freqs[x]) ? (c->freqs[i] - possible_freqs[x]) : (possible_freqs[x] - c->freqs[i]);
             if (diff < min_diff) {
                 min_diff = diff;
                 //best_freq = possible_freqs[x];
-                //printf("matched freq for %lu: %lu\n", ctx->freqs[i], possible_freqs[x]);
-                //ctx->matched_freqs[i] = possible_freqs[x];
+                //printf("matched freq for %lu: %lu\n", c->freqs[i], possible_freqs[x]);
+                //c->matched_freqs[i] = possible_freqs[x];
             }
         }
 
@@ -1810,10 +1810,10 @@ gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t
         //prev_freq = best_freq;
     }
 
-    if (abs_err < ctx->lowest_err) {
-        ctx->lowest_err = abs_err;
+    if (abs_err < c->lowest_err) {
+        c->lowest_err = abs_err;
         return GCLK_CONF_BETTER;
-    } else if (abs_err == ctx->lowest_err) {
+    } else if (abs_err == c->lowest_err) {
         return GCLK_CONF_EQUAL;
     } else {
         return GCLK_CONF_WORSE;
@@ -3083,8 +3083,8 @@ end_search:
 
 gclk_cmp_result_t gclk_manager_cmp_topology_exact_leaf_freq_pmin(clk_topology_entry_t *topo_best, size_t len1,
                                                                  clk_topology_entry_t *topo_cmp, size_t len2,
-                                                                 void *arg) {
-    uint32_t target_freq = *(uint32_t*)arg;
+                                                                 void *ctx) {
+    uint32_t target_freq = *(uint32_t*)ctx;
 
     /* only works with in-order topology list (not with arbitrary order tree config) */
     if (topo_cmp[0].clk_freq == target_freq) {
@@ -3104,8 +3104,8 @@ gclk_cmp_result_t gclk_manager_cmp_topology_exact_leaf_freq_pmin(clk_topology_en
 
 gclk_cmp_result_t gclk_manager_cmp_topology_closest_leaf_freq_pmin(clk_topology_entry_t *topo_best, size_t len1,
                                                                    clk_topology_entry_t *topo_cmp, size_t len2,
-                                                                   void *arg) {
-    gclk_cmp_result_t closest_res = gclk_cmp_topology_for_closest_leaf_freq(topo_best, len1, topo_cmp, len2, arg);
+                                                                   void *ctx) {
+    gclk_cmp_result_t closest_res = gclk_cmp_topology_for_closest_leaf_freq(topo_best, len1, topo_cmp, len2, ctx);
 
     if (closest_res == GCLK_CONF_BETTER) {
         return GCLK_CONF_BETTER;
