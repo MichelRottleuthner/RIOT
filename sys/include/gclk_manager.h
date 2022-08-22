@@ -502,11 +502,11 @@ void gclk_manager_run_sequence(gclk_manager_sequence_step_t *steps, size_t step_
  * @brief Checks if a topology config breaks given constraints.
  *
  * @param[in] constraints    Constraints to be checked.
- * @param[in] constr_cnt     number of elements @constraints points to.
+ * @param[in] constr_cnt     number of elements @p constraints points to.
  * @param[in] topo           clock topology entries describing the checked topology.
- * @param[in] topo_len       number of clock instances in @topo.
+ * @param[in] topo_len       number of clock instances in @p topo.
  *
- * @return    The first unfulfilled constraint of @topo if not all are fulfilled.
+ * @return    The first unfulfilled constraint of @p topo if not all are fulfilled.
  *            NULL if all constraints are fulfilled.
  */
 const gclk_freq_constraint_t* gclk_manager_conf_breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo, uint32_t topo_len);
@@ -576,18 +576,43 @@ const freq_conf_limit_t *gclk_manager_get_freq_conf_limit(const gclk_t *clk, uin
 /**
  * @brief Enable/disable automatic switching of voltage range on clock changes
  *
- * TODO: Even though the capabilities DVS, DFS, WSA and the LowVoltage/FastFlash policy can be controlled independently
+ * @param[in]  on  true for enable.
+ *                 false for disable.
+ *
+ * @note When **enabled**, the manager will automatically adjust the voltage according to hardware
+ *       constraints whenever the frequency is changed via an automatic frequency adaptation
+ *       function that issues notification calbacks. For lower-level reconfiguration functions
+ *       (i.e., the ones that operate directly on individual clock instances), this is not
+ *       guaranteed, requiring the caller to take care to ensure applicability of the setting.
+ *       **Disabling** this will immediately set the voltage to the highest possible value in
+ *       order to maintain stable operation for all possible frequency and flash settings.
+ *
+ * TODO: Even though the capabilities on DVS, DFS, WSA and the related policy (@ref can be controlled independently
  *       (because that is nice for detailed evaluation purposes), in reality, this is most likely not how these parameters
  *       are expected to work. The policy should actually only matter if both DVS *and* WSA are enabled because
- *       disabling one of them removes interdependencies to the other. I.e. there is no reason for the policy to favor
- *       LowVoltage if DVS is disabled (as we can then always further optimize the flash access speed instead).
+ *       disabling one of them removes interdependencies to the other. I.e. there is no reason for the policy to favour
+ *       low voltage if DVS is disabled anyway (always optimizing for flash access speed would be preferrable in that case).
  *       One exception to this might be scenarios where the decision whether to prefer DVS/WSA would change depending on other aspects.
  *       I.e. a fast rate of voltage changes may not be wanted due to its time overhead.
  */
 void gclk_manager_enable_voltage_auto_scale(bool on);
 
 /**
- * @brief Enable/disable automatic adaptation of flash waitstates on clock changes
+ * @brief Enable/disable automatic adaptation of flash waitstates on clock changes.
+ *
+ * Similar to @ref gclk_manager_enable_voltage_auto_scale() but for automatic flash
+ * wait-state adaptation.
+ *
+ * @param[in]  on  true for enable.
+ *                 false for disable.
+ *
+ * @note When **enabled**, the manager will automatically adjust the wait-states to hardware
+ *       constraints whenever the frequency is changed via an automatic frequency adaptation
+ *       function that issues notification calbacks. For lower-level reconfiguration functions
+ *       (i.e., the ones that operate directly on individual clock instances), this is not
+ *       guaranteed, requiring the caller to take care to ensure applicability of the setting.
+ *       **Disabling** this will immediately set the highest possible value in order to
+ *       maintain stable operation for all possible frequency and voltage settings.
  */
 void gclk_manager_enable_flashws_auto_update(bool on);
 
