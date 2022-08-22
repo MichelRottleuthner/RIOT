@@ -240,7 +240,7 @@ typedef enum {
 /**
  * @brief Defines for one clock instance how it can be scaled.
  */
-typedef struct gclk_scale_setting {
+typedef struct {
     const gclk_t *output_clk; /**< The clock wich is updated to a new frequency with this scale setting (i.e. usualy the core clock) */
     union {
         const gclk_t *scale_clk; /**< If this setting uses the @ref SCALE_DIRECT or @ref SCALE_UPTREE_RELATIVE approach for scaling,
@@ -258,27 +258,50 @@ typedef struct gclk_scale_setting {
     gclk_scale_approach_t approach: 8; /**< The scaling approach used to adjust the frequency. */
 } gclk_scale_setting_t;
 
+/**
+ * @brief A list of limits that apply to one specific clock handle.
+ */
 typedef struct {
-    const freq_conf_limit_t *limits; /* Core voltage and Wait state limits that apply to a clock */
-    const size_t            len;     /* The number of limits pointed to by limits */
-    const gclk_t            *clk;    /* The clock instance these limits apply to */
+    const freq_conf_limit_t *limits; /**< Core voltage and Wait state limits that apply to clk. */
+    const size_t            len;     /**< The number of limits pointed to by limits. */
+    const gclk_t            *clk;    /**< The clock instance these limits apply to. */
 } clock_freq_conf_limits_t;
 
-/* stores data of the physical clock property model which is used to calculate the
- * power consumption for different frequency configurations. */
+/**
+ * @brief Physical clock properties of the clock power model.
+ *
+ * Respective values must be determined from a measurement study once per target platform.
+ * With precise enough model parameters for all relevant clock nodes, the power consumption
+ * of the clock-subsystem can be accurately pre-caluclated from the the clock configuration.
+ * Alternative configuration variants can then be compared regarding their power consumption
+ * in order to minimize it.
+ */
 typedef struct {
-    const gclk_t *clk;   /* The clock handle this data refers to */
-    uint32_t P_en_nW;    /* The static power this clock node draws when enabled (i.e. F(clk) > 0).
-                            May be 0 for clocks that are not gateable. */
-    uint32_t C_fF;       /* The (equivalent) capacitance of the clock node in femto Farad.
-                            This value affects the dynamic (frequency dependent) consumption.
-                            May be 0 for clocks that only suport a fixed frequency. */
+    const gclk_t *clk;   /**< The clock handle this data refers to */
+    uint32_t P_en_nW;    /**< The static power this clock node draws when enabled (i.e. F(clk) > 0).
+                              May be 0 for clocks that are not gateable. */
+    uint32_t C_fF;       /**< The (equivalent) capacitance of the clock node in femto Farad.
+                              This value affects the dynamic (frequency dependent) consumption.
+                              May be 0 for clocks that only suport a fixed frequency. */
 } gclk_manager_power_properties_t;
 
-/* Callback type used to return configurations found during exploration.
- * This is helpful to directly use each individual result of a full exploration run 
- * (e.g. for immediate output) instead of repeating the same exploration multiple times
- * to eventually query all configs via separate query-response calls */
+/**
+ * @brief Callback type which hands over explored configurations.
+ *
+ * This callback is used to handover explored configuration settings from within the exploration context
+ * to other entities which are interested in the explored results. This pattern is helpful to use the
+ * potentially huge number of results on-the-fly as its size can usually neither be pre-determined nor
+ * allocated completely. This allows to iteratively process each individual result of a full exploration
+ * run (e.g. for immediate output), whithout storing all configs in memory.
+ *
+ * @param[in]  conf       The configuration found during exploration.
+ * @param[in]  len        Number of config entries in @p conf.
+ * @param[in]  res        The comparison result between @p conf and the best config explored before.
+ * @param[in]  valid_idx  The zero based count of valid configurations that identifies the given config.
+ *                        @note This value is clock handle, topology, and constraint-specific.
+ * @param[in]  ctx        A callback-specific context that may be used for additional data and state
+ *                        handed into and out of the callback.
+ */
 typedef void (*gclk_exploration_result_cb_t)(clk_topology_entry_t *conf, size_t len, gclk_cmp_result_t res, unsigned valid_idx, void *ctx);
 
 typedef enum {
