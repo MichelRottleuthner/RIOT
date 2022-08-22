@@ -571,29 +571,6 @@ void gclk_manager_unregister_clk_change_cb(gclk_clock_change_notify_list_t *nle)
  */
 void gclk_manager_notify_clk_change(const gclk_t *clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
-/**
- * @TODO: this should also be removed. As a replacement the transition manager should
- *        use information provided by this files interface to register hooks that automatically
- *        call functions to setup the required voltage(s?) by also considering other
- *        depenencies (such as flash waitstates, peripheral use etc..).
- * @brief get the available options for parents that can be configured
- *
- * @note  There are two cases to consider:
- *        (A): virtual/logical parent association (some node is the source, but it can not be changed, nor read from HW)
- *        (B): runtime-dynamic config (selecting one of multiple parents), can (and must be) read/written from/to HW
- *
- * @param[in] f_core_old_hz   the current core frequency
- * @param[in] f_core_new_hz   the new wanted core frequency
- *
- * @return    f_core_new_hz    If the new frequency can now be set up
- *            < f_core_new_hz  If the transition is not possible in one step
- *                              That means at least one intermediate frequency step is required at maximum the returned
- *                              frequency. After that was performed, this function can be called again with the new
- *                              value for f_core_old_hz. Repeat this till the transition is completed.
- *            -1               If updating the core voltage was not possible.
- */
-uint32_t core_voltage_pre_change_hook(uint32_t f_core_old_hz, uint32_t f_core_new_hz, void *ctx);
-
 const freq_conf_limit_t *gclk_manager_get_freq_conf_limit(const gclk_t *clk, uint32_t freq, bool optimize_ws);
 
 /**
