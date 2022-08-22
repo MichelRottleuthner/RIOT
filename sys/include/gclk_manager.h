@@ -304,11 +304,14 @@ typedef struct {
  */
 typedef void (*gclk_exploration_result_cb_t)(clk_topology_entry_t *conf, size_t len, gclk_cmp_result_t res, unsigned valid_idx, void *ctx);
 
+/**
+ * @brief Filters defining on which comparison results the exploration callback shall be called.
+ */
 typedef enum {
-    CB_ON_VALID,     /*< cb is executed for every valid configuration found */
-    CB_ON_BEST_ONLY, /*< cb is executed only for the best configuration found */
-    CB_ON_BETTER,    /*< cb is executed everytime a better configuration is found 
-                         Note: this is mainly useful for debugging (observing the exploration) */
+    CB_ON_VALID,     /**< cb is executed for every valid configuration found. */
+    CB_ON_BEST_ONLY, /**< cb is executed only for the best configuration found. */
+    CB_ON_BETTER,    /**< cb is executed everytime a better configuration is found.
+                          @note This is mainly useful for debugging (observing the exploration). */
 } gclk_exploration_result_cb_mode_t;
 
 typedef struct gclk_exploration_result_cb_conf {
