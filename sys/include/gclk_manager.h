@@ -234,16 +234,19 @@ typedef enum {
                                         adapting the current one and switching back to it. AUTO refers to the
                                         fact that not a fixed intermediate topology must be used but instead the most
                                         viable option can be selected at runtime, depending on active constraints */
-    /* TODO: another feasible approach would be muxing between preconfigured HF and LF clock(-topologies). */
+    /* TODO: evaluate simple mux-based scaling for bimodal switching between HF/LF clock(-topologies). */
 } gclk_scale_approach_t;
 
 /**
  * @brief Defines for one clock instance how it can be scaled.
  */
 typedef struct {
-    const gclk_t *output_clk;   /**< the clock that we want to update to a new frequency (i.e. the core clock in most cases) */
+    const gclk_t *output_clk; /**< the clock that we want to update to a new frequency (i.e. the core clock in most cases) */
     union {
-        const gclk_t *scale_clk; /**< in case it is a direct or uptree scale operation: the output_clock is scaled by only changing this node */
+        const gclk_t *scale_clk; /**< in case it is a direct or uptree scale operation, @p output_clock is scaled by updating this clock.
+                                      @note SCALE_DIRECT does *not* necessarily imply the factor of @p output_clk handle itself is adapted.
+                                      It only guarantees that there are not other scaling factors active between @p scale_clk and
+                                      @p output_clk (i.e., the frequency of both is equal, but scaling must be done via @p scale_clk). */
         gclk_manager_sequence_step_t *sequence;
     };
     size_t sequence_len;
