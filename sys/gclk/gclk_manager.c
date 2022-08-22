@@ -3165,8 +3165,7 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
             }
 
             LOG_DEBUG("%s: execute sequence...\n", __FUNCTION__);
-            gclk_manager_notify_multi_clk_change(out_seq, seq_size,
-                                                 cur_topology, cur_topolen,
+            gclk_manager_notify_multi_clk_change(cur_topology, cur_topolen,
                                                  topology, max_involved_clks,
                                                  false);
             //gclk_manager_notify_clk_change(cur_topology[0].clk, cur_topology[0].clk_freq, topology[0].clk_freq, false);
@@ -3180,8 +3179,7 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
             //gpio_irq_enable(AT86RF2XX_PARAM_INT);
             //mutex_unlock(&clock_conf_mutex);
             //gclk_manager_notify_clk_change(cur_topology[0].clk, cur_topology[0].clk_freq, topology[0].clk_freq, true);
-            gclk_manager_notify_multi_clk_change(out_seq, seq_size,
-                                                 cur_topology, cur_topolen,
+            gclk_manager_notify_multi_clk_change(cur_topology, cur_topolen,
                                                  topology, max_involved_clks,
                                                  true);
 

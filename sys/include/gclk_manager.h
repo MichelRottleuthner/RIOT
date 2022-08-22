@@ -445,6 +445,12 @@ gclk_cmp_result_t gclk_manager_cmp_topology_closest_leaf_freq_pmin(clk_topology_
                                                                    clk_topology_entry_t *topo_cmp, size_t len2,
                                                                    void *ctx);
 
+/**
+ * @brief Data that maps topology configuration compare functions to unique strings.
+ *
+ * Usable by shell handlers or debug utils to refer to compare functions by
+ * human-readable names.
+ */
 static const topology_cmp_func_names_t topology_cmp_funcs[] = {
     { .func = gclk_cmp_topology_for_closest_leaf_freq,         .name = "closest_leaf" },
     { .func = gclk_cmp_topology_for_closest_leaf_freq_min_sum, .name = "min_sum" },
@@ -455,11 +461,20 @@ static const topology_cmp_func_names_t topology_cmp_funcs[] = {
     { .func = gclk_manager_cmp_topology_exact_leaf_freq_pmin,  .name = "fexact_pmin" },
 };
 
+/**
+ * @brief Tuple that maps a factor match function to a human readable name.
+ */
 typedef struct {
     gclk_factor_match_func_t func;
     const char *name;
 } factor_match_func_names_t;
 
+/**
+ * @brief Data that maps factor matching functions to unique strings.
+ *
+ * Usable by shell handlers or debug utils to refer to match functions by
+ * human-readable names.
+ */
 static const factor_match_func_names_t factor_match_funcs[] = {
     { .func = gclk_match_iter_mul_recurse_div,   .name = "iter_mul_recurse_div" },
     { .func = gclk_match_iter_mul_factorize_div, .name = "iter_mul_factorize_div" },
@@ -467,22 +482,26 @@ static const factor_match_func_names_t factor_match_funcs[] = {
     { .func = gclk_match_closest_full_iter,      .name = "closest_full_iter" },
 };
 
-/* @brief perform initialization operations of the clock manager
- * @return 0 on success */
+/**
+ * @brief     Initializes the clock manager.
+ *
+ * @retval    0    on success.
+ * @retval   <0    on error.
+ */
 int gclk_manager_init(void);
 
-/*
- * @brief execute a sequence of clock operations
+/**
+ * @brief Executes a sequence of clock operations.
  *
- * @param steps    list of sequence steps to execute
- * @param step_cnt number of steps @steps contains
+ * @param[in]   steps      List of sequence steps to execute.
+ * @param[in]   step_cnt   Number of elements @p steps points to.
  */
 void gclk_manager_run_sequence(gclk_manager_sequence_step_t *steps, size_t step_cnt);
 
-/*
- * @brief check if the given topology config breaks constraints.
+/**
+ * @brief Checks if a topology config breaks given constraints.
  *
- * @param[in] constraints    constraints to be checked.
+ * @param[in] constraints    Constraints to be checked.
  * @param[in] constr_cnt     number of elements @constraints points to.
  * @param[in] topo           clock topology entries describing the checked topology.
  * @param[in] topo_len       number of clock instances in @topo.
