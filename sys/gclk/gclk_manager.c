@@ -2558,12 +2558,9 @@ void gclk_manager_run_sequence_with_notify(gclk_manager_sequence_step_t *seq, si
     }
 }
 
-void gclk_manager_notify_multi_clk_change(gclk_manager_sequence_step_t *seq, size_t seq_len,
-                                          clk_topology_entry_t *old_topo, size_t old_topo_len,
+void gclk_manager_notify_multi_clk_change(clk_topology_entry_t *old_topo, size_t old_topo_len,
                                           clk_topology_entry_t *new_topo, size_t new_topo_len,
                                           bool post_change) {
-    (void)seq;
-    (void)seq_len;
     unsigned affected_cnt = 0;
     /* registered_clk_change_cb_cnt is actually a pessimistic value (the number of distinct affected clocks micht be lower) */
     gclk_clock_change_notify_list_t *affected[registered_clk_change_cb_cnt];

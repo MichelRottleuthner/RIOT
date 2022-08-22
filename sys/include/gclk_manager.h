@@ -506,41 +506,69 @@ void gclk_manager_run_sequence(gclk_manager_sequence_step_t *steps, size_t step_
  * @param[in] topo           clock topology entries describing the checked topology.
  * @param[in] topo_len       number of clock instances in @topo.
  *
- * @return    The first unfulfilled constraint of @topo or NULL if all constraints are fulfilled.
+ * @return    The first unfulfilled constraint of @topo if not all are fulfilled.
+ *            NULL if all constraints are fulfilled.
  */
 const gclk_freq_constraint_t* gclk_manager_conf_breaks_constraint(const gclk_freq_constraint_t *constraints, unsigned constr_cnt, clk_topology_entry_t *topo, uint32_t topo_len);
 
-/*
+/**
  * @brief Get an equivalent fraction that combines all involved scaling factors.
  *
  * @param[in]     topo       The topology all scaling factors will be combined of.
  * @param[in]     topo_len   Length of @p topo.
- * @param[in,out] f          Pointer to where equivalent factor will be stored.
- *
+ * @param[in,out] f          Pointer to where the equivalent factor will be stored.
  */
 void gclk_manager_get_combined_topology_fraction(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *f);
 
-void gclk_manager_notify_multi_clk_change(gclk_manager_sequence_step_t *seq, size_t seq_len,
-                                          clk_topology_entry_t *old_topo, size_t old_topo_len,
+/**
+ * @brief Notify multiple clocks of a topology about a configuration change.
+ *
+ * @param[in]     old_topo       The topology config before the change.
+ * @param[in]     old_topo_len   Number of elements in @p old_topo.
+ * @param[in]     new_topo       The topology config after the change.
+ * @param[in]     new_topo_len   Number of elements in @p new_topo.
+ * @param[in]     post_change    true if the change was already performed.
+ *                               false if the change is about to happen.
+ */
+void gclk_manager_notify_multi_clk_change(clk_topology_entry_t *old_topo, size_t old_topo_len,
                                           clk_topology_entry_t *new_topo, size_t new_topo_len,
                                           bool post_change);
 
+/**
+ * @brief Runs a sequence of reconfiguration steps and notify about changes.
+ *
+ * @param[in]     seq         The sequence to execute.
+ * @param[in]     seq_len     Number of elements in @p seq.
+ * @param[in]     print_only  true if the effects of this call shall only be printed.
+ *                            false if the sequence shall be executed.
+ */
 void gclk_manager_run_sequence_with_notify(gclk_manager_sequence_step_t *seq, size_t seq_len, bool print_only);
 
 /* @brief Register a callback for notification of a clock frequency change.
  *
- * @param clk  Reference to the clock to register a notification for.
- * @param nle  Storage that will hold the registration data.
- * @param cb   Callback that will be executed before and after the frequency of clk is changed */
+ * @param[in]      clk  Clock to register a notification for.
+ * @param[in,out]  nle  Storage that will hold the registration data.
+ * @param[in]      cb   Callback that will be executed before and after the frequency of clk is changed
+ */
 void gclk_manager_register_clk_change_cb(const gclk_t *clk, gclk_clock_change_notify_list_t *nle,
-                                   clock_change_cb_t cb);
+                                         clock_change_cb_t cb);
 
-/* @brief Unregister a callback for notification of a clock frequency change.
+/**
+ * @brief Unregister a callback for notification of a clock frequency change.
  *
- * @param nle  The previously registered notification entry.
+ * @param[in]  nle  The previously registered notification entry.
  */
 void gclk_manager_unregister_clk_change_cb(gclk_clock_change_notify_list_t *nle);
 
+/**
+ * @brief Notify a changed configuration of a single clock.
+ *
+ * @param[in]  clk          The changed clock.
+ * @param[in]  f_old        The old frequency of @p clk.
+ * @param[in]  f_new        The new frequency of @p clk.
+ * @param[in]  post_change  true if the change was already performed.
+ *                          false if the change is about to happen.
+ */
 void gclk_manager_notify_clk_change(const gclk_t *clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
 /**
