@@ -384,8 +384,8 @@ typedef struct {
  * for the frequency adaptation. This function is applicable if an explicit list of given target frequencies
  * shall be fitted as good as possible. Simply put, this tries to minimize sum(abs(ft_i - f_i))), where
  * tf_i is the target frequency and f_i is the closest possible frequency, i being an element of
- * (0 ... *num of target freqs*).
- * A pointer to a properly initialized @lflae_cmp_fun_ctx_t struct must be given as context.
+ * {0 ... *num of target freqs*}.
+ * A pointer to a properly initialized @ref lflae_cmp_fun_ctx_t must be given as context.
  */
 gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t *topo_best, size_t len1,
                                                             clk_topology_entry_t *topo_cmp, size_t len2,
