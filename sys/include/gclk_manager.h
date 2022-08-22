@@ -619,10 +619,11 @@ void gclk_manager_enable_flashws_auto_update(bool on);
 /**
  * @brief Enable/disable automatic adaptation of the core frequency.
  *
- * @param[in]  enabled  true for enable.
+ * @param[in]  enable   true for enable.
  *                      false for disable.
+ *
  * @note When **enabled**, the manger will automatically adapt the core frequency to task demands.
- *       This is triggered via a scheduler hook (see @ref gclk_manager_pre_sched_hook())).
+ *       This is triggered via a scheduler hook (see @ref gclk_manager_pre_sched_hook()).
  *       On the enable call the manager will store the currently active frequency, which
  *       will be restored once it is disabled again. Other manager functions to adjust the
  *       frequency/topology shall *not* be used for manual reconfigurations while this feature is
@@ -633,7 +634,15 @@ void gclk_manager_enable_flashws_auto_update(bool on);
 void gclk_manager_enable_dynamic_frequency_scaling(bool enable);
 
 /**
- * @brief Enable/disable automatic assessment of performance utilizaiton of threads
+ * @brief Enable/disable automatic assessment of thread specific PU-metric.
+ *
+ * Controls whether instrumentation and data collection for the performance utilization (PU)
+ * assessment is active. If enabled, the respective scheduler hooks are used to collect
+ * metadata on the threads scheduling behavior. See also @ref gclk_manager_pre_sched_hook()
+ * and @ref gclk_manager_post_sched_hook().
+ *
+ * @param[in]  enable   true for enable.
+ *                      false for disable.
  */
 void gclk_manager_enable_pu_assessment(bool enable);
 
