@@ -412,7 +412,7 @@ gclk_cmp_result_t gclk_manager_cmp_lowest_freq_list_abs_err(clk_topology_entry_t
  * frequency adaptation. Opposed to @ref gclk_manager_cmp_lowest_freq_list_abs_err this performs
  * a more complex check on the applicability of all resulting frequency steps to ensure configurations
  * are not only fitting the factors well but also result in a greater number of feasible settings.
- * A pointer to a properly initialized @range_limit_cmp_fun_ctx_t struct must be given as context.
+ * A pointer to a properly initialized @ref range_limit_cmp_fun_ctx_t struct must be given as context.
  * This function is applicable if no particular list of target frequencies is given as target
  * but instead the goal is to exploit the available range of the single used scaler as good as possible.
  * Configurations are compared regarding the following aspects (in descending priority):
@@ -478,8 +478,8 @@ static const topology_cmp_func_names_t topology_cmp_funcs[] = {
  * @brief Tuple that maps a factor match function to a human readable name.
  */
 typedef struct {
-    gclk_factor_match_func_t func;
-    const char *name;
+    gclk_factor_match_func_t func; /**< the factor match function. */
+    const char *name; /**< human readable name of the match function. */
 } factor_match_func_names_t;
 
 /**
@@ -760,8 +760,8 @@ void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedule
  *
  * @pre @p freq must be guaranteed to be valid and currently applicable for @p clk.
  *
- * @praram[in]  clk   The (scalable) clock that shall be set to the given frequency.
- * @praram[in]  freq  The new frequency in Hz.
+ * @param[in]  clk   The (scalable) clock that shall be set to the given frequency.
+ * @param[in]  freq  The new frequency in Hz.
  *
  * @return   true   If @p clk was successfully set to @p freq Hz.
  *           false  If the frequency was not set up properly.
@@ -776,8 +776,8 @@ bool gclk_manager_set_freq(const gclk_t *clk, uint32_t freq);
  *
  * @pre @p factor must be guaranteed to be valid and currently applicable for @p clk.
  *
- * @praram[in]  clk     The (scalable) clock that shall be set to the given scaling factor.
- * @praram[in]  factor  The new scaling factor.
+ * @param[in]  clk     The (scalable) clock that shall be set to the given scaling factor.
+ * @param[in]  factor  The new scaling factor.
  *
  * @return   true   If @p clk was successfully set to a scaling factor of @p factor.
  *           false  If the factor was not set up properly.
@@ -797,7 +797,7 @@ bool gclk_manager_set_factor(const gclk_t *clk, uint32_t factor);
  *      a frequency that was preconfigured for DFS use. I.e., it must be a value obtained from
  *      @ref gclk_manager_get_dfs_freqs().
  *
- * @praram[in]  freq  The new core frequency in Hz.
+ * @param[in]  freq  The new core frequency in Hz.
  *
  * @return   true   If the scaling operation was successful.
  *           false  If the scaling operation failed.
@@ -826,8 +826,8 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
  * @brief Prepare configs for D(V)FS operation with given frequencies (as close as possible).
  *
  * Sets up a list of frequencies applicable for D(V)FS operation.
- * A scale setting must be active for this to work (see @ref gclk_mananger_set_active_scale_setting()
- * and @ref gclk_manager_ctx_t.active_core_scale_setting). Resulting frequencies depend on the
+ * A scale setting must be active for this to work (see @ref gclk_manager_get_scale_settings()
+ * and @ref gclk_mananger_set_active_scale_setting()). Resulting frequencies depend on the
  * capabilities of the selected scale setting and the current topology/frequency configuration.
  * The frequency values handed to this function are subject to a matching procedure which can not
  * guarantee all frequencies can be obtained exactly as specified (due to hardware limits).
@@ -959,7 +959,7 @@ void gclk_manager_execute_sequence_step(gclk_manager_sequence_step_t *step);
  * @param[in]      target_topo    The topology config that shall be set up.
  * @param[in]      target_len     Number of clocks in @p target_topo.
  * @param[in,out]  out_seq        Location where to store the derived sequence steps.
- * @param[in]      max_len_steps  Number of elements that can be stored in @p out_seq.
+ * @param[in]      max_seq_steps  Number of elements that can be stored in @p out_seq.
  *
  * @return  Length of derived sequence on success.
  *          <0 on error.
