@@ -798,10 +798,6 @@ bool gclk_manager_scale_core_freq(uint32_t freq);
  */
 uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, uint32_t target_freq, gclk_cmp_func_t cmp_func);
 
-/* @brief Set clock instance that is used for dynamic frequency scaling
- */
-void gclk_manager_set_dfs_clock_handle(const gclk_t *clk);
-
 /**
  * @brief Prepare configs for D(V)FS operation with given frequencies (as close as possible).
  *
