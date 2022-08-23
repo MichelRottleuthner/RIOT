@@ -760,9 +760,24 @@ bool gclk_manager_set_freq(const gclk_t *clk, uint32_t freq);
  */
 bool gclk_manager_set_factor(const gclk_t *clk, uint32_t factor);
 
-/* @brief Set the core clock to the given frequency using the currently active scale setting.
- * @note this is a high level set frequency function that also handles pre- / and post-processing
- *       to notify clocks about the change. It might intermediately alter topology settings */
+/**
+ * @brief Set the core clock to the given frequency using the currently active scale setting.
+ *
+ * This is a high level frequency/topology adaptation function that also issues clock change
+ * notifications. Depending on the active scale setting the effects of this function will differ:
+ * - It may update a single scaling factor of one clock instance.
+ * - It may update multiple scaling factors within the core topology.
+ * - It may intermediately or permanently alter the core topology.
+ *
+ * @pre @p freq must be guaranteed to be valid and currently applicable. Foremost, it must be
+ *      a frequency that was preconfigured for DFS use. I.e., it must be a value obtained from
+ *      @ref gclk_manager_get_dfs_freqs().
+ *
+ * @praram[in]  freq  The new core frequency in Hz.
+ *
+ * @return   true   If the scaling operation was successful.
+ *           false  If the scaling operation failed.
+ */
 bool gclk_manager_scale_core_freq(uint32_t freq);
 
 /* @brief Set the topology of the given clock from the currently active setting to a new topology.
