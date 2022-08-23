@@ -28,44 +28,57 @@
 extern "C" {
 #endif
 
-/* @brief Max number of tasks to allocate PU-stats memory for. */
+/** @brief Max number of tasks to allocate PU-stats memory for. */
 #ifndef GCLK_MANAGER_PU_STATS_TASK_NUM
 #define GCLK_MANAGER_PU_STATS_TASK_NUM 10
 #endif
 
-/* @brief max number of prepared clock configs to allocate memory for.
- * By default allocate enough space to store one prepared config per DFS frequency step. */
+/** @brief Max number of prepared clock configs to allocate memory for.
+ *
+ * By default allocate enough space to store one prepared config per DFS frequency step.
+ */
 #ifndef GCLK_MANAGER_PREP_CONFS_MAX_NUMOF
 #define GCLK_MANAGER_PREP_CONFS_MAX_NUMOF (MAX_DFS_FREQ_VALUES_NUM)
 #endif
 
-/* @brief max number of clocks in a topology conf.
+/**
+ * @brief max number of clocks in a topology conf.
+ *
  * There can never be more clocks in any topology than there are clocks.
- * NOTE: this is a very pessimistic estimation, as in practice the number of clocks
+ * @note This is a very pessimistic estimation, as in practice the number of clocks
  *       which are part of the core clock (sub-)topology is by far lower than this.
- * TODO: add testing code to automatically determine a more realistic platform-specific
+ * @todo Implement automatic determination of a more realistic platform-specific
  *       upper bound for this by exploring the maximum length of any possible
- *       core (sub-)topology. */
+ *       core (sub-)topology.
+ */
 #ifndef GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN
 #define GCLK_MANAGER_PREP_CONFS_TOPO_MAX_LEN (GCLK_NUM_OF_CLOCKS)
 #endif
 
-/* @brief max number of steps in a prepared reconfiguration sequence.
+/**
+ * @brief max number of steps in a prepared reconfiguration sequence.
+ *
  * By default we assume a reconfiguration sequence will touch each clock once at most.
- * NOTE: this is a very pessimistic estimation, as in practice reconfiguration sequences
+ * @note This is a very pessimistic estimation, as in practice reconfiguration sequences
  *       involve far less operations.
- * TODO: add testing code to automatically determine a more realistic platform-specific
+ * @todo Implement automatic determination of a more realistic platform-specific
  *       upper bound for this by exploring a representative set of possible
- *       reconfiguration sequences. */
+ *       reconfiguration sequences.
+ */
 #ifndef GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN
 #define GCLK_MANAGER_MAX_PREPARED_SEQUENCE_LEN (GCLK_NUM_OF_CLOCKS)
 #endif
 
-/* below values define thresholds for when to consider collected thread stats data to be enough
- * to calculate a valid PU metric properly */
-/* default minimum CPU time per thread to accumulate before PU calculation */
+/**
+ * Default minimum CPU time per thread to accumulate before considering it enough
+ * for valid PU metric calculation.
+ */
 #define GCLK_MANAGER_MIN_PU_STATS_CPU_TIME (32768)
-/* defualt minimum number of thread schedules that must have occured before PU calculation */
+
+/**
+ * Default minimum number of thread schedules that must have occured per thread
+ * before considering it enough for valid PU metric calculation.
+ */
 #define GCLK_MANAGER_MIN_PU_STATS_SCHEDULES (10)
 
 
