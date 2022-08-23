@@ -780,18 +780,22 @@ bool gclk_manager_set_factor(const gclk_t *clk, uint32_t factor);
  */
 bool gclk_manager_scale_core_freq(uint32_t freq);
 
-/* @brief Set the topology of the given clock from the currently active setting to a new topology.
- * @note this is a high level set frequency function that also handles pre- / and post-processing
- *       to notify clocks about the change.
+/**
+ * @brief Set the topology of the given clock from the currently active setting to a new topology.
+ *
+ * Changes the topology (a.k.a. clock path or clock routing) to a different topology.
+ * This is a high level topology adaptation function that also issues clock change notifications.
  *
  * @param[in] clk              The clock instance that will be switched to another topology.
  * @param[in] target_topology  The zero based id of the topology that the clock is switched to.
  * @param[in] target_freq      The frequency that is aimed for with the new topology,
  *                             GCLK_INVALID_FREQ if current frequency should be used.
- * @param[in] cmp_func         The compare function that will be used to find the most suitable topology config.
+ * @param[in] cmp_func         The compare function that will be used to find the most suitable
+ *                             topology config.
  *
- * @return   The new frequency of clk.
- **/
+ * @return   The new frequency of clk if the switch was successful.
+ *           GCLK_INVALID_FREQ if the switch failed.
+ */
 uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, uint32_t target_freq, gclk_cmp_func_t cmp_func);
 
 /* @brief Set clock instance that is used for dynamic frequency scaling
