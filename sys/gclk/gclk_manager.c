@@ -2871,9 +2871,6 @@ bool gclk_manager_set_freq(const gclk_t *clk, uint32_t freq) {
 
     if (new_freq != freq) {
         LOG_DEBUG("most appliccable frequency was %lu Hz\n", new_freq);
-    }
-
-    if (new_freq == f_old) {
         return false;
     }
 
