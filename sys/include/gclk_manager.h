@@ -728,19 +728,21 @@ void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fb
  */
 void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedules);
 
-/* @brief Do a complex transition a clock to a new frequency
+/**
+ * @brief Set clock to the given frequency.
  *
- * @note This may temporariy switch the clock to another topology before setting up the final configuration in cases
- *       that prohibit changing the clock while being used
+ * This is a high level set frequency function that directly calls the lower layer gclk_set_freq()
+ * function but additionally issues clock change notifications before and after the change.
  *
- * @param clk  The clock tansitioned to a new frequency
- * @param freq The new target frequency
+ * @pre @p freq must be guaranteed to be valid and currentl applicable for @p clk.
+ *
+ * @praram[in]  clk   The (scalable) clock that shall be set to the given frequency.
+ * @praram[in]  freq  The new frequency in Hz.
+ *
+ * @return   true   If @p clk was successfully set to @p freq Hz.
+ *           false  If the frequency was not set up properly.
+ *
  */
-void gclk_manager_transition(const gclk_t *clk, uint32_t freq);
-
-/* @brief Set clock to the given frequency
- * @note this is a high level set frequency function that also handles pre- / and post-processing
- *       to notify clocks about the change */
 bool gclk_manager_set_freq(const gclk_t *clk, uint32_t freq);
 
 /* @brief Set clock to the given factor
