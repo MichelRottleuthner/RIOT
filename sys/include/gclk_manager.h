@@ -944,13 +944,6 @@ int gclk_manager_derive_sequence(const clk_topology_entry_t *src_topo, uint32_t 
                                  const clk_topology_entry_t *target_topo, uint32_t target_len,
                                  gclk_manager_sequence_step_t *out_seq, unsigned max_seq_steps);
 
-/* NOTE: This is only meant to be used to establish baselines for fine grained evaluation of respective impact of waitstates and voltage settings.
- * ONLY use this function directly if you know EXACTLY what you are doing!
- * i.e. it is not safe to call this for a new smaller frequency when this frequency is not yet set up.
- * similarly performing manual freq changes after this has been called manually can lead to prohibited state
- * as there is no hook in place that takes care of raising voltages/waitstates again.*/
-void gclk_manger_update_vcore_and_ws_config(bool optimize_flash, bool enable_vscale, bool fup);
-
 /* @brief returns the min required flash waitstates and core voltage required for the given tree conf
  *
  * @param[in] tree_conf              tree configuration as a list of arbitrarily sorted clock nodes.
