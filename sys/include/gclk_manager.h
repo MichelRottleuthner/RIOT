@@ -944,48 +944,63 @@ int gclk_manager_derive_sequence(const clk_topology_entry_t *src_topo, uint32_t 
                                  const clk_topology_entry_t *target_topo, uint32_t target_len,
                                  gclk_manager_sequence_step_t *out_seq, unsigned max_seq_steps);
 
-/* @brief returns the min required flash waitstates and core voltage required for the given tree conf
+/**
+ * @brief Get min required flash waitstates and core voltage required for the given tree conf.
  *
- * @param[in] tree_conf              tree configuration as a list of arbitrarily sorted clock nodes.
- * @param[in] tree_size              number of clocks in the given tree i.e., the length.
- * @param[out] min_ws                variable that will be set to the minimum required flash wait states.
- * @param[out] min_vc_idx            variable that will be set to the minimum required core voltage index.
- * @param[in]  dvspolicy             the policy that determines how mutually exlusive optimizations to wait states or core voltage are resolved.
- *                                   In case either voltage can be reduced or flash access can be sped up, this defines which of both options
- *                                   will be prefered.
+ * Considers all @ref gclk_freq_conf_limits as defined by the platform specific configuration
+ * data in the manager config.
+ *
+ * @param[in]  tree_conf   Tree configuration as a list of arbitrarily sorted clock nodes.
+ * @param[in]  tree_size   Number of clocks in the given tree i.e., the length.
+ * @param[out] min_ws      Variable that will be set to the minimum required flash wait states.
+ * @param[out] min_vc_idx  Variable that will be set to the minimum required core voltage index.
+ * @param[in]  dvspolicy   The policy that determines how mutually exlusive optimizations on wait
+ *                         states and core voltage are resolved. In cases where only either voltage
+ *                         can be reduced or flash access can be sped up, this defines which of
+ *                         both options will be prefered.
  */
 void gclk_get_min_required_ws_vc_from_tree_config(clk_topology_entry_t *tree_conf, size_t tree_size, unsigned *min_ws, unsigned *min_vc_idx,
                                                   gclk_manager_dvs_policy_t dvspolicy);
 
-/* @brief simulates a reconfiguration step on a tree configuration model
+/**
+ * @brief Applies a reconfiguration step on a tree configuration model.
  *
- * @param[in] step                   the reconfiguration step to apply.
- * @param[in] tree_conf              tree configuration as a list of arbitrarily sorted clock nodes.
- * @param[in] tree_size              number of clocks in the given tree i.e., the length.
+ * Modifies a tree model by applying a reconfiguration step on it. The tree model will be modified to
+ * reflect the new state as if @p step would have been applied to the hardware. This can be used
+ * to check the impact of a configuration change (including the effects on other clocks) before
+ * actually applying it to the hardware configuration.
  *
+ * @param[in]  step        The reconfiguration step to apply.
+ * @param[in]  tree_conf   Tree configuration as a list of arbitrarily sorted clock nodes.
+ * @param[in]  tree_size   Number of clocks in @p tree_conf.
  */
 void gclk_manager_simulate_seq_step_on_tree_conf(gclk_manager_sequence_step_t *step, clk_topology_entry_t *tree_conf, size_t tree_size);
 
-/* @brief bruteforces the best frequency configuration based on a given compare function
+/**
+ * @brief Bruteforce the best frequency configuration based on a given compare function.
  *
- * @param[in]  clk                        the clock instance a topology config is searched for.
- * @param[out] best_topology              pointer to the topology config where the result will be stored.
- * @param[in,out] topo_len                in: max length of best_topology, out: the actual length of the topology config found.
- * @param[in,out] topo_idx                in: GCLK_UNDEFINED_TOPOLOGY if any topology is fine,
- *                                            the 0 based topology index of the given clk used to find a topology config,
- *                                        out: the topology idx that was chosen.
- * @param[out] ret_n_valid                out: if force_nth < 0 this will indicate the number of configurations that are
- *                                             considered valid by the given compare function. Set to NULL for don't care.
- * @param[in]  force_nth                  for when multiple configurations are valid / applicable this forces the function
- *                                        to return the nth valid config (zero based).
- * @param[in]  valid_conf_found_cb_conf   Config struct for a callback that will be executed once for each valid config found,
- *                                        or NULL if not needed. If force_nth is < 0 it is only called for the specific index given.
+ * @param[in]  clk                 The clock instance a topology config is searched for.
+ * @param[out] best_topology       Pointer to where the topology config result will be stored.
+ * @param[in,out] topo_len         in: max length of @p best_topology.
+ *                                 out: the actual length of the best config found.
+ * @param[in,out] topo_idx         in: GCLK_UNDEFINED_TOPOLOGY if any topology is fine,
+ *                                     A specific (0 based) topology index to be used for the target config,
+ *                                 out: the topology idx that was chosen.
+ * @param[in]  cmp_func            compare function that is used to diceide which topology config is best.
+ * @param[in]  cmp_func_ctx        optional context variable handed to each call of cmp_func.
+ * @param[out] ret_n_valid         If @p force_nth < 0 this will indicate the number of configurations that are
+ *                                 considered valid by the given compare function. Set to NULL for don't care.
+ * @param[in]  force_nth           For when multiple configurations are valid / applicable this forces the function
+ *                                 to return the nth valid config (0 based).
+ * @param[in]  conf_found_cb_cfg   Config struct for a callback that will be executed per found config if the
+ *                                 specified callback condition is fulfilled. NULL if not needed.
  *
- * @param[in] cmp_func         compare function that is used to diceide which topology config is best.
- * @param[in] cmp_func_ctx     optional context variable handed to each call of cmp_func. */
+ * @return   The matched leaf frequency on success.
+ *           GCLK_INVALID_FREQ on error.
+ */
 uint32_t gclk_manager_brute_force_freq_conf(const gclk_t *clk, clk_topology_entry_t *best_topology, uint32_t *topo_len,
                                             int *topo_idx, gclk_cmp_func_t cmp_func, void *cmp_func_ctx, size_t *ret_n_valid, int force_nth,
-                                            gclk_exploration_result_cb_conf_t *valid_conf_found_cb_conf);
+                                            gclk_exploration_result_cb_conf_t *conf_found_cb_cfg);
 
 /* @brief Sets up a topology configuration that 'works well' with the given scale setting.
  *
