@@ -835,54 +835,90 @@ int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt);
  */
 int gclk_mananger_set_default_dfs_frequencies(void);
 
-/** @brief Return the clock handle that directly drives the CPU */
+/**
+ * @brief Return the clock handle that represents the CPU core clock.
+ *
+ * @return The core clock handle.
+ */
 const gclk_t* gclk_manager_get_core_clock_handle(void);
 
-/* @brief Disable clocks that are currently not being used by other active clocks
- * @note Currently this does not consider 'invisible' dependencies. I.e. if an intermediate clock
- *       (one that is not a leaf) is indeeed needed for operations even if the clock is not used
- *       by other clock instances. One way to handle this is to integrate simple resource allocation
- *       to respective peripherl drivers or other code that e.g. needs clocks tof specific bus access.
+/**
+ * @brief Disable clocks that are currently not being used by other active clocks.
+ *
+ * Currently this does not consider 'invisible' dependencies. I.e. if an intermediate clock
+ * (one that is not a leaf) is indeeed needed for operations even if the clock is not used
+ * by other clock instances. One way to handle this is to integrate simple resource allocation
+ * to respective peripherl drivers or other code that e.g. needs clocks for specific bus access.
  */
 void gclk_manager_disable_unused(void);
 
-/* @brief Get clock freqs used for DFS and freq cycle thread
+/**
+ * @brief Get clock freqs used for DFS and PUA frequency cycle.
  *
- * @param[out] pointer that will point to an array of frequency values
- * @return number of elements contained in the frequency array
+ * @param[in,out]  freqs  Location where to store the pointer to the frequency values array.
+ *
+ * @return  Number of elements contained in the frequency array.
  */
 unsigned int gclk_manager_get_dfs_freqs(uint32_t **freqs);
 
-/* @brief get available options for automatic scaling
+/**
+ * @brief Get available scale settings that define how to perform clock scaling.
  *
- * @param s pointer that will point to the array of scale settings after return
- * @return number of scale settings entries
- * */
+ * @param[in,out]  s  Location where to store the pointer to the scale settings array.
+ *
+ * @return  Number of scale setting entries pointed to by @p s.
+ */
 int gclk_manager_get_scale_settings(const gclk_scale_setting_t **s);
 
+/**
+ * @brief Get the currently active scale setting.
+ *
+ * @return     A pointer to the currently active scale setting.
+ *             NULL if no scale setting applies to the current clock configuration.
+ */
 const gclk_scale_setting_t* gclk_mananger_get_active_scale_setting(void);
 
-/* @brief set the active scale setting to the given index if applicable
+/**
+ * @brief Set the active scale setting to the given index if applicable.
  *
- * @param i   index of the scale setting that will be set active
- * @return    true if applied, fasle if not appliccable
- * */
+ * @see @ref gclk_manager_get_scale_settings() to get available scale settings.
+ *
+ * @param[in]  i  Index of the scale setting that will be set active.
+ *
+ * @return     true if applied.
+ *             false if not appliccable.
+ */
 bool gclk_mananger_set_active_scale_setting(unsigned i);
 
-/* @brief set request flag for PU stat collection for a given thread
+/**
+ * @brief Set request flag for PU stat collection for a given thread.
  *
- * @param tid  the thread PU data will be collected for
- * */
+ * Instructs the PUA instrumentation to collect the required data for calculating
+ * the PU metric for the given thread.
+ *
+ * @see @ref gclk_manager_start_freq_cycler() for settings on metadata collection.
+ *
+ * @param tid  The PID of the thread PU data will be collected for.
+ */
 void gclk_manager_enable_pu_stat_request_for_thread(kernel_pid_t tid);
 
-
-/* @brief get sources that are allowed to drive the core clock
+/**
+ * @brief Get a list of clock sources which may be used to drive the core clock.
  *
- * @param clks pointer that will point to the array of clocks after return
- * @return number of clocks
- * */
+ * @param[in,out]  clks  Location to store the clock pointer array at.
+ *
+ * @return Number of clocks in @p clks.
+ */
 int gclk_manager_get_allowed_core_clock_sources(const gclk_t ***clks);
 
+/**
+ * @brief Execute a single clock reconfiguration sequence step.
+ *
+ * This executes only the low level operation defined in the step without
+ * issuing any clock change notifications.
+ *
+ * @param[in]  step  The step to execute.
+ */
 void gclk_manager_execute_sequence_step(gclk_manager_sequence_step_t *step);
 
 int gclk_manager_derive_sequence(const clk_topology_entry_t *src_topo, uint32_t src_len,
