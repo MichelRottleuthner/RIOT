@@ -1678,11 +1678,11 @@ int gclk_manager_get_allowed_core_clock_sources(const gclk_t ***clks) {
   return CORE_CLOCK_SOURCES_NUMOF;
 }
 
-void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fboost_pu_th, int fthrottle_pu_thresh) {
+void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fboost_pu_th, int fthrottle_pu_th) {
     _mgr_ctx.pre_sched_boost_freq = fboost;
     _mgr_ctx.pre_sched_throttle_freq = fthrottle;
     _mgr_ctx.pre_sched_freq_boost_threshold = fboost_pu_th;
-    _mgr_ctx.pre_sched_freq_throttle_threshold = fthrottle_pu_thresh;
+    _mgr_ctx.pre_sched_freq_throttle_threshold = fthrottle_pu_th;
 }
 
 unsigned int gclk_manager_get_dfs_freqs(uint32_t **freqs) {
