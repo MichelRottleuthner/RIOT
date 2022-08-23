@@ -1002,7 +1002,8 @@ uint32_t gclk_manager_brute_force_freq_conf(const gclk_t *clk, clk_topology_entr
                                             int *topo_idx, gclk_cmp_func_t cmp_func, void *cmp_func_ctx, size_t *ret_n_valid, int force_nth,
                                             gclk_exploration_result_cb_conf_t *conf_found_cb_cfg);
 
-/* @brief Sets up a topology configuration that 'works well' with the given scale setting.
+/**
+ * @brief Sets up a topology configuration that 'works well' with the given scale setting.
  *
  * Shall be called with the currently active scale setting and will affect the core clock
  * topology configuration. The initial configuration that will be set up aims for the highest
@@ -1025,14 +1026,60 @@ uint32_t gclk_manager_brute_force_freq_conf(const gclk_t *clk, clk_topology_entr
  * adjusting the single scaler still gives enough range for DFS adjustment. Lower power configuration
  * variants are still preferred but this is given less priority than more DFS frequency options.
  *
- * @param scs    scale setting structure describing how DFS shall be performed
+ * @param[in] scs    scale setting structure describing how DFS shall be performed
  *
+ * @return   true on success.
+ *           false on error.
  */
 bool gclk_manager_setup_default_dfs_topo_conf(const gclk_scale_setting_t *scs);
 
+/**
+ * @brief Print reconfiguration sequence.
+ *
+ * Outputs a given reconfiguration sequence with parameters as human readable string.
+ *
+ * @param[in]  seq    The sequence to print.
+ * @param[in]  len    Number of steps in @p seq.
+ */
 void gclk_manager_print_step_sequence(gclk_manager_sequence_step_t *seq, size_t len);
 
+
+/**
+ * @brief A default clock change notification callback for stdio/UART.
+ *
+ * Used to prepare/restore the RIOT stdio/UART subsystem on relevant clock changes.
+ * For now this function only uses abstract API calls of RIOT which is expected to
+ * apply to many target platforms as is. Future ports may need more sophisticated
+ * handling, therfore the actual registration of those callbacks is controlled by
+ * the platform- specific init hook of the manager @see gclk_manager_platform_init().
+ *
+ * @param[in] altered_clk     The clock that was modified causing the callback to trigger.
+ * @param[in] affected_clk    The affected clock this callback was registered for.
+ * @param[in] f_old           The ololdrequency of the modified clock.
+ * @param[in] f_new           The new frequency of the modified clock.
+ * @param[in] post_change     True if the call indicates the change is about to happen.
+ *                            False if the change was already executed.
+ */
 void gclk_manager_default_stdio_reinit_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
+
+/**
+ * @brief A default clock change notification callback for the timer subsystem.
+ *
+ * Used to prepare/restore the RIOT timer subsystem on relevant clock changes.
+ * For now this function uses abstract API calls of RIOT together with a custom
+ * extension for writing the timer. This should apply to many target platforms,
+ * as long as the timer extension is provided. Future ports may need more
+ * sophisticated handling, therfore the actual registration of those callbacks
+ * is controlled by the platform-specific init hook of the manager
+ * @see gclk_manager_platform_init().
+ *
+ * @param[in] altered_clk     The clock that was modified causing the callback to trigger.
+ * @param[in] affected_clk    The affected clock this callback was registered for.
+ * @param[in] f_old           The ololdrequency of the modified clock.
+ * @param[in] f_new           The new frequency of the modified clock.
+ * @param[in] post_change     True if the call indicates the change is about to happen.
+ *                            False if the change was already executed.
+ */
 void gclk_manager_default_timer_reinit_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
 #ifdef __cplusplus
