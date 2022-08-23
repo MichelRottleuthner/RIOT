@@ -2915,7 +2915,7 @@ bool _gclk_manager_set_freq_instrumented(const gclk_t *clk, uint32_t freq) {
 
 void gclk_manager_execute_sequence_step(gclk_manager_sequence_step_t *step) {
     switch (step->op) {
-        case CLK_SET_FREQ:   gclk_manager_set_freq(step->clk, step->num_arg); break;
+        case CLK_SET_FREQ:   gclk_set_freq(step->clk, step->num_arg); break;
         case CLK_SET_FACTOR: gclk_set_factor(step->clk, step->num_arg);       break;
         case CLK_SET_PARENT:
             gclk_set_parent(step->clk, gclk_parent2idx(step->clk, step->clk_arg));
