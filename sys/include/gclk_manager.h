@@ -835,8 +835,6 @@ int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt);
  */
 int gclk_mananger_set_default_dfs_frequencies(void);
 
-const gclk_scale_setting_t* gclk_mananger_get_active_scale_setting(void);
-
 /** @brief Return the clock handle that directly drives the CPU */
 const gclk_t* gclk_manager_get_core_clock_handle(void);
 
@@ -862,11 +860,7 @@ unsigned int gclk_manager_get_dfs_freqs(uint32_t **freqs);
  * */
 int gclk_manager_get_scale_settings(const gclk_scale_setting_t **s);
 
-/* @brief set request flag for PU stat collection for a given thread
- *
- * @param tid  the thread PU data will be collected for
- * */
-void gclk_manager_enable_pu_stat_request_for_thread(kernel_pid_t tid);
+const gclk_scale_setting_t* gclk_mananger_get_active_scale_setting(void);
 
 /* @brief set the active scale setting to the given index if applicable
  *
@@ -874,6 +868,13 @@ void gclk_manager_enable_pu_stat_request_for_thread(kernel_pid_t tid);
  * @return    true if applied, fasle if not appliccable
  * */
 bool gclk_mananger_set_active_scale_setting(unsigned i);
+
+/* @brief set request flag for PU stat collection for a given thread
+ *
+ * @param tid  the thread PU data will be collected for
+ * */
+void gclk_manager_enable_pu_stat_request_for_thread(kernel_pid_t tid);
+
 
 /* @brief get sources that are allowed to drive the core clock
  *
