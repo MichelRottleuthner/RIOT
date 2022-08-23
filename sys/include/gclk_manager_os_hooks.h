@@ -48,6 +48,8 @@ void gclk_manager_post_idle_hook(void);
  *
  * This should be called directly before the scheduler continues
  * to run the next thread.
+ *
+ * @param[in]  next_thread   The thread the will be scheduled now.
  */
 void gclk_manager_pre_sched_hook(kernel_pid_t next_thread);
 
@@ -55,6 +57,8 @@ void gclk_manager_pre_sched_hook(kernel_pid_t next_thread);
  * @brief Hook to be called before the next thread is scheduled
  *
  * This should be called directly after a thread was descheduled.
+ *
+ * @param[in]  desched_thread   The thread that just got descheduled.
  */
 void gclk_manager_post_sched_hook(kernel_pid_t desched_thread);
 
