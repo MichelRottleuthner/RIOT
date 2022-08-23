@@ -729,25 +729,35 @@ void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fb
 void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedules);
 
 /**
- * @brief Set clock to the given frequency.
+ * @brief Set (scalable) clock to the given frequency.
  *
- * This is a high level set frequency function that directly calls the lower layer gclk_set_freq()
+ * This is a high level set frequency function that calls the lower layer @ref gclk_set_freq()
  * function but additionally issues clock change notifications before and after the change.
  *
- * @pre @p freq must be guaranteed to be valid and currentl applicable for @p clk.
+ * @pre @p freq must be guaranteed to be valid and currently applicable for @p clk.
  *
  * @praram[in]  clk   The (scalable) clock that shall be set to the given frequency.
  * @praram[in]  freq  The new frequency in Hz.
  *
  * @return   true   If @p clk was successfully set to @p freq Hz.
  *           false  If the frequency was not set up properly.
- *
  */
 bool gclk_manager_set_freq(const gclk_t *clk, uint32_t freq);
 
-/* @brief Set clock to the given factor
- * @note this is a high level set frequency function that also handles pre- / and post-processing
- *       to notify clocks about the change */
+/**
+ * @brief Set (scalable) clock to the given scaling factor.
+ *
+ * This is a high level set factor function that calls the lower layer @ref gclk_set_factor()
+ * function but additionally issues clock change notifications before and after the change.
+ *
+ * @pre @p factor must be guaranteed to be valid and currently applicable for @p clk.
+ *
+ * @praram[in]  clk     The (scalable) clock that shall be set to the given scaling factor.
+ * @praram[in]  factor  The new scaling factor.
+ *
+ * @return   true   If @p clk was successfully set to a scaling factor of @p factor.
+ *           false  If the factor was not set up properly.
+ */
 bool gclk_manager_set_factor(const gclk_t *clk, uint32_t factor);
 
 /* @brief Set the core clock to the given frequency using the currently active scale setting.
