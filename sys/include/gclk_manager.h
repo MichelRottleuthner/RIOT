@@ -921,8 +921,28 @@ int gclk_manager_get_allowed_core_clock_sources(const gclk_t ***clks);
  */
 void gclk_manager_execute_sequence_step(gclk_manager_sequence_step_t *step);
 
+/**
+ * @brief Derive a reconfiguration sequence to switch from one topology config to another.
+ *
+ * Depending on the current configuration and hardware constraints the complexity of a
+ * derived sequence may differ a lot.
+ *
+ * @see core_clk_topo_switch_descs defined in the manager configuration of your platform
+ *      for details on predefined topology switch options.
+ *
+ * @param[in]      src_topo       The topology config to start from.
+ * @param[in]      src_len        Number of clocks in @p src_topo.
+ * @param[in]      target_topo    The topology config that shall be set up.
+ * @param[in]      target_len     Number of clocks in @p target_topo.
+ * @param[in,out]  out_seq        Location where to store the derived sequence steps.
+ * @param[in]      max_len_steps  Number of elements that can be stored in @p out_seq.
+ *
+ * @return  Length of derived sequence on success.
+ *          <0 on error.
+ */
 int gclk_manager_derive_sequence(const clk_topology_entry_t *src_topo, uint32_t src_len,
-                                 const clk_topology_entry_t *target_topo, uint32_t target_len, gclk_manager_sequence_step_t *out_seq, unsigned max_seq_steps);
+                                 const clk_topology_entry_t *target_topo, uint32_t target_len,
+                                 gclk_manager_sequence_step_t *out_seq, unsigned max_seq_steps);
 
 /* NOTE: This is only meant to be used to establish baselines for fine grained evaluation of respective impact of waitstates and voltage settings.
  * ONLY use this function directly if you know EXACTLY what you are doing!
