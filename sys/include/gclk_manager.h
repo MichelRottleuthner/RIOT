@@ -557,7 +557,8 @@ void gclk_manager_notify_multi_clk_change(clk_topology_entry_t *old_topo, size_t
  */
 void gclk_manager_run_sequence_with_notify(gclk_manager_sequence_step_t *seq, size_t seq_len, bool print_only);
 
-/* @brief Register a callback for notification of a clock frequency change.
+/**
+ * @brief Register a callback for notification of a clock frequency change.
  *
  * @param[in]      clk  Clock to register a notification for.
  * @param[in,out]  nle  Storage that will hold the registration data.
@@ -584,6 +585,16 @@ void gclk_manager_unregister_clk_change_cb(gclk_clock_change_notify_list_t *nle)
  */
 void gclk_manager_notify_clk_change(const gclk_t *clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
+/**
+ * @brief Get the frequency configuration limit that applies to a clock at a given frequency.
+ *
+ * @param[in]  clk          The clock a limit is requested for.
+ * @param[in]  freq         The frequency of @p clk to get the limit for.
+ * @param[in]  optimize_ws  true if faster flash shall be preferred.
+ *                          false if lower voltage shall be preferred.
+ *
+ * @return  The limit specifier marking the best applicable limit at @p freq.
+ */
 const freq_conf_limit_t *gclk_manager_get_freq_conf_limit(const gclk_t *clk, uint32_t freq, bool optimize_ws);
 
 /**
@@ -712,7 +723,7 @@ void gclk_manager_clear_performance_util_data(void);
  * @brief Calculate performance utilization factor for a thread.
  *
  * @param[in]  thread_id    The unique ID of the thread to calculate the PU for (PID).
- * @param[in]  debuf_print  Flag enabling verbose statistics/metadata output for testing.
+ * @param[in]  debug_print  Flag enabling verbose statistics/metadata output for testing.
  *
  * @return The PU factor calculated for the given thread.
  */
@@ -960,8 +971,8 @@ int gclk_manager_derive_sequence(const clk_topology_entry_t *src_topo, uint32_t 
 /**
  * @brief Get min required flash waitstates and core voltage required for the given tree conf.
  *
- * Considers all @ref gclk_freq_conf_limits as defined by the platform specific configuration
- * data in the manager config.
+ * Considers all gclk_freq_conf_limits as defined by the platform specific configuration data
+ * via the manager config.
  *
  * @param[in]  tree_conf   Tree configuration as a list of arbitrarily sorted clock nodes.
  * @param[in]  tree_size   Number of clocks in the given tree i.e., the length.
