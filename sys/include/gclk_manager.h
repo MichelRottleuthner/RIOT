@@ -647,35 +647,63 @@ void gclk_manager_enable_dynamic_frequency_scaling(bool enable);
 void gclk_manager_enable_pu_assessment(bool enable);
 
 /**
- * @brief Returns the current DVS adaptation policy.
+ * @brief Get currently active DVS adaptation policy.
  *
+ * @return  The DVS policy.
  */
 gclk_manager_dvs_policy_t gclk_manager_get_dvs_policy(void);
 
 /**
- * @brief Set policy on how to adapt DVS settings.
+ * @brief Set DVS adaptation policy.
  *
- * @param policy  Policy that defines which optimization to prefer
+ * @param policy  Policy that defines which optimization to prefer.
  */
 void gclk_manager_set_dvs_policy(gclk_manager_dvs_policy_t policy);
 
-/* @brief print thread/CPU utilization metrics
- * @note For debug/testing purposes
+/**
+ * @brief Print thread/CPU utilization metrics.
+ * @note For debug/testing purposes.
  */
 void gclk_manager_print_util_metrics(void);
 
-/* @brief print topology configuration with some matadata
+/**
+ * @brief Print formatted topology configuration data.
+ *
+ * Outpus a human readable string that represents a topology config.
+ *
+ * @param[in] topology  The topology entries to print. Expected to represent a single topology chain
+ *                      where topology[0] points to the leaf and topology[size-1] points to the source.
+ * @param[in] size      Number of elements in @p topology.
+ * @param[in] min_max   Flag on whether the min and max frequency should be output for each clock node.
+ *                      The values will represent the min/max frequencey possible at each clock assuming
+ *                      the configuration up the tree is fixed and the scaling factor of this one clock
+ *                      would be set to its min/max scaling factors. Indicated values do not consider
+ *                      active constraints and therfore do not guarantee the configuration is actually
+ *                      applicable at the moment. I.e., treat those values as *theoretically possible
+ *                      based on the scaling factor range*.
+ * @param[in] factors   Similar to @p min_max, a flag on whether the possible factors of each clock
+ *                      should be printed for each clock node. Same logic regarding applicability
+ *                      guarantees applies.
  */
 void gclk_manager_print_topology_conf(clk_topology_entry_t *topology, uint32_t size, bool min_max, bool factors);
 
-/* @brief clear performance util data
+/**
+ * @brief Clear all performance util and scheduler stats data.
  *
- * This resets all threads performance metrics collected at scheduling events
+ * This resets all threads performance metrics collected at scheduling events.
+ * Useful for starting a clean performance assessment phase.
  */
 void gclk_manager_clear_performance_util_data(void);
 
-/* @brief calculate performance utilization factor for the given task id */
-int gclk_manager_calculate_pu_factor(uint32_t task_id, bool debug_print);
+/**
+ * @brief Calculate performance utilization factor for a thread.
+ *
+ * @param[in]  thread_id    The unique ID of the thread to calculate the PU for (PID).
+ * @param[in]  debuf_print  Flag enabling verbose statistics/metadata output for testing.
+ *
+ * @return The PU factor calculated for the given thread.
+ */
+int gclk_manager_calculate_pu_factor(uint32_t thread_id, bool debug_print);
 
 /* @brief set parameters that control Performance Utilization-based DVFS
  *
