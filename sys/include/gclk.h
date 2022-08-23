@@ -1042,10 +1042,10 @@ const gclk_t *gclk_get_current_parent(const gclk_t *gclk);
 
 int gclk_set_parent(const gclk_t *gclk, unsigned int idx);
 
-/* @todo: add a paremeter to allow/disallow automatic topology changes? */
+/** @brief Set a target frequency on clocks that support that. */
 uint32_t gclk_set_freq(const gclk_t *gclk, uint32_t freq);
 
-/* set a scaling factor on clocks that support that */
+/** @brief Set a scaling factor on clocks that support that. */
 int gclk_set_factor(const gclk_t *gclk, uint32_t factor);
 
 /**
