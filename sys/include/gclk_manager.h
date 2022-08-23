@@ -801,34 +801,37 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
 /**
  * @brief Prepare configs for D(V)FS operation with given frequencies (as close as possible).
  *
- * @return  The number of distinct frequencies that were prepared on success.
- *          <0 on error.
- *
- * @note This function sets up a list of frequencies applicable for D(V)FS operation.
- * A scale setting must be active for this to work (@see \ref gclk_mananger_set_active_scale_setting()
- * and \ref gclk_manager_ctx_t.active_core_scale_setting). Resulting frequencies depend on the
+ * Sets up a list of frequencies applicable for D(V)FS operation.
+ * A scale setting must be active for this to work (see @ref gclk_mananger_set_active_scale_setting()
+ * and @ref gclk_manager_ctx_t.active_core_scale_setting). Resulting frequencies depend on the
  * capabilities of the selected scale setting and the current topology/frequency configuration.
  * The frequency values handed to this function are subject to a matching procedure which can not
  * guarantee all frequencies can be obtained exactly as specified (due to hardware limits).
- *  As applicability and effectivity of different frequency configurations for
- * some scale settings may strongly depend on the currently active topology/frequency configuration, it
- * is recommended to use this function after setting up a config that is well suited for D(V)FS. The
+ * As applicability and effectivity of different frequency configurations for some scale settings
+ * may strongly depend on the currently active topology/frequency configuration, it is recommended
+ * to use this function after setting up a config that is well suited for D(V)FS. The
  * recommended way to do this is by calling @ref gclk_manager_setup_default_dfs_topo_conf() before.
  * Calling this function with other configs may result in fewer, less flexible, or no frequency options
  * being explored.
+ *
+ * @param[in]  freqs  Pointer to an array of frequencies to be set up for DFS operation.
+ * @param[in]  cnt    Number of elements in @p freqs.
+ *
+ * @return  The number of distinct frequencies that were prepared on success.
+ *          <0 on error.
  */
 int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt);
 
 /**
  * @brief Prepare configs for D(V)FS operation with default frequencies.
  *
- * @return  The number of distinct frequencies that were prepared on success.
- *          <0 on error.
- *
  * Same as @ref gclk_mananger_set_dfs_frequencies() but using default frequencies.
  * If provided, this uses frequencies defined by platform-specific configuration. If the platform
  * defines no default values explicitly, it tries to automatically come up with reasonabe settings
  * based on available configuration options and the active scale setting.
+ *
+ * @return  The number of distinct frequencies that were prepared on success.
+ *          <0 on error.
  */
 int gclk_mananger_set_default_dfs_frequencies(void);
 
