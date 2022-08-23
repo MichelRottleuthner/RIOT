@@ -705,22 +705,26 @@ void gclk_manager_clear_performance_util_data(void);
  */
 int gclk_manager_calculate_pu_factor(uint32_t thread_id, bool debug_print);
 
-/* @brief set parameters that control Performance Utilization-based DVFS
+/**
+ * @brief set parameters that control PU-based DVFS
  *
- * @param fboost           The frequency that is set up if the PU of a thread that is about to be scheduled is above fboost_pu_th
- * @param fthrottle        The frequency that is set up if the PU of a thread that is about to be scheduled is below fthrottle_pu_thesh
- * @param fboost_pu_th     The minimum PU threshold a thread must have to setup fboost before scheduling
- * @param fthrottle_pu_th  The max PU threshold a thread must have to setup fthrottle before scheduling
+ * @param[in] fboost           The core frequency to be used for a thread if its PU is at least @p fboost_pu_th.
+ * @param[in] fthrottle        The core frequency to be used for a thread if its PU is at most @p fthrottle_pu_th.
+ * @param[in] fboost_pu_th     The minimum PU value a thread must have to setup @p fboost before scheduling it.
+ * @param[in] fthrottle_pu_th  The max PU value a thread must have to setup @p fthrottle before scheduling it.
  */
-void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fboost_pu_th, int fthrottle_pu_thesh);
+void gclk_manager_set_dvfs_pu_params(uint32_t fboost, uint32_t fthrottle, int fboost_pu_th, int fthrottle_pu_th);
 
-/* @brief Start thread to cycle through different core frequencies
+/**
+ * @brief Run thread to cycle through different core frequencies.
  *
- * The call will block till the cycling is complete. Currently there is no way to change the
- * frequencies used for the cycle and static configuration is used for that instead.
+ * The call will block till the cycling is complete. The frequency cyler will use the frequency values currently
+ * set up for DFS. Those may be altered either dynamically via @ref gclk_mananger_set_dfs_frequencies() or
+ * @ref gclk_mananger_set_default_dfs_frequencies() or statically via the scale_settings provided by hardware
+ * configuration (see @ref gclk_manager_get_scale_settings()).
  *
- * @param cycle_us the cycle time each frequency stays active in us.
- * @param min_schedules the min number of schedules to accumulate per thread.
+ * @param[in]  cycle_us       The min cycle time each frequency should be used for in us.
+ * @param[in]  min_schedules  The min number of schedules each thread should be observed for.
  */
 void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedules);
 
