@@ -1066,7 +1066,7 @@ typedef enum gclk_cmp_result {
     GCLK_CONF_BEST,    /*< the compared conf is known to be the best option */
 } gclk_cmp_result_t;
 
-/* @brief   a compare function that returns true if topo_cmp is a better topology than topo_best */
+/** @brief   A function prototype to compare two different topology configs. */
 typedef gclk_cmp_result_t (*gclk_cmp_func_t)(clk_topology_entry_t *topo_best, size_t len1,
                                              clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
