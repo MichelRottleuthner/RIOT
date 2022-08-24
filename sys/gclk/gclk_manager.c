@@ -92,54 +92,6 @@ static inline uint32_t _get_freq_for_factors(const gclk_t *clk, uint32_t f_in, g
 static inline uint32_t _apply_scale_factor(const gclk_t *scaler, uint32_t factor, uint32_t f_in);
 
 /**
- * @brief Voltage scaling enabled state.
- *
- * Stores whether the automatic voltage scaling feature is currently enabled.
- * Never change directly! Use @gclk_manager_enable_voltage_auto_scale() to update this at runtime instead.*/
-static bool auto_vscale_enabled = false;
-
-/**
- * @brief Flash wait-state adaptation enabled state.
- *
- * Stores whether the automatic wait state adaptation feature is currently enabled.
- * Never change directly! Use @gclk_manager_enable_flashws_auto_update() to update this at runtime instead.*/
-static bool auto_wsadapt_enabled = false;
-
-/**
- * @brief Clock change notification list.
- *
- * This list holds one list of notification callbacks per clock that callbacks were registered for.
- **/
-static list_node_t clock_change_notify_list;
-
-/**
- * @brief Number of registered clock change notifications.
- *
- * Registrations are simply counted on reg/unreg operations. This allows a fast check on whether
- * ther are no active registrations in the @ref clock_change_notify_list. */
-static unsigned int registered_clk_change_cb_cnt = 0;
-
-/**
- * @brief The last core frequency value set up by the clock manager
- */
-volatile uint32_t current_core_freq;
-
-/**
- * @brief The core frequency before DFS got enabled.
- *
- * This old frequency setting is restored when DFS is disabled again.
- */
-uint32_t pre_dfs_enable_freq = 0;
-
-/**
- * @brief Clock Manager mutex.
- *
- * mutex used by the manager to guard critical sections like complex topology switch operations.
- * NOTE: As of now the manager should only be used by a single controller entity.
- *       Multiple simultaneous operators are not tested. */
-mutex_t clock_conf_mutex = MUTEX_INIT;
-
-/**
  * @brief Frequency cycler context.
  *
  * Holds state of the frequency cycler which is used for automatic performance utilization
@@ -320,6 +272,54 @@ typedef struct {
      * The same applies to clocks where it is known that no complex transition mechanism (temporary
      * swithcing to another clock) is needed. */
     gclk_manager_core_freq_reconf_cb_t freq_change_cb;
+
+    /**
+     * @brief Voltage scaling enabled state.
+     *
+     * Stores whether the automatic voltage scaling feature is currently enabled.
+     * Never change directly! Use @gclk_manager_enable_voltage_auto_scale() to update this at runtime instead.*/
+    bool auto_vscale_enabled;
+
+    /**
+     * @brief Flash wait-state adaptation enabled state.
+     *
+     * Stores whether the automatic wait state adaptation feature is currently enabled.
+     * Never change directly! Use @gclk_manager_enable_flashws_auto_update() to update this at runtime instead.*/
+    bool auto_wsadapt_enabled;
+
+    /**
+     * @brief Clock change notification list.
+     *
+     * This list holds one list of notification callbacks per clock that callbacks were registered for.
+     **/
+    list_node_t clock_change_notify_list;
+
+    /**
+     * @brief Number of registered clock change notifications.
+     *
+     * Registrations are simply counted on reg/unreg operations. This allows a fast check on whether
+     * ther are no active registrations in the @ref clock_change_notify_list. */
+    unsigned int registered_clk_change_cb_cnt;
+
+    /**
+     * @brief The last core frequency value set up by the clock manager
+     */
+    volatile uint32_t current_core_freq;
+
+    /**
+     * @brief The core frequency before DFS got enabled.
+     *
+     * This old frequency setting is restored when DFS is disabled again.
+     */
+    uint32_t pre_dfs_enable_freq;
+
+    /**
+     * @brief Clock Manager mutex.
+     *
+     * mutex used by the manager to guard critical sections like complex topology switch operations.
+     * NOTE: As of now the manager should only be used by a single controller entity.
+     *       Multiple simultaneous operators are not tested. */
+    mutex_t clock_conf_mutex;
 } gclk_manager_ctx_t;
 
 /** @brief Global clock manager context. */
@@ -1129,19 +1129,19 @@ static void _model_propagate_conf_change_downtree(clk_topology_entry_t *changed_
  *       Alternatively it could be made convention to only call if cbs were executed in a reconfiguration.
  */
 static void _post_notify_commit(bool post_change) {
-    if (auto_vscale_enabled || auto_wsadapt_enabled) {
+    if (_mgr_ctx.auto_vscale_enabled || _mgr_ctx.auto_wsadapt_enabled) {
         unsigned min_ws;
         unsigned min_vc_idx;
 
         gclk_get_min_required_ws_vc_from_tree_config(constrained_clocks_conf_cache, GCLK_FREQ_LIMIT_CLKS_NUMOF, &min_ws,  &min_vc_idx, _mgr_ctx.dvs_policy);
 
-        if (auto_wsadapt_enabled &&
+        if (_mgr_ctx.auto_wsadapt_enabled &&
             ((!post_change &&  (flash_opt_get_wait_states() < min_ws)) ||
              (post_change && (flash_opt_get_wait_states() > min_ws)))) {
             flash_opt_set_wait_states(min_ws);
         }
 
-        if (auto_vscale_enabled &&
+        if (_mgr_ctx.auto_vscale_enabled &&
             ((!post_change &&  ((unsigned)core_voltage_get() < min_vc_idx)) ||
              (post_change && ((unsigned)core_voltage_get() > min_vc_idx)))) {
             core_voltage_set(min_vc_idx);
@@ -1632,6 +1632,13 @@ int gclk_manager_init(void) {
     _mgr_ctx.cpu_util_based_dvfs_enabled = false;
     _mgr_ctx.dvs_policy = DVS_PREFER_LOW_VOLTAGE;
 
+    _mgr_ctx.auto_vscale_enabled = false;
+    _mgr_ctx.auto_wsadapt_enabled = false;
+    _mgr_ctx.registered_clk_change_cb_cnt = 0;
+    _mgr_ctx.pre_dfs_enable_freq = 0;
+    mutex_init(&_mgr_ctx.clock_conf_mutex);
+
+
     _sched_stats.idle_ticks_min = 0xFFFFFFFF;
     _sched_stats.idle_ticks_max = 0;
     _sched_stats.busy_ticks_min = 0xFFFFFFFF;
@@ -1963,8 +1970,8 @@ void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedule
     mutex_lock(&fc_ctx.done_mutex);
 
     /* set_up first frequency of the cycle */
-    current_core_freq = fc_ctx.freqs[fc_ctx.cur_freq_idx];
-    fc_ctx.freq_change_cb(current_core_freq);
+    _mgr_ctx.current_core_freq = fc_ctx.freqs[fc_ctx.cur_freq_idx];
+    fc_ctx.freq_change_cb(_mgr_ctx.current_core_freq);
 
     LOG_DEBUG("starting freq_cycle and waiting for it to finish...\n");
     fc_ctx.freq_cycle_enabled = true;
@@ -1974,7 +1981,7 @@ void gclk_manager_start_freq_cycler(unsigned int cycle_us, uint32_t min_schedule
     /* go back to default frequency via the manager freq change method instead of the freq cycler variant */
     _mgr_ctx.freq_change_cb(initial_freq);
     LOG_DEBUG("freq cycler done\n");
-    current_core_freq = initial_freq;
+    _mgr_ctx.current_core_freq = initial_freq;
 }
 uint32_t _append_performance_util_data(uint32_t task_id, uint32_t freq, uint32_t time_us);
 
@@ -2051,13 +2058,13 @@ void gclk_manager_pre_sched_hook(kernel_pid_t next_thread) {
     }
     if (_mgr_ctx.pre_sched_pu_dfs_enabled) {
         if (_sched_stats.task_performance_util[next_thread] >= _mgr_ctx.pre_sched_freq_boost_threshold &&
-            _mgr_ctx.pre_sched_boost_freq != current_core_freq) {
+            _mgr_ctx.pre_sched_boost_freq != _mgr_ctx.current_core_freq) {
             _mgr_ctx.freq_change_cb(_mgr_ctx.pre_sched_boost_freq);
-            current_core_freq = _mgr_ctx.pre_sched_boost_freq;
+            _mgr_ctx.current_core_freq = _mgr_ctx.pre_sched_boost_freq;
         } else if (_sched_stats.task_performance_util[next_thread] <= _mgr_ctx.pre_sched_freq_throttle_threshold &&
-            _mgr_ctx.pre_sched_throttle_freq != current_core_freq) {
+            _mgr_ctx.pre_sched_throttle_freq != _mgr_ctx.current_core_freq) {
             _mgr_ctx.freq_change_cb(_mgr_ctx.pre_sched_throttle_freq);
-            current_core_freq = _mgr_ctx.pre_sched_throttle_freq;
+            _mgr_ctx.current_core_freq = _mgr_ctx.pre_sched_throttle_freq;
         }
     }
 }
@@ -2065,7 +2072,7 @@ void gclk_manager_pre_sched_hook(kernel_pid_t next_thread) {
 void gclk_manager_post_sched_hook(kernel_pid_t desched_thread) {
     if (_mgr_ctx.pu_metadata_collection_enabled) {
         uint32_t busy_ticks = idle_timer_read() - _sched_stats.t_cur_thread_start;
-        _append_performance_util_data(desched_thread, current_core_freq, busy_ticks);
+        _append_performance_util_data(desched_thread, _mgr_ctx.current_core_freq, busy_ticks);
         if (fc_ctx.freq_cycle_enabled) {
             /* only try to advance to next freq if enough stats were collected for each thread of interest */
             if (!fc_ctx.pu_stats_pending_cur_freq) {
@@ -2074,7 +2081,7 @@ void gclk_manager_post_sched_hook(kernel_pid_t desched_thread) {
                     fc_ctx.cur_freq_idx++;
                     uint32_t new_freq = fc_ctx.freqs[fc_ctx.cur_freq_idx];
                     fc_ctx.freq_change_cb(new_freq);
-                    current_core_freq = new_freq;
+                    _mgr_ctx.current_core_freq = new_freq;
                     /* set all previously requested thread pu stats to pending for the new freq */
                     fc_ctx.pu_stats_pending_cur_freq = fc_ctx.pu_stats_requested;
                 } else {
@@ -2116,9 +2123,9 @@ void gclk_manager_on_idle_hook(void) {
 void gclk_manager_enable_dynamic_frequency_scaling(bool enable) {
     _mgr_ctx.pre_sched_pu_dfs_enabled = enable;
     if (enable) {
-        pre_dfs_enable_freq = gclk_get_current_freq(gclk_manager_get_core_clock_handle());
+        _mgr_ctx.pre_dfs_enable_freq = gclk_get_current_freq(gclk_manager_get_core_clock_handle());
     } else {
-        _mgr_ctx.freq_change_cb(pre_dfs_enable_freq);
+        _mgr_ctx.freq_change_cb(_mgr_ctx.pre_dfs_enable_freq);
     }
 }
 
@@ -2184,7 +2191,7 @@ void gclk_manager_register_clk_change_cb(const gclk_t *clk, gclk_clock_change_no
     nle->change_cb_list.node.next = NULL;
     nle->clk = clk;
 
-    list_node_t *clk_list = clock_change_notify_list.next;
+    list_node_t *clk_list = _mgr_ctx.clock_change_notify_list.next;
 
     /* If there already exists a notification list for this clock
      * the new callback is added to that list */
@@ -2194,7 +2201,7 @@ void gclk_manager_register_clk_change_cb(const gclk_t *clk, gclk_clock_change_no
                                                              node);
         if (ccnl->clk == clk) {
             list_add(&ccnl->change_cb_list.node, &nle->change_cb_list.node);
-            registered_clk_change_cb_cnt++;
+            _mgr_ctx.registered_clk_change_cb_cnt++;
             return;
         }
         clk_list = clk_list->next;
@@ -2202,12 +2209,12 @@ void gclk_manager_register_clk_change_cb(const gclk_t *clk, gclk_clock_change_no
 
     /* if no one registered a change notification for this clock before, the given
      * notify list entry becomes the sub-list for the given clock */
-    list_add(&clock_change_notify_list, &nle->node);
-    registered_clk_change_cb_cnt++;
+    list_add(&_mgr_ctx.clock_change_notify_list, &nle->node);
+    _mgr_ctx.registered_clk_change_cb_cnt++;
 }
 
 void gclk_manager_unregister_clk_change_cb(gclk_clock_change_notify_list_t *nle) {
-    list_node_t *clk_list = &clock_change_notify_list;
+    list_node_t *clk_list = &_mgr_ctx.clock_change_notify_list;
 
     /* Get the sublist of the given notification entries clock */
     while (clk_list->next) {
@@ -2245,7 +2252,7 @@ void gclk_manager_unregister_clk_change_cb(gclk_clock_change_notify_list_t *nle)
                  * itself, so only remove its callback from the clocks sublist */
                 list_remove(&ccnl->change_cb_list.node, &nle->change_cb_list.node);
             }
-            registered_clk_change_cb_cnt--;
+            _mgr_ctx.registered_clk_change_cb_cnt--;
             break;
         }
         clk_list = clk_list->next;
@@ -2370,7 +2377,7 @@ void gclk_manager_apply_sequence_to_tree_model(gclk_manager_sequence_step_t *seq
 
         bool clk_mod_step = _is_clk_modification_step(&seq[si]);
         if (clk_mod_step) {
-            list_node_t *n = clock_change_notify_list.next;
+            list_node_t *n = _mgr_ctx.clock_change_notify_list.next;
             while(n) {
                 gclk_clock_change_notify_list_t *ccnl = container_of(n, gclk_clock_change_notify_list_t, node);
                 if (_gclk_manager_is_derived_from_clock(altered_clk, ccnl->clk, tree_after, tree_size)) {
@@ -2404,7 +2411,7 @@ void gclk_manager_notify_diff_changes(clk_topology_entry_t *tree_before, clk_top
         if (memcmp(nc, oc, sizeof(clk_topology_entry_t)) != 0) {
             bool one_enabled = oc->enabled || nc->enabled;
             if (one_enabled) {
-                list_node_t *n = clock_change_notify_list.next;
+                list_node_t *n = _mgr_ctx.clock_change_notify_list.next;
 
                 /* for each clock check if there is a list of callbacks that must be notified */
                 while(n) {
@@ -2563,7 +2570,7 @@ void gclk_manager_notify_multi_clk_change(clk_topology_entry_t *old_topo, size_t
                                           bool post_change) {
     unsigned affected_cnt = 0;
     /* registered_clk_change_cb_cnt is actually a pessimistic value (the number of distinct affected clocks micht be lower) */
-    gclk_clock_change_notify_list_t *affected[registered_clk_change_cb_cnt];
+    gclk_clock_change_notify_list_t *affected[_mgr_ctx.registered_clk_change_cb_cnt];
 
     const gclk_t *topmost_altered_clk = NULL;
     uint32_t tmc_f_old = 0;
@@ -2585,7 +2592,7 @@ void gclk_manager_notify_multi_clk_change(clk_topology_entry_t *old_topo, size_t
 
     /* notify all clocks affected by that change */
     /* @TODO: store flag on pre-call to leverage that on post call ?*/
-    list_node_t *n = clock_change_notify_list.next;
+    list_node_t *n = _mgr_ctx.clock_change_notify_list.next;
     while(n) {
         gclk_clock_change_notify_list_t *ccnl = container_of(n, gclk_clock_change_notify_list_t, node);
         //list_node_t *cbn = &ccnl->change_cb_list.node;
@@ -2621,7 +2628,7 @@ void gclk_manager_notify_clk_change(const gclk_t *clk, uint32_t f_old, uint32_t 
                                     bool post_change) {
     /* notify all clocks affected by that change */
     /* @TODO: store flag on pre-call to leverage that on post call ?*/
-    list_node_t *n = clock_change_notify_list.next;
+    list_node_t *n = _mgr_ctx.clock_change_notify_list.next;
     while(n) {
         gclk_clock_change_notify_list_t *ccnl = container_of(n, gclk_clock_change_notify_list_t, node);
         //TODO: the way *how* the clock down the tree is affected should be determined here because we want to avoid doing
@@ -2701,19 +2708,19 @@ void _update_vcore_and_ws_config(const gclk_t *altered_clk, uint32_t f_new, gclk
     if (fup) {
         /* when increasing frequency the order is:
          * update voltage -> update wait states -> increase freq */
-        if (auto_vscale_enabled) {
+        if (_mgr_ctx.auto_vscale_enabled) {
             core_voltage_set(limit->vc_idx_min);
         }
-        if (auto_wsadapt_enabled) {
+        if (_mgr_ctx.auto_wsadapt_enabled) {
             flash_opt_set_wait_states(limit->ws_min);
         }
     } else {
         /* when decreasing frequency the order is:
          * reduce freq -> update wait states -> update voltage */
-        if (auto_wsadapt_enabled) {
+        if (_mgr_ctx.auto_wsadapt_enabled) {
             flash_opt_set_wait_states(limit->ws_min);
         }
-        if (auto_vscale_enabled) {
+        if (_mgr_ctx.auto_vscale_enabled) {
             core_voltage_set(limit->vc_idx_min);
         }
     }
@@ -2721,7 +2728,7 @@ void _update_vcore_and_ws_config(const gclk_t *altered_clk, uint32_t f_new, gclk
 
 static void _lazy_reg_freq_limit_clk_change_cbs(void) {
     /* only register new callback if no automatic adaption is enabled yet */
-    if (!(auto_vscale_enabled || auto_wsadapt_enabled)) {
+    if (!(_mgr_ctx.auto_vscale_enabled || _mgr_ctx.auto_wsadapt_enabled)) {
         for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
             /* DVS just re-uses the notification mechanism to change the
              * voltage to an appropriate value before/after the frequency is adapted */
@@ -2733,7 +2740,7 @@ static void _lazy_reg_freq_limit_clk_change_cbs(void) {
 
 static void _lazy_unreg_freq_limit_clk_change_cbs(void) {
     /* unregister callback if neither automatic adaption shall be enabled anymore */
-    if (!(auto_vscale_enabled || auto_wsadapt_enabled)) {
+    if (!(_mgr_ctx.auto_vscale_enabled || _mgr_ctx.auto_wsadapt_enabled)) {
         /* only disable if enabled */
         for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
             gclk_manager_unregister_clk_change_cb(&_mgr_ctx.ccnl[i]);
@@ -2767,9 +2774,9 @@ static unsigned _populate_applicable_clock_constraints(gclk_freq_constraint_t *a
 void gclk_manager_enable_voltage_auto_scale(bool on) {
     if (on) {
         _lazy_reg_freq_limit_clk_change_cbs();
-        auto_vscale_enabled = true;
+        _mgr_ctx.auto_vscale_enabled = true;
     } else {
-        auto_vscale_enabled = false;
+        _mgr_ctx.auto_vscale_enabled = false;
         _lazy_unreg_freq_limit_clk_change_cbs();
         /* TODO: setup worst case value here */
         core_voltage_set(core_voltage_cnt() - 1);
@@ -2779,9 +2786,9 @@ void gclk_manager_enable_voltage_auto_scale(bool on) {
 void gclk_manager_enable_flashws_auto_update(bool on) {
     if (on) {
         _lazy_reg_freq_limit_clk_change_cbs();
-        auto_wsadapt_enabled = true;
+        _mgr_ctx.auto_wsadapt_enabled = true;
     } else {
-        auto_wsadapt_enabled = false;
+        _mgr_ctx.auto_wsadapt_enabled = false;
         _lazy_unreg_freq_limit_clk_change_cbs();
         /* TODO: setup worst case value here */
         flash_opt_set_wait_states(flash_opt_get_max_wait_states());
@@ -2843,12 +2850,12 @@ bool gclk_manager_set_factor(const gclk_t *clk, uint32_t factor) {
     uint32_t f_new = gclk_is_divider(clk) ? (f_in / factor) :
                     (gclk_is_multiplier(clk) ? (f_in * factor) : f_in);
     /* only check for applicable callbacks if there are registrations */
-    if (registered_clk_change_cb_cnt) {
+    if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(clk, f_old, f_new, false);
     }
     int res = gclk_set_factor(clk, factor);
 
-    if (registered_clk_change_cb_cnt) {
+    if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(clk, f_old, f_new, true);
     }
 
@@ -2859,13 +2866,13 @@ bool gclk_manager_set_freq(const gclk_t *clk, uint32_t freq) {
     uint32_t f_old = gclk_get_current_freq(clk);
 
     /* only check for applicable callbacks if there are registrations */
-    if (registered_clk_change_cb_cnt) {
+    if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(clk, f_old, freq, false);
     }
 
     uint32_t new_freq = gclk_set_freq(clk, freq);
 
-    if (registered_clk_change_cb_cnt) {
+    if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(clk, f_old, freq, true);
     }
 
@@ -2886,7 +2893,7 @@ bool _gclk_manager_set_freq_instrumented(const gclk_t *clk, uint32_t freq) {
     gpio_set(LOGIC_ANALYZER_PIN);
 
     /* only check for applicable callbacks if there are registrations */
-    if (registered_clk_change_cb_cnt) {
+    if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(clk, f_old, freq, false);
     }
 
@@ -2894,7 +2901,7 @@ bool _gclk_manager_set_freq_instrumented(const gclk_t *clk, uint32_t freq) {
     uint32_t new_freq = gclk_set_freq(clk, freq);
     gpio_set(LOGIC_ANALYZER_PIN);
 
-    if (registered_clk_change_cb_cnt) {
+    if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(clk, f_old, freq, true);
     }
 
@@ -3120,7 +3127,7 @@ gclk_cmp_result_t gclk_manager_cmp_topology_closest_leaf_freq_pmin(clk_topology_
 uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, uint32_t target_freq, gclk_cmp_func_t cmp_func) {
 
     if (clk) {
-        mutex_lock(&clock_conf_mutex);
+        mutex_lock(&_mgr_ctx.clock_conf_mutex);
         uint32_t max_involved_clks = gclk_get_clk_subtree_max_depth(clk, 0);
         LOG_DEBUG("%s: max topology for driving %s employs %lu clock nodes\n", __FUNCTION__, gclk_get_name(clk), max_involved_clks);
 
@@ -3186,7 +3193,7 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
              * Therefore they are updated to valid default values */
             gclk_mananger_set_default_dfs_frequencies();
 
-            mutex_unlock(&clock_conf_mutex);
+            mutex_unlock(&_mgr_ctx.clock_conf_mutex);
             return leaf_freq;
         } else {
             LOG_DEBUG("%s: transition from [%s] topology from %d to %d infeasible!\n", __FUNCTION__, gclk_get_name(clk), cur_topo_idx, target_topology);
@@ -3195,17 +3202,17 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
         LOG_DEBUG("%s: can not change topology of NULL clock\n", __FUNCTION__);
     }
 
-    mutex_unlock(&clock_conf_mutex);
+    mutex_unlock(&_mgr_ctx.clock_conf_mutex);
 
     return GCLK_INVALID_FREQ;
 }
 
 void gclk_manager_block(void) {
-    mutex_lock(&clock_conf_mutex);
+    mutex_lock(&_mgr_ctx.clock_conf_mutex);
 }
 
 void gclk_manager_unblock(void) {
-    mutex_unlock(&clock_conf_mutex);
+    mutex_unlock(&_mgr_ctx.clock_conf_mutex);
 }
 
 bool gclk_manager_scale_core_freq(uint32_t freq) {
@@ -3248,7 +3255,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
     //      For predetermined (fast DVFS) reconfigurations the notifications could be cached
     //      (maybe with some automated way to invalidate the cache on other (non-DVFS) tree changes.
     /* only check for applicable callbacks if there are registrations */
-    if (registered_clk_change_cb_cnt) {
+    if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(adapted_clk, f_old, adapted_clk_new_freq, false);
     }
 
@@ -3313,7 +3320,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
             return false;
     }
 
-    if (registered_clk_change_cb_cnt) {
+    if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(adapted_clk, f_old, adapted_clk_new_freq, true);
     }
 
