@@ -3200,6 +3200,14 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
     return GCLK_INVALID_FREQ;
 }
 
+void gclk_manager_block(void) {
+    mutex_lock(&clock_conf_mutex);
+}
+
+void gclk_manager_unblock(void) {
+    mutex_unlock(&clock_conf_mutex);
+}
+
 bool gclk_manager_scale_core_freq(uint32_t freq) {
     const gclk_scale_setting_t *s = _mgr_ctx.active_core_scale_setting;
     if (!s) {

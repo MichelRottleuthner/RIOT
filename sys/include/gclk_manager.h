@@ -823,6 +823,16 @@ bool gclk_manager_scale_core_freq(uint32_t freq);
 uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, uint32_t target_freq, gclk_cmp_func_t cmp_func);
 
 /**
+ * @brief Temporarily block clock adjustments.
+ */
+void gclk_manager_block(void);
+
+/**
+ * @brief Unblock clock adjustments again.
+ */
+void gclk_manager_unblock(void);
+
+/**
  * @brief Prepare configs for D(V)FS operation with given frequencies (as close as possible).
  *
  * Sets up a list of frequencies applicable for D(V)FS operation.
