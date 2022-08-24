@@ -34,6 +34,7 @@
 #include "periph/gpio.h"
 #include "periph/spi.h"
 #include "pm_layered.h"
+#include "gclk_manager.h"
 
 #define ENABLE_DEBUG        0
 #include "debug.h"
@@ -227,7 +228,6 @@ int spi_init_with_gpio_mode(spi_t bus, const spi_gpio_mode_t* mode)
 #endif
 }
 #endif
-extern mutex_t clock_conf_mutex;
 
 int actual_spi_speeds[SPI_NUMOF];
 void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
@@ -236,7 +236,7 @@ void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
     //TODO: assess how valuable this would be as a feedback mechanism for DVFS/PU-Assessment
     //spi_aq_cnt++;
     /* lock bus */
-    mutex_lock(&clock_conf_mutex);
+    gclk_manager_block();
     mutex_lock(&locks[bus]);
 #ifdef STM32_PM_STOP
     /* block STOP mode */
@@ -312,7 +312,7 @@ void spi_release(spi_t bus)
     pm_unblock(STM32_PM_STOP);
 #endif
     mutex_unlock(&locks[bus]);
-    mutex_unlock(&clock_conf_mutex);
+    gclk_manager_unblock();
 }
 
 static inline void _wait_for_end(spi_t bus)
