@@ -86,6 +86,25 @@ extern "C" {
 #endif
 
 /**
+ * @brief Value that indicates an invalid frequency.
+ */
+#define GCLK_INVALID_FREQ       (0xFFFFFFFFU)
+
+/**
+ * @brief The highest frequency value that may be encoded.
+ */
+#define GCLK_HIGHEST_VALID_FREQ (GCLK_INVALID_FREQ - 1U)
+
+/**
+ * @brief Value that indicates an undefined topology index.
+ *
+ * As input this may be used to define the specific topology index as *dont care* / wildcard.
+ * Given as a result from operations that should return a specific topology index this indicates
+ * an empty / invalid result.
+ */
+#define GCLK_UNDEFINED_TOPOLOGY (-1)
+
+/**
  * @brief Flags encoding topology related reconfiguration constraints of a clock instance.
  *
  */
@@ -103,10 +122,6 @@ enum gclk_clk_topology_flags {
                                               across two outputs or if there is a clock that limits its output automatically
                                               if its input is above some value. */
 };
-
-#define GCLK_INVALID_FREQ       (0xFFFFFFFFU)
-#define GCLK_HIGHEST_VALID_FREQ (GCLK_INVALID_FREQ - 1U)
-#define GCLK_UNDEFINED_TOPOLOGY (-1)
 
 /**
  * @brief values to encode a specific set operation for enable, or a pure read operation to get the current state
