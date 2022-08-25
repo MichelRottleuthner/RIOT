@@ -212,38 +212,33 @@ static inline uint32_t gclk_regref2conf_mask(gclk_reg_ref_t regref) {
     return mask;
 }
 
-/* Notes on mapping between user facing and hardware facing API:
-   - a the application/the developer is expected to always calls into the gclock API via the user facing API by using
-     gclk_t handles.
-   - a HW-facing function may need access to the HL handle
-*/
-struct gclk_base;
-typedef struct gclk_base gclk_t; /* Handle for the generic part of the API */
+/**
+ * @brief Forward-declaration of the generic clock handle type.
+ */
+typedef struct gclk_base gclk_t;
 
 
 /**
- * @brief Entry describing one node of a specific topology configuration
- *
+ * @brief Entry describing the config of one clock node of a specific topology configuration.
  */
 typedef struct clk_topology_entry {
-    const gclk_t  *clk;          /* the clock for wich the following information is */
-    uint32_t       clk_freq;     /* a frequency that clk could be set to under the parent identified by cur_par_idx */
-    //uint32_t       clk_freq_max; /* the max frequency that clk can be set to (only valid for a particular parent config below) */
-    //uint32_t       clk_freq_min; /* the min frequency that clk can be set to (only valid for a particular parent config below) */
-    uint32_t       factor: 24;         /* the current factor of the clock */
-    //uint32_t       par_freq;     /* the frequency parent par_idx must be set to, to allow clk to be set to clk_freq */
-    uint32_t       par_idx: 6;      /* the parent option idx (one based) that can be used to set up clk to clk_freq */
-    uint32_t       enabled : 1;      /* the enable state of the clock (only used for operations on the tree model, not for an active topology) */
-    uint32_t       propagation_pending : 1; /* marker to indicate that this config is new/dirty and must be propagated downtree
-                                           (only used for operations on the tree model, not for an active topology) */
+    const gclk_t  *clk;          /**< The clock this data refers to. */
+    uint32_t       clk_freq;     /**< The frequency clk is set to (which depends on the config below and uptree settings). */
+    uint32_t       factor: 24;   /**< The scaling factor of clk. */
+    uint32_t       par_idx: 6;   /**< The idx of the parent clock of clk. */
+    uint32_t       enabled : 1;  /**< The enable (gating) state of the clock. */
+    uint32_t       propagation_pending : 1; /**< Marker indicating this config is *dirty*, meaning the change must still
+                                                 be propagated downtree (only used for operations on the tree model,
+                                                 does not refer to state of an active topology). */
 } clk_topology_entry_t;
 
-/* The types of scalers currently supported.
- * @todo split this out to generic_scaler and userflags */
+/**
+ * @brief Different types of scalers supported.
+ */
 enum gclk_scaler_type {
-    GCLK_NOSCALE = 0, /**< This clock is not scalable */
-    GCLK_MUL     = 1, /**< The scaler multiplies the input frequency */
-    GCLK_DIV     = 2, /**< The scaler divides the input frequency */
+    GCLK_NOSCALE = 0, /**< The clock is **not** scalable. */
+    GCLK_MUL     = 1, /**< The clock multiplies the input frequency (scalable). */
+    GCLK_DIV     = 2, /**< The clock divides the input frequency (scalable). */
 };
 
 /* As an alternative to the above, the individual operations of a clock could be split.
