@@ -16,6 +16,33 @@
  *
  * Interface for high-level control of gclk and its interaction with related modules
  *
+ *  @todo Some aspects that are still WIP/under consideration
+ *  - It might be helpful to provide information on whether a clock is a *pure* itermediate
+ *    or also a *consumer* itself. This would allow more advanced ressource allocation and management
+ *    for automatic gating of unused clocks. A pure intermediate can be considered safe for disable if
+ *    it has no active children, while a clock that is used for something even if it has no children
+ *    shall not be disabled.
+ *  - More advanced dynamic constraints would allow to (temporarily) limit adjustments as required:
+ *    - Require a fixed frequency.
+ *      - Require a clocks frequency to be within a specified frequency range.
+ *    - Require a fixed topology.
+ *    - Block gating.
+ *    - There are nodes that are read-only regarding configuration, but are only usable under specific
+ *      settings. E.g., the PLL on stm32l0x3 has a special 48 MHz output for USB, only valid when
+ *      PLL_VCO is set to 96 MHz. Can be handled via dynamic constraint.
+ *    - Inter-peripheral dependency management / coordination
+ *      - E.g. peripheral 1 wants clock X at Y Hz, peripheral 2 wants clock X at Z Hz.
+ *        - a device may lock a clock to a specific value to prohibit changes.
+ *        - This info could be dynamically appended to a clock node, so other tree explorations and
+ *          configurations treat incompatible settings as invalid or opt for alternatives.
+ *        - For many cases those settings could also just be switched between modes on demand.
+ *  - There are clocks that need other clocks to be enabled prior to configuration. How to handle this?
+ *    - Explicit dependencies e.g., implemented via ressource allocation and runtime constraints.
+ *    - dependency tree that holds *clock X requires clock Y* dependencies. Sould be optional as it is
+ *      easy to workaround with platform init code and custom clock drivers that handle this manually.
+ *  - Integrate more peripheral drivers that are affected by the clock config to the generic clock module
+ *    to streamline init/reconfiguration steps and deduplicate code there.
+ *
  * @author      Michel Rottleuthner <michel.rottleuthner@haw-hamburg.de>
  */
 #ifndef GCLK_MANAGER_H
