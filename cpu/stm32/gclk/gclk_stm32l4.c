@@ -945,60 +945,6 @@ static const gclk_reg_val_factor_lut_t _stm32_apb_div_confs[] = {
     { .factor = 16,  .reg_val = 0b111 },
 };
 
-#ifdef GCLK_USE_SEPARATE_CONF_REG_ARRAYS
-/* @todo: evaluate benefit of alternative storage:
-         - dynamic array, storing the size/availability via flags?
-         - fixed array of all needed config regs with flag/enum based access to the regs */
-static const gclk_scaler_regs_t _sr_cfgr = {
-    .enable_reg = NULL,
-    .ready_reg  = NULL,
-    .scaler_reg = &RCC->CFGR,
-};
-
-static const gclk_scaler_regs_t _sr_cr = {
-    .enable_reg = NULL,
-    .ready_reg  = NULL,
-    .scaler_reg = &RCC->CR,
-};
-
-/* @todo: does this really not need the ready reg? */
-static const gclk_scaler_regs_t _sr_pllcfgr = {
-    .enable_reg = NULL,
-    .ready_reg  = NULL,
-    .scaler_reg = &RCC->PLLCFGR,
-};
-
-static const gclk_scaler_regs_t _ersr_pllcfgr = {
-    .enable_reg = &RCC->PLLCFGR,
-    .ready_reg  = NULL,
-    .scaler_reg = &RCC->PLLCFGR,
-};
-
-static const gclk_scaler_regs_t _ersr_pllsai1cfgr = {
-    .enable_reg = &RCC->PLLSAI1CFGR,
-    .ready_reg  = NULL,
-    .scaler_reg = &RCC->PLLSAI1CFGR,
-};
-
-static const gclk_scaler_regs_t _ersr_pllsai2cfgr = {
-    .enable_reg = &RCC->PLLSAI2CFGR,
-    .ready_reg  = NULL,
-    .scaler_reg = &RCC->PLLSAI2CFGR,
-};
-
-static const gclk_scaler_regs_t _errrsr_cr_cr_pllcfgr = {
-    .enable_reg = &RCC->CR,
-    .ready_reg  = &RCC->CR,
-    .scaler_reg = &RCC->PLLCFGR,
-};
-
-static const gclk_scaler_regs_t _sr_csr = {
-    .enable_reg = NULL,
-    .ready_reg  = NULL,
-    .scaler_reg = &RCC->CSR,
-};
-#endif
-
 /* Reuses the plain scaler driver that only implements the scale_ops interface
  * for a scaler that is interfaced via a bitfield in a read/write register that
  * exposes the current selection and also allows changing it. */
