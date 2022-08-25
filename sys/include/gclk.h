@@ -241,39 +241,11 @@ enum gclk_scaler_type {
     GCLK_DIV     = 2, /**< The clock divides the input frequency (scalable). */
 };
 
-/* As an alternative to the above, the individual operations of a clock could be split.
- * Following that approach there are several ways to achive this.
- * A potential problem with this is that we do not want to save a huge list of function pointers.
- * A possible solution to this could be to save the functions as fixed size array that only contains supported functions
- * which are than mapped via a bitfield helper and a guaranteed order of functions (probably shitty performance).
- * To decide what kind of splitting makes sense, we collect all possible functionalities and check how they are mandatory/optional in which case:
- *
- * **Mandatory operations**
- * -get_parent: pretty much mandatory. Albeit arguable for source clocks, the handling should actually be unified to always
- *              go through this call.
- *              - information on possible parents always needs to be stored (either single fixed or some acceptable list)
- *                So the same memory and pattern used for storing a list of acceptable values can and should be reused for static
- *                parents
- *
- * **Routing operations**
- * -enable: not mandatory -> if not present, the HW-agnostic part should forward it uptree (if possible)
- *          -a plain mux may just be switched between various sources
- *          -a fixed scaler may not be able to be en/disabled
- *          -should be integrated to get/set (NULL)
- *           ATTENTION: when disabling a mux this operation can not be transparently reverted (save previous state in that case?)
- * -set_parent: not mandatory -> only if parent is flexible (mux)
- *
- * **Frequency operations**
- * -set_freq: not mandatory (only applies to scalable clocks)
- * -get_freq: not really mandatory
- *            -only applies to clocks that are either fixed freq, (user-)scalable or alter its input towards their output)
- *            -if not present the parent freq is assumed
- * -check_freq: should be dropped (replaced) with functionality to access numerical data and mapping separately.
- *
+/* @todo Potential future features to be implemented.
  * **Trim Operations**
  * -trim: not implemented yet. Trims the clock by a given fraction e.g. +- N PPB
  * -get_accuracy: not implemented yet. returns accuracy limits as derived from oscillator spec (modified by topology)
- * */
+ */
 
 /**
  * @brief  Low-level interface to configure clock routing.
