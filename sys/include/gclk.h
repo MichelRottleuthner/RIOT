@@ -105,56 +105,6 @@ enum gclk_clk_topology_flags {
 };
 
 /**
- * @brief   Describes the mapping between register values and calculation paramters
- *
- * @detail  There are many different ways on how to convert register contents to values that can be used to calculate
- *          frequencies etc. In many cases the same information can be encoded with more than one mapping type.
- *          E.g. a 4 bit register value that directly represents all values from 0 to 15 could be encoded as a lookup
- *          table, mappong 0 to 0 , 1 to 1 an so on - but encoding it as a value range by only providing a min and max
- *          value is obviously much more efficient. See the below descriptions for details on the mappping types.
- *
- */
-enum gclk_reg_val_mapping_type {
-    /* This kind of mapping type is meant for cases where the register content directly maps to its
-       numerical value. It uses two 8 bit integer values (min, max) to describe the allowed range
-       (including bounds). The respective datatype is gclk_range8_t. */
-    GCLK_CONF_RANGE8  = 0x01,
-    /* Same as GCLK_VALUE_RANGE8 but for 16 bit values. The respective datatype is gclk_range16_t */
-    GCLK_CONF_RANGE16 = 0x02,
-    /* With this type, valid configurations are described as a lookup table consisting of pairs.
-       Each register value corresponds to a numeric value. It is allowed to specify multiple pairs
-       that map multiple register values to different numeric values oand vice versa.
-       The order MUST be from lowest numerical value to highest numerical value */
-    GCLK_CONF_LUT     = 0x03,
-    /* A 1-dimensional uint8_t array of which each entry implicitly encodes pairs (list[idx] , idx).
-       Can be used together with flag GCLK_CONF_IDX_AS_NUM_VAL to specify the index encodes the
-       numerical value (otherwise the index encodes the configuration register value).
-       The flag GCLK_CONF_MAP_OFFS_ONE may be used to specify the encoded value is index + 1. */
-    GCLK_CONF_LIST8   = 0x04,
-    /* Same as GCLK_CONF_LIST8 but for 16 bit values */
-    GCLK_CONF_LIST16  = 0x05,
-    /* Same as GCLK_CONF_LIST8 but for 32 bit values */
-    GCLK_CONF_LIST32  = 0x06,
-    /* Stores a single, non-configurable integer value. @todo use pointer directly for storage?
-       Note: This is not really a mapping and a simple fixed value can be modelled more efficiently.
-             It's purpose is to allow reusing some of the existing functionality of the generic
-             implementations instead of providing a specialized one. So using this only makes sense
-             for a low count of GCLK_FIXED_INT instances and when other instances already pull in
-             the relevant generic functions anyway */
-    GCLK_FIXED_INT    = 0x07,
-    /* Same as GCLK_CONF_LUT this holds pairs of numeric values and configuration register values.
-     * But instead of holding the config value directly, it contains pointers that in turn point
-     * to the actual config value at a fixed memory location.
-     * This is useful if the device holds special factory-calibrated configuration register values
-     * used to setup frequency configurations. */
-    GCLK_CONF_PTR_LUT = 0x08,
-    /* @todo: possibly needed/ beneficial at some point:
-         -value encoded as 2 ^ x  would safe space e.g. for _stm32_ahb_div_confs, _stm32_apb_div_confs
-         -value encoded as x * <fixedint>
-         -LUF: a lookup function*/
-};
-
-/**
  * @brief values to encode what kind of frequency is queried
  */
 enum gclk_api_flags {
