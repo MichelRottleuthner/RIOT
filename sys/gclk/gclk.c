@@ -142,32 +142,6 @@ unsigned int gclk_get_clk_subtree_max_depth(const gclk_t *clk, unsigned depth){
     return gclk_get_clk_subtree_max_depth(clk->fixed_parent, depth + 1);
 }
 
-#if 0
-unsigned int gclk_get_clk_subtree_max_depth(const gclk_t *clk, unsigned depth){
-
-    /* if this clock can be sourced via a parent */
-    if (gclk_get_parent(clk, GCLK_CURRENT_PARENT_IDX + 1) != clk) {
-        depth++;
-        unsigned idx = GCLK_CURRENT_PARENT_IDX + 1; /* start from the first option */
-        const gclk_t *parent = gclk_get_parent(clk, idx++);
-
-        unsigned max_depth = 0;
-        while (parent != clk) { /* while there are more options to check... */
-            uint32_t cmp_depth = gclk_get_clk_subtree_max_depth(parent, depth);
-
-            if (cmp_depth > max_depth) {
-                max_depth = cmp_depth;
-            }
-            parent = gclk_get_parent(clk, idx++); /* check next parent option */
-        }
-        return max_depth;
-    }
-
-    /* if it has no parents, do not add to the depth */
-    return depth;
-}
-#endif
-
 unsigned int gclk_get_current_topology_len(const gclk_t *clk) {
     unsigned int len = 1;
     while (!gclk_is_source(clk)) {
@@ -312,33 +286,22 @@ const gclk_t *gclk_get_parent(const gclk_t *clk, unsigned int idx)
         return NULL;
     }
 
-    if (clk->separated_ops) {
-        if (clk->flags.muxable) {
-            return gclk_idx2parent(clk, idx);
-        } else if (clk->flags.is_source) {
-            return clk;
-        } else {
-            return clk->fixed_parent;
-        }
+    if (clk->flags.muxable) {
+        return gclk_idx2parent(clk, idx);
+    } else if (clk->flags.is_source) {
+        return clk;
+    } else {
+        return clk->fixed_parent;
     }
-
-    printf("ERROR! The clock config implementation was not migrated to separated_ops pattern!\n");
-    assert(false);
-    return clk;
 }
 
 const gclk_t *gclk_get_current_parent(const gclk_t *clk) {
-    /* if this clock implements the iseparated ops low-level interface pattern
-     * use the provided functionality to access parent info */
-    if (clk->separated_ops) {
-        if (clk->flags.muxable) {
-            return gclk_get_mux_ops(clk)->get_parent(clk);
-        } else if (clk->flags.is_source) {
-            return NULL;
-        }
-        return clk->fixed_parent;
+    if (clk->flags.muxable) {
+        return gclk_get_mux_ops(clk)->get_parent(clk);
+    } else if (clk->flags.is_source) {
+        return NULL;
     }
-    return gclk_get_parent(clk, GCLK_CURRENT_PARENT_IDX);
+    return clk->fixed_parent;
 }
 
 int gclk_set_factor(const gclk_t *gclk, uint32_t factor) {

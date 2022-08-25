@@ -212,8 +212,6 @@ static inline uint32_t gclk_regref2conf_mask(gclk_reg_ref_t regref) {
     return mask;
 }
 
-#define GCLK_CURRENT_PARENT_IDX     (0) /* index used to get the currently active parent with get_parent */
-
 /* Notes on mapping between user facing and hardware facing API:
    - a the application/the developer is expected to always calls into the gclock API via the user facing API by using
      gclk_t handles.
