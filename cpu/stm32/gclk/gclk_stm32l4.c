@@ -33,9 +33,6 @@
 #define STM32_L476RG_MCO_PIN (GPIO_PIN(0,8))
 #define STM32_L476RG_MCO_AF  (GPIO_AF0)
 
-/* the below section needs to be moved out of here once the best method is selected (or it is found that tiny regref
-   is not enough for some platforms )*/
-#ifdef GCLK_USE_TINY_REG_REF
 #if defined(CPU_FAM_STM32L4)
 /* The number of regsiters involved in clock configuration is usually pretty small.
    We can exploit that to save some memory by only holding the configuration registers in one place and storing only a
@@ -71,7 +68,6 @@ typedef enum {
 #else
 #error "must specify gclk conf reg ids for this platform!"
 #endif /* defined(CPU_FAM_STM32L4) */
-#endif /* GCLK_USE_TINY_REG_REF */
 
 /* compatibility taken from stmclock for now
  * since stmclock solves a similar issue this should be a good baseline for testing and comparison.
@@ -81,7 +77,6 @@ typedef enum {
 #error gclk not supportet on this STM32 chip!
 #endif /* defined(CPU_FAM_STM32L4) */
 
-#ifdef GCLK_USE_TINY_REG_REF
 /* @todo: declare this externally (board specific configuration header + single include in here + getters ?)*/
 volatile uint32_t* const conf_regs[] = {
     [GCLK_NULL_REG]              = NULL,
@@ -98,7 +93,6 @@ volatile uint32_t* const conf_regs[] = {
     [GCLK_STM32_RCC_APB2ENR]     = &RCC->APB2ENR,
     [GCLK_STM32_RCC_AHB2ENR]     = &RCC->AHB2ENR,
 };
-#endif
 
 #if defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32F7) || \
     defined(CPU_FAM_STM32WB)
@@ -173,37 +167,6 @@ const gclk_clk_scaler_ll_t gclk_stm32_ahb_div8_scaler;
 const gclk_clk_scaler_ll_t gclk_stm32_msirange_scaler;
 const gclk_clk_scaler_ll_t gclk_stm32_msisrange_scaler;
 const gclk_clk_scaler_ll_t gclk_stm32_mco_div_scaler;
-
-//static volatile uint32_t* _gate_enable_reg(gclk_generic_gate_t *gate) {
-//#if defined(GCLK_GATE_USE_TINY_REG_REF)
-//    return gclk_regref2enable_reg(gate->regref);
-//#elif defined(GCLK_GATE_USE_SEPARATE_CONF_REG_VALUES)
-//    return gate->ready_reg;
-//#endif
-//}
-
-///* @todo: this is basically the same implementation as for the scaler -> deduplicate! */
-//static bool gclk_stm32_common_xx_gate_enable(const gclk_t *clk, gclk_enable_option_t opt)
-//{
-//    gclk_generic_gate_t *gate = to_gclk_generic_gate_t(clk);
-///* we misuse that as a condition to check if BDCR register is present on this MCU */
-//#ifdef RCC_BDCR_LSEON_Pos
-//    /* @todo: only on write? */
-//    if ((opt != GCLK_READ) && (_gate_enable_reg(gate) == &RCC->BDCR)) {
-//        PWR->REG_PWR_CR |= BIT_CR_DBP; /* < disable write protection first */
-//    }
-//#endif
-//
-//    bool res = gclk_generic_gate_enable(clk, opt);
-//
-//#ifdef RCC_BDCR_LSEON_Pos
-//    if ((opt != GCLK_READ) && (_gate_enable_reg(gate) == &RCC->BDCR)) {
-//        PWR->REG_PWR_CR &= ~(BIT_CR_DBP); /* < enable write protection again */
-//    }
-//#endif
-//
-//    return res;
-//}
 
 /* wraps the basic gate function with logic to unlock/lock backup domain write protection */
 static void _bdcr_gate_enable(const gclk_t *clk, bool on) {
