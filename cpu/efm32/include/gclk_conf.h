@@ -22,13 +22,10 @@
 extern "C" {
 #endif
 
-#ifdef GCLK_USE_TINY_REG_REF
 #if defined(CPU_MODEL_EFM32PG12B500F1024GL125)
 /* The number of regsiters involved in clock configuration is usually pretty small.
-   We can exploit that to save some memory by only holding the configuration registers in one place and storing only a
-   tiny index to it in each instance
-   @todo: evaluate if we can link conditional availability between these values and instances to use the same knob for
-          enabling/disabling availability/required state */
+   We can exploit that to save some memory by only holding the configuration registers
+   in one place and storing only a index to it in each instance. */
 typedef enum {
     GCLK_NULL_REG = 0,
     GCLK_EFM32_CMU_HFPRESC,
@@ -56,11 +53,9 @@ typedef enum {
     GCLK_EFM32__LAST_CONF_REG_IDX,
     /* @todo: add unused entry at the end to derive count? */
 } gclk_conf_reg_id_t;
-
 #else
 #error "must specify gclk conf reg ids for this platform!"
 #endif /* defined(CPU_MODEL_EFM32PG12B500F1024GL125) */
-#endif /* GCLK_USE_TINY_REG_REF */
 
 /* Static number ob bits needed to encode a config register index
  * preferrably this should be max 4 to save as much space as possible in the regref field

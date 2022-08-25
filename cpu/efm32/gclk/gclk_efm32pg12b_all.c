@@ -32,10 +32,6 @@
 #include "xtimer.h"
 #include "stdio_base.h"
 
-#if defined(GCLK_USE_TINY_REG_REF)
-#elif defined(GCLK_USE_SEPARATE_CONF_REG_ARRAYS)
-#error "This implementation only supports tiny regref definition for now"
-#endif
 #define LOG_LEVEL LOG_NONE
 #include "log.h"
 
@@ -295,46 +291,6 @@ static const gclk_op_t _efm32_bare_gate_ensselreg_ops[] = {
   { .gate_ops = { .is_enabled = _efm32_gate_ensreg_is_enabled,
                   .enable     = _efm32_gate_selreg_enable,}},
 };
-
-/* TODO:copied form STM implementation (deduplicate?) */
-static uint32_t _round_flag(uint32_t in_freq, uint32_t out_freq, uint32_t flags)
-{
-    if (flags & GCLK_FREQ_NEXT_LOWER) {
-        if (out_freq <= in_freq) {
-            return 0;
-        }
-        return in_freq;
-    } else if (flags & GCLK_FREQ_NEXT_HIGHER) {
-        return in_freq;
-    } else if (flags & GCLK_FREQ_CLOSEST) {
-        if (out_freq == 0) {
-            return 0;
-        }
-        return in_freq;
-    }
-
-    LOG_ERROR("gclk_generic_gate: round flag not supported!\n");
-
-    return 0;
-}
-
-/* TODO: different to the SMT implementation this tries to use the same function for gateable clock
- *       sources and gates that are actually connected behind some other clock */
-unsigned long gclk_efm32_gate_check_freq(const gclk_t *clk, clk_topology_entry_t *input_topology,
-                                               uint32_t topology_len, uint32_t hz, uint32_t flags)
-{
-    gclk_efm32_gate_t *gate = to_gclk_efm32_gate_t(clk);
-
-    /* if the gate holds a non-zero frequency it is a clock source */
-    if (gate->freq_hz) {
-        return _round_flag(gate->freq_hz, hz, flags);
-    } else if (topology_len > 0) {
-        return _round_flag(input_topology[0].clk_freq, hz, flags);
-    }
-
-    LOG_ERROR("%s: input_topology is empty -> that is invalid for a 'bare' gate!\n", __FUNCTION__);
-    return 0;
-}
 
 #define GCLK_EFM32_OSCENCMD_GATE_STATIC_INIT(NAME,FIXFREQ)\
 .base.separated_ops    = _efm32_bare_gate_ensselreg_ops,\
