@@ -212,8 +212,6 @@ static inline uint32_t gclk_regref2conf_mask(gclk_reg_ref_t regref) {
     return mask;
 }
 
-bool gclk_regref_enable_op(gclk_reg_ref_t regref, gclk_enable_option_t opt);
-
 #define GCLK_CURRENT_PARENT_IDX     (0) /* index used to get the currently active parent with get_parent */
 
 /* Notes on mapping between user facing and hardware facing API:
