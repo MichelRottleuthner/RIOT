@@ -73,40 +73,6 @@ unsigned long gclk_generic_gate_get_freq(const gclk_t *clk)
     return 0;
 }
 
-static uint32_t _round_flag(uint32_t in_freq, uint32_t out_freq, uint32_t flags)
-{
-    if (flags & GCLK_FREQ_NEXT_LOWER) {
-        if (out_freq <= in_freq) {
-            return 0;
-        }
-        return in_freq;
-    } else if (flags & GCLK_FREQ_NEXT_HIGHER) {
-        return in_freq;
-    } else if (flags & GCLK_FREQ_CLOSEST) {
-        if (out_freq == 0) {
-            return 0;
-        }
-        return in_freq;
-    }
-
-    LOG_ERROR("gclk_generic_gate: round flag not supported!\n");
-
-    return 0;
-}
-
-
-unsigned long gclk_generic_gate_check_freq(const gclk_t *clk, clk_topology_entry_t *input_topology,
-                                           uint32_t topology_len, uint32_t hz, uint32_t flags)
-{
-    (void)clk;
-    if (topology_len > 0) {
-        return _round_flag(input_topology[0].clk_freq, hz, flags);
-    }
-
-     LOG_ERROR("%s: input_topology is empty -> that is invalid for a 'bare' gate!\n", __FUNCTION__);
-     return 0;
-}
-
 const gclk_op_t gclk_plain_gate_ops[] = {
   { .gate_ops = { .is_enabled = gclk_generic_gate_ed_rdy_reg_is_enabled,
                   .enable     = gclk_generic_gate_ed_rdy_reg_enable,}},
