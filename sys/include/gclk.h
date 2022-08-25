@@ -41,54 +41,25 @@
  * - The current frequency (depends on the parent configuration and the own scaling factor).
  * - If applicable, a list of possible scaling factors a clock can be set to.
  *
- * @todo Additional properties under consideration (but not implemented yet):
- * -low power capabilities (e.g., pm mode availability)
- * -type of clock (internal/external, RC/Crystal)
- *      -accuracy (PPM)
- * -power consumption metrics are currently under development in form of a clock-tree power model.
- *
- * Things still under consideration:
- *  **High Level / Manager Aspects**
- *  - It might be helpful to provide information on whether a clock is a *pure* itermediate
- *    or also a *consumer* itself. This would allow more advanced ressource allocation and management
- *    for automatic gating of unused clocks. A pure intermediate can be considered safe for disable if
- *    it has no active children, while a clock that is used for something even if it has no children
- *    shall not be disabled.
- *  - More advanced dynamic constraints would allow to (temporarily) limit adjustments as required:
- *    - Require a fixed frequency.
- *      - Require a clocks frequency to be within a specified frequency range.
- *    - Require a fixed topology.
- *    - Block gating.
- *    - There are nodes that are read-only regarding configuration, but are only usable under specific
- *      settings. E.g., the PLL on stm32l0x3 has a special 48 MHz output for USB, only valid when
- *      PLL_VCO is set to 96 MHz. Can be handled via dynamic constraint.
- *    - Inter-peripheral dependency management / coordination
- *      - E.g. peripheral 1 wants clock X at Y Hz, peripheral 2 wants clock X at Z Hz.
- *        - a device may lock a clock to a specific value to prohibit changes.
- *        - This info could be dynamically appended to a clock node, so other tree explorations and
- *          configurations treat incompatible settings as invalid or opt for alternatives.
- *        - For many cases those settings could also just be switched between modes on demand.
-   - There are clocks that need other clocks to be enabled prior to configuration. How to handle this?
- *    - Explicit dependencies e.g., implemented via ressource allocation and runtime constraints.
- *    - dependency tree that holds *clock X requires clock Y* dependencies. Sould be optional as it is
- *      easy to workaround with platform init code and custom clock drivers that handle this manually.
- * - Integrate more peripheral drivers that are affected by the clock config to the generic clock module
- *   to streamline init/reconfiguration steps and deduplicate code there.
- *
- * - Aspects regarding hardware abstraction improvements.
- *   - There are MCUs where the clock configuration uses a relatively big number of functionally identical instances.
- *     e.g., on the SAMd21 there are ~8 of the same clock generators, and ~the same order of magnitude gateable muxes
- *     after that. Configuring the instances happens by writing the instance ID to a register, and then reading/writing
- *     a config register (always the same across all instances). Since the memory map pattern is different those can not
- *     (fully) reuse the generic implementations for gates/scalers/muxes.
- *     - An aproach to deal with this would be e.g., decorating the generic implementation with code that writes the
- *       respective idx before using the (always same) config regs. So all the instances share the same config, the same
- *       registers, but differ only by index. The current approach of storing the data would create unneccessary
- *       overhead on that platform. It would be better to reuse the same function calls for all classes.
- *       And reuse the same register definitions across (almost) all instances.
- *   - Some platforms may not have same-sized register access for all registers (example SAMd21, require 32 bit, some 16)
- *   - A generic way to handle additional custom properties (get/set) could be useful for very specific settings that are
- *     generally useful but not very common/generic (like phase locking control between different clock domains).
+ * @todo Some aspects that are still WIP/under consideration
+ *  - Additional properties (not implemented yet)
+ *    - low power capabilities (e.g., pm mode availability)
+ *    - type of clock (internal/external, RC/Crystal)
+ *    - accuracy (PPM)
+ *  - power consumption metrics are currently under development in form of a clock-tree power model.
+ *  - There are MCUs where the clock configuration uses a relatively big number of functionally identical instances.
+ *    e.g., on the SAMd21 there are ~8 of the same clock generators, and ~the same order of magnitude gateable muxes
+ *    after that. Configuring the instances happens by writing the instance ID to a register, and then reading/writing
+ *    a config register (always the same across all instances). Since the memory map pattern is different those can not
+ *    (fully) reuse the generic implementations for gates/scalers/muxes.
+ *    - An aproach to deal with this would be e.g., decorating the generic implementation with code that writes the
+ *      respective idx before using the (always same) config regs. So all the instances share the same config, the same
+ *      registers, but differ only by index. The current approach of storing the data would create unneccessary
+ *      overhead on that platform. It would be better to reuse the same function calls for all classes.
+ *      And reuse the same register definitions across (almost) all instances.
+ *  - Some platforms may not have same-sized register access for all registers (example SAMd21, require 32 bit, some 16)
+ *  - A generic way to handle additional custom properties (get/set) could be useful for very specific settings that are
+ *    generally useful but not very common/generic (like phase locking control between different clock domains).
  *
  * @{
  *
