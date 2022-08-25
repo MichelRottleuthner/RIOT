@@ -86,67 +86,22 @@ extern "C" {
 #endif
 
 /**
- * @brief flags for encoding topology related details of specific clock node instances
+ * @brief Flags encoding topology related reconfiguration constraints of a clock instance.
  *
  */
 enum gclk_clk_topology_flags {
-    GCLK_STOP_FOR_UPDATE          = 0x01, /*< The clock must be stopped before it can be updated to another freq config */
-    GCLK_STOP_PARENT_FOR_UPDATE   = 0x02, /*< e.g. on STM32 the PLL VCO scaler must be stopped before any of its
-                                            children (P,Q,R) can be updated */
-    GCLK_STOP_CHILDREN_FOR_UPDATE = 0x04, /*< e.g. on STM32 all children of PLLM (PLL prescaler) must be stopped before
-                                              it can be updated.
-                                              This flag will be interpreted with a *forward semantic* i.e. if the next
-                                              children can not be disabled the children of that will be disabled */
-    GCLK_STRICT_UPTREE_DEPENDENT  = 0x08, /*< indicates that a clock can not be reconfigured arbitrarily, but instead
+    GCLK_STOP_FOR_UPDATE          = 0x01, /*< The clock must be stopped before it can be updated to another frequency. */
+    GCLK_STOP_PARENT_FOR_UPDATE   = 0x02, /*< The clock may not be changed while the parent is active.
+                                              (e.g. on STM32 the PLL VCO scaler must be stopped before any of its
+                                              children (P,Q,R) can be updated) */
+    GCLK_STOP_CHILDREN_FOR_UPDATE = 0x04, /*< The clock may not be used during an update.
+                                              (e.g. on STM32 all children of PLLM (PLL prescaler) must be stopped before
+                                              it can be updated.) */
+    GCLK_STRICT_UPTREE_DEPENDENT  = 0x08, /*< Indicates that a clock can not be reconfigured arbitrarily, but instead
                                               its state strictly depends on another clock up in the tree. This is usually
                                               the case if there is some hardwired dependency e.g., if a prescaler is shared
-                                              across two outputs of if there is a clock that limits its output automatically
+                                              across two outputs or if there is a clock that limits its output automatically
                                               if its input is above some value. */
-    /* GCLK_INPUT_VALUE_LOCKED? (for clocks that prohibit on the fly changes during use but dont need to be stopped
-     *                           i.e. when neither of the clocks must be stopped for reconfiguration but it is forbidden
-     *                           to change the input signal..) */
-};
-
-/**
- * @brief flags for encoding detail deifferneces of specific clock node instances
- * @TODO  it might be overall more efficient to just provide a mapping function with the instance
- *        The mapping function can then be moved to a common file for reuse.
- *
- */
-enum gclk_clk_conf_flags {
-    NOT_USED_ANYMORE = 0x01,
-//    GCLK_CONF_MAP_OFFS_ONE        = 0x01, /*< Indicates for implicitly encoded values (i.e. in form of the index of
-//                                              GCLK_CONF_LISTX) that an offset of 1 must be added to the implicit value */
-//    GCLK_CONF_IDX_AS_NUM_VAL      = 0x02, /*< For implicitly (index) encoded values this indicates the implicit value
-//                                              will be interpreted as the numerical "calculation" value. When this flag
-//                                              is not set, the defaut is to use the implicit value as the configuration
-//                                              register value.
-//                                              Note: this can also be used together with ranges (i.e. GCLK_CONF_RANGEX)
-//                                              to interpret the index as the numeric value instead of the value at that
-//                                              position */
-//    GCLK_REG_VAL_INC_PRE_MAP      = 0x04, /*< Indicates that values need to be incremented before they are used to map
-//                                              to the numerical value. This is useful for example if a register value of
-//                                              0 is equivalent to a multiplier or divisor of 1. This always works in both
-//                                              directions: value determined by the mapping function will be decremented
-//                                              before it is written to the config register */
-//    GCLK_REG_VAL_DEC_PRE_MAP      = 0x08, /*< Same as above but decrementing before mapping. */
-// @todo under consideration, could potentially be used to speed up queries:
-//    GCLK_PARENT_FREQ_PASSED     = 0x04, /*< indicates if the parent frequency is just passed thru this node, nodes that
-//                                            can have passed, as well as modified frequencies are not supported and
-//                                            must be modeled manually */
-//    GCLK_FREQ_VARIABLE          = 0x08, /*< indicates that this node can alter its output frequency internally.
-//                                            Does not apply to nodes just forwarding a (variable) parent frequency */
-//    GCLK_FREQ_DEPENDS_ON_PARENT = 0x10, /*< indicates get_freqthat the frequency of this clock depends on it's parent clock */
-//    GCLK_EXCLUSIVE_PARENT       = 0x20, /*< indicates that the parent is only (exclusively) serving this particular
-//                                            clock without affecting other clocks. This can be helpful when modelling
-//                                            complex composite clock nodes as multiple base-type instances (e.g.) a
-//                                            combination of a mux -> scaler -> gate.
-//                                            In such a case the clock framework can safely delegate requests like
-//                                            set_freq from the gate up until the mux. With that a user of the leaf-clock
-//                                            (i.e. the gate in this case) can call into the api as if the gate suports
-//                                            all operations directly (set_freq / set_parent etc.)
-//                                            @todo: maybe it would be good to explicitly control if this is allowed
-//                                                   for a specific call as it changes the semantics (e.g. set_parent)*/
 };
 
 /**
@@ -548,7 +503,6 @@ typedef struct gclk_base {
 
     /* @todo: partition generic and user flags */
     struct __attribute__((packed)) {
-        enum gclk_clk_conf_flags       conf_flags      : 4;  /*@ todo: could/should? be moved to user flags */
         enum gclk_clk_topology_flags   topology_flags  : 4;
         enum gclk_scaler_type          scaler_type     : 2;  /*@ todo: could/should? be moved to user flags */
         unsigned int                   conf_cnt        : 16; /* number of configuration options available */
@@ -570,7 +524,7 @@ typedef struct gclk_base {
         unsigned int                   is_source       : 1;  /* 1 if the clock is a source.
                                                                 If set, @fixed_freq must be provided.
                                                                 NOTE: not compatible with @muxable!. */
-        unsigned int                   user_flags      : 32 - (1 + 1 + 1 + 1 + 1 + 10 + 4 + 4 + 6 + 2); /* reserved for platform use */
+        unsigned int                   user_flags      : 32 - (1 + 1 + 1 + 1 + 1 + 16 + 2 + 4); /* reserved for platform use */
     } flags;
 } gclk_t;
 
