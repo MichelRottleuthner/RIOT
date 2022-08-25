@@ -133,41 +133,76 @@ typedef enum gclk_enable_option {
 } gclk_enable_option_t;
 
 #ifndef GCLK_CONF_REG_IDX_BITWIDTH
+/**
+ * @brief Number of bits used to store a configuration register index.
+ *
+ * This can be overwritten by the platform config in case more bits are needed.
+ * @note if more than 4 bits are used the regref definition will not fit into
+ *       a single 32 bit integer anymore.
+ */
 #define GCLK_CONF_REG_IDX_BITWIDTH  (4)
 #endif
 
+/**
+ * @brief Config register descriptor.
+ *
+ * Combines commonly needed data to describe which registers and bits are used for clock control.
+ * @note members of this struct shall never be accessed directly. Instead, use utility wrappers
+ *       defined below in order to still allow seamless changes of the encoding in the future.
+ */
 typedef struct __attribute__((packed)) {
-    unsigned int         en: GCLK_CONF_REG_IDX_BITWIDTH;
-    unsigned int        rdy: GCLK_CONF_REG_IDX_BITWIDTH;
-    unsigned int       conf: GCLK_CONF_REG_IDX_BITWIDTH;
-    unsigned int     en_bit: 5; /* 0-31 */
-    unsigned int    rdy_bit: 5; /* 0-31 */
-    unsigned int   conf_lsb: 5; /* 0-31 */
-    unsigned int   conf_msb: 5; /* 0-31 */
+    unsigned int         en: GCLK_CONF_REG_IDX_BITWIDTH; /**< The register(-ID) that contains the enable bit. */
+    unsigned int        rdy: GCLK_CONF_REG_IDX_BITWIDTH; /**< The register(-ID) that contains the ready bit. */
+    unsigned int       conf: GCLK_CONF_REG_IDX_BITWIDTH; /**< The register(-ID) that contains configuration bits. */
+    unsigned int     en_bit: 5; /**< Bit index of the enable bit (0-31) */
+    unsigned int    rdy_bit: 5; /**< Bit index of the ready bit (0-31) */
+    unsigned int   conf_lsb: 5; /**< Bit index of the lowest configuration bit (0-31) */
+    unsigned int   conf_msb: 5; /**< Bit index of the highest configuration bit (0-31) */
 } gclk_reg_ref_t;
 
+/**
+ * @brief Configuration registers defined externally by platform code.
+ */
 extern uint32_t volatile * const conf_regs[];
 
+/**
+ * @brief Get the register for enable control from a regref value.
+ */
 static inline volatile uint32_t * gclk_regref2enable_reg(gclk_reg_ref_t regref) {
     return conf_regs[regref.en];
 }
 
+/**
+ * @brief Get the enable mask from a regref value.
+ */
 static inline uint32_t gclk_regref2enable_mask(gclk_reg_ref_t regref) {
     return 1 << regref.en_bit;
 }
 
+/**
+ * @brief Get the register for the ready state from a regref value.
+ */
 static inline volatile uint32_t * gclk_regref2ready_reg(gclk_reg_ref_t regref) {
     return conf_regs[regref.rdy];
 }
 
+/**
+ * @brief Get the ready mask from a regref value.
+ */
 static inline uint32_t gclk_regref2ready_mask(gclk_reg_ref_t regref) {
     return 1 << regref.rdy_bit;
 }
 
+/**
+ * @brief Get the register for value configuration from a regref value.
+ */
 static inline volatile uint32_t * gclk_regref2conf_reg(gclk_reg_ref_t regref) {
     return conf_regs[regref.conf];
 }
 
+/**
+ * @brief Get the configuration value mask from a regref value.
+ */
 static inline uint32_t gclk_regref2conf_mask(gclk_reg_ref_t regref) {
     uint32_t mask = 0xFFFFFFFF;
     mask = mask >> regref.conf_lsb;
