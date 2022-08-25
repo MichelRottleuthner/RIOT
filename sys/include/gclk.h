@@ -132,11 +132,6 @@ typedef enum gclk_enable_option {
     GCLK_READ,    /*< request the current state only without modification */
 } gclk_enable_option_t;
 
-
-/* the below section needs to be moved out of here once the best method is selected (or it is found that tiny regref
-   is not enough for some platforms )*/
-#ifdef GCLK_USE_TINY_REG_REF
-
 #ifndef GCLK_CONF_REG_IDX_BITWIDTH
 #define GCLK_CONF_REG_IDX_BITWIDTH  (4)
 #endif
@@ -183,7 +178,6 @@ static inline uint32_t gclk_regref2conf_mask(gclk_reg_ref_t regref) {
 }
 
 bool gclk_regref_enable_op(gclk_reg_ref_t regref, gclk_enable_option_t opt);
-#endif
 
 #define GCLK_CURRENT_PARENT_IDX     (0) /* index used to get the currently active parent with get_parent */
 
