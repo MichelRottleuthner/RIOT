@@ -104,19 +104,6 @@ enum gclk_clk_topology_flags {
                                               if its input is above some value. */
 };
 
-/**
- * @brief values to encode what kind of frequency is queried
- */
-enum gclk_api_flags {
-    GCLK_FREQ_NEXT_HIGHER = 0x01, /*< requests the next higher possible frequency that is not the same */
-    GCLK_FREQ_NEXT_LOWER  = 0x02, /*< requests the next lower possible frequency that is not the same */
-    GCLK_FREQ_CLOSEST     = 0x04, /*< requests the closest possible frequency (may be equal, lower or higher)
-                                      NOTE: a frequency of 0 Hz has a special meaning in this case.
-                                      When requesting a frequency of 1 Hz implementations must always give the closest
-                                      frequency that actually produces a clock signal. Only when explicitly requesting
-                                      zero Hz, 0 should be returned */
-};
-
 #define GCLK_INVALID_FREQ       (0xFFFFFFFFU)
 #define GCLK_HIGHEST_VALID_FREQ (GCLK_INVALID_FREQ - 1U)
 #define GCLK_UNDEFINED_TOPOLOGY (-1)
