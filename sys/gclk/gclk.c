@@ -36,38 +36,6 @@ const gclk_trim_ops_t *gclk_get_trim_ops(const gclk_t *clk) {
                                                  clk->flags.gateable] :
            NULL;
 }
-//gclk_t gclks[GCLK_NUM_OF_CLOCKS];
-#if defined(GCLK_USE_TINY_REG_REF)
-bool gclk_regref_enable_op(gclk_reg_ref_t regref, gclk_enable_option_t opt)
-{
-    uint32_t cur_val = 0;
-    /* only access a valid register ( always-on gate could model a fixed source) */
-    if (gclk_regref2enable_reg(regref)) {
-        cur_val = *gclk_regref2enable_reg(regref);
-
-        if (opt == GCLK_ENABLE) {
-            gclk_reg_util_set_mask(gclk_regref2enable_reg(regref), gclk_regref2enable_mask(regref));
-        } else if (opt == GCLK_DISABLE) {
-            gclk_reg_util_clear_mask(gclk_regref2enable_reg(regref), gclk_regref2enable_mask(regref));
-        }
-    }
-
-    if (gclk_regref2ready_reg(regref)) {/* only wait for a ready flag if this register is defined */
-        if (opt == GCLK_ENABLE) {
-            while (!(*(gclk_regref2ready_reg(regref)) & gclk_regref2ready_mask(regref))) {}
-        } else if (opt == GCLK_DISABLE) {
-            while (*(gclk_regref2ready_reg(regref)) & gclk_regref2ready_mask(regref)) {}
-        }
-    }
-
-    /* if no enable register is defined, always assume the gate was previously enabled */
-    if (gclk_regref2enable_reg(regref)) {
-        return cur_val & gclk_regref2enable_mask(regref);
-    } else {
-        return true;
-    }
-}
-#endif
 
 uint32_t gclk_print_scale_freq(uint32_t val) {
     if (val % 1000000 == 0) {
