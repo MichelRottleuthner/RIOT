@@ -726,12 +726,6 @@ const gclk_gate_ops_t *gclk_get_gate_ops(const gclk_t *clk);
  */
 const gclk_trim_ops_t *gclk_get_trim_ops(const gclk_t *clk);
 
-/* combines a constraint that limits input- or output frequency to or from a clock instance */
-typedef struct gclk_in_out_clock_constraint {
-    gclk_range32_t in_freq;
-    gclk_range32_t out_freq;
-} gclk_in_out_clock_constraint_t;
-
 typedef enum {
     GCLK_ENSURE_MIN_FREQ,
     GCLK_ENSURE_MAX_FREQ,
