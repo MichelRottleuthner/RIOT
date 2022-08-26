@@ -244,52 +244,92 @@ enum gclk_scaler_type {
 };
 
 /**
- * @brief  Low-level interface to configure clock routing.
+ * @brief  Low-level interface to configure clock scale factors.
+ *
+ * To check whether this optional interface capability is supported by a specific
+ * clock instance use @ref gclk_is_scalable().
  *
  * @detail This interface is meant to wrap the interaction with the hardware.
- *         This is done completely without knowledge on the configuration options.
- *         The only assumption is that all possible options can be described or
- *         referenced by unabiguous indexes.
+ *         No hardware specific knowledge on how to set up respective hardware
+ *         state is required as a user of the API. However, it must be ensured
+ *         by the caller that values handed to this interface are valid and
+ *         applicable to the clock. There are several helper functions to query
+ *         possible factor options, see @ref gclk_factor_cnt(),
+ *         @ref gclk_idx2factor(), and @ref gclk_factor2idx().
+ *
+ * @note The interface can be used for both multipliers and dividers. The effect
+ *       of the scaling operation then depends on the type of scaler, which
+ *       can be checked by @ref gclk_is_divider() and @ref gclk_is_multiplier().
  *
  */
 typedef struct gclk_scale_ops {
-    /* @brief Get currently configured factor from the hardware
-     * @param clk  The clock to get the factor of.
-     * @return     The currently configured factor as numerical value. */
+    /**
+     * @brief Get currently configured scaling factor from the hardware.
+     * @param clk  The clock whose scaling factor to get.
+     * @return     The currently configured scaling factor as numerical value.
+     */
     unsigned int (*get_factor)(const gclk_t *clk);
 
-    /* @brief Configure new factor by writing to hardware
-     * @param clk     The clock that the factor will be changed of.
-     * @param factor  The new factor as numerical value.
-     * @pre   @factor must be a valid value for clk.
-     * */
+    /**
+     * @brief Configure new scaling factor by writing to hardware
+     * @param clk     The clock whose scaling factor to set.
+     * @param factor  The new scaling factor as numerical value.
+     * @pre   @p factor must be a valid value for clk.
+     */
     void (*set_factor)(const gclk_t *clk, unsigned int factor);
 } gclk_scale_ops_t;
 
+/**
+ * @brief  Low-level interface to configure clock muxing (i.e., routing).
+ *
+ * To check whether this optional interface capability is supported by a specific
+ * clock instance use @ref gclk_is_muxable().
+ *
+ * @detail This interface is meant to wrap the interaction with the hardware.
+ *         No hardware specific knowledge on how to set up respective hardware
+ *         state is required as a user of the API. However, it must be ensured
+ *         by the caller that values handed to this interface are valid and
+ *         applicable to the clock. There are several helper functions to query
+ *         possible parent options, see @ref gclk_parent_cnt(),
+ *         @ref gclk_idx2parent(), and @ref gclk_parent2idx().
+ */
 typedef struct gclk_mux_ops {
-    /* @brief Get currently configured parent from the hardware
-     * @param clk  The clock to get the parent of.
-     * @return     The currently configured parent as reference. */
+    /**
+     * @brief Get currently configured parent from the hardware.
+     * @param clk  The clock whose parent to get.
+     * @return     The currently configured parent as reference.
+     */
     const gclk_t* (*get_parent)(const gclk_t *clk);
 
-    /* @brief Configure new parent by writing to hardware
+    /**
+     * @brief Configure new parent by writing to hardware.
      * @param clk  The clock that the parent will be changed of.
      * @param idx  The new parent option as index of possible options.
      * @pre   @idx must be a valid value for clk.
-     * */
+     */
     void (*set_parent)(const gclk_t *clk, unsigned int idx);
 } gclk_mux_ops_t;
 
+/**
+ * @brief  Low-level interface to configure clock gating (enable/disable control).
+ *
+ * To check whether this optional interface capability is supported by a specific
+ * clock instance use @ref gclk_is_gateable().
+ */
 typedef struct gclk_gate_ops {
-    /* @brief Get enabled state from hardware
-     * @param clk  The clock to get the ienabled state of.
-     * @return     true if enabled, flase if of (gated). */
+    /**
+     * @brief Get enabled state from hardware.
+     * @param clk  The clock whose enabled state to get.
+     * @return     true if enabled.
+     *             false if off (gated).
+     */
     bool (*is_enabled)(const gclk_t *clk);
 
-    /* @brief Enable disable clock
-     * @param clk  The clock that will be enabled/disabled.
+    /**
+     * @brief Enable/disable a clock.
+     * @param clk  The clock to enable/disable.
      * @param on   The new enabled state of @clk.
-     * */
+     */
     void (*enable)(const gclk_t *clk, bool on);
 } gclk_gate_ops_t;
 
