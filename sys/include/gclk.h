@@ -426,7 +426,7 @@ typedef struct gclk_reg_val_cross_ref_luf {
 } gclk_reg_val_cross_ref_luf_t;
 
 /**
- * @brief Maps numerical values and (OTP) factory calibrated register contents. 
+ * @brief Maps numerical values and (OTP) factory calibrated register contents.
  *
  * Some devices have special memory locations that carry one time programmable / factory-
  * calibrated configuration parameters. This mapping type can be used to map effective
@@ -439,15 +439,26 @@ typedef struct gclk_reg_val_ptr_lut {
                                                 register to setup the above factor. */
 } gclk_reg_val_ptr_lut_t;
 
+/**
+ * @brief Container union to store either a reference to a mapping type or a fixed factor.
+ *
+ * Most of these types are used to encode mappings between numerical values and values
+ * that must be written to a (specific location of) a configuration register.
+ * These types encode (sets of) values, but the complete semantic of the mapping procedure
+ * only forms when combined with a specific mapping function that slightly alter how the
+ * value encodings are translated to register values. See for example
+ * @ref gclk_map_func_regval_as_numval_range8() and
+ * @ref gclk_map_func_idx_as_regval_range8().
+ */
 typedef union factor_mapping {
-    const gclk_reg_val_factor_lut_t    *lut;
-    const gclk_reg_val_ptr_lut_t       *ptr_lut;
-    const gclk_reg_val_cross_ref_luf_t *cross_ref;
-    const gclk_range8_t                *range8;
-    const gclk_range16_t               *range16;
-    const uint8_t                      *list8;
-    const uint16_t                     *list16;
-    const uint32_t                     fixed_factor;
+    const gclk_reg_val_factor_lut_t    *lut;       /**< 16 bit num. val. to 8 bit register content LUT. */
+    const gclk_reg_val_ptr_lut_t       *ptr_lut;   /**< 16 bit num. val. to 32 bit memory location LUT. */
+    const gclk_reg_val_cross_ref_luf_t *cross_ref; /**< Strictly dependent (RO) 32 bit num. val. cross-ref LUF. */
+    const gclk_range8_t                *range8;    /**< 8 bit num. val. range. */
+    const gclk_range16_t               *range16;   /**< 16 bit num. val. range. */
+    const uint8_t                      *list8;     /**< 8 bit value list. */
+    const uint16_t                     *list16;    /**< 16 bit value list. */
+    const uint32_t                     fixed_factor; /**< (up to) 32 bit single fixed value. */
 } gclk_factor_mapping_t;
 
 /* Type that maps a specific parent selection to a config register value */
