@@ -28,9 +28,9 @@
  * -Configuring combinations of scaling factors that effectively violate hardware constraints.
  *
  * Therefore this API should only be used manually if you know **exactly** what you are doing.
- * For higher level control and safe operation we refer to the @ref gclk_manager instead, which
- * uses this API to to automatically set up specific valid configurations and performs dynamic
- * adaptations.
+ * For higher level control and safe operation we refer to the @ref sys_gclk_manager instead,
+ * which uses this API to to automatically set up specific valid configurations and performs
+ * dynamic adaptations.
  *
  * All clocks have runtime information and metadata (possible configuration options) which can
  * be accessed. In many cases respective configurations can also be changed dynamically:
@@ -498,6 +498,29 @@ typedef union parent_mapping {
  *    - The related performance impact of pointer indirection would need investigation.
  */
 typedef struct gclk_base {
+    /**
+     * @brief separate low-level capability interface ops.
+     *
+     * Points to a list of all supported low-level interface capability functions.
+     * The location of each particular function depends on the instance-specific
+     * feature availability. The order is fixed as follows:
+     * - 0: gclk_scale_ops_t
+     * - 1: gclk_mux_ops_t
+     * - 2: gclk_gate_ops_t
+     * - 3: gclk_trim_ops_t
+     *
+     * If a capability is not supported by a clock, the respective op pointer is not present
+     * and all greater indexes are effectively decremented. For example, a clock that is
+     * only scalable ad gateable would populate the ops like that:
+     * - 0: gclk_scale_ops_t
+     * - 1: gclk_gate_ops_t
+     *
+     * This logic is hidden from the user for simplicity and to allow future changes
+     * to this pattern or platform-specific optimizations for performance reasons.
+     * Refer to corresponding utility functions (@ref gclk_get_scale_ops(),
+     * @ref gclk_get_mux_ops(), @ref gclk_get_gate_ops(), and @ref gclk_get_trim_ops())
+     * to access those function pointers in an implementation agnostic way.
+     */
     const gclk_op_t *separated_ops;
     /**
      * @brief Configuration map ops.
@@ -618,58 +641,89 @@ typedef struct gclk_base {
         enum gclk_scaler_type        scaler_type   : 2;  /**< Type of scaler (mul/div/none). */
         unsigned int                 conf_cnt      : 16; /**< Number of configuration options available. */
         unsigned int                 scalable      : 1;  /**< 1 if the clock can scale its input frequency.
-                                                              If set, @separated_ops **MUST** contain a
-                                                              gclk_scale_ops_t compatible reference.*/
+                                                              If set, #separated_ops **MUST** contain a
+                                                              @ref gclk_scale_ops_t compatible reference.*/
         unsigned int                 muxable       : 1;  /**< 1 if the clock can be switched to different
-                                                              clock inputs. If set, @separated_ops **MUST**
-                                                              contain a gclk_mux_ops_t compatible reference.
-                                                              If 0, @fixed_parent **MUST** hold a reference
+                                                              clock inputs. If set, separated_ops **MUST**
+                                                              contain a @ref gclk_mux_ops_t compatible reference.
+                                                              If 0, @ref fixed_parent **MUST** hold a reference
                                                               to the parent feeding this this clock. */
         unsigned int                 gateable      : 1;  /**< 1 if the clock can be enabled/disabled.
-                                                              If set, @separated_ops **MUST** contain a
-                                                              gclk_gate_ops_t compatible reference.*/
-        unsigned int                 trimmable     : 1;  /**< 1 if the clock be trimmed. If set,
-                                                              @separated_ops **MUST** contain a
-                                                              gclk_trim_ops_t compatible reference.*/
+                                                              If set, separated_ops **MUST** contain a
+                                                              @ref gclk_gate_ops_t compatible reference.*/
+        unsigned int                 trimmable     : 1;  /**< 1 if the clock can be trimmed. If set,
+                                                              separated_ops **MUST** contain a
+                                                              @ref gclk_trim_ops_t compatible reference.*/
         unsigned int                 is_source     : 1;  /**< 1 if the clock is a source.
-                                                              If set, @fixed_input_freq must be provided.
-                                                              Never used together with @muxable!. */
+                                                              If set, @ref fixed_input_freq must be provided.
+                                                              Never used together with @ref muxable!. */
         /** @brief Space reserved for platform-specific flags. */
         unsigned int                 user_flags    : 32 - (1 + 1 + 1 + 1 + 1 + 16 + 2 + 4);
     } flags;
 } gclk_t;
 
 /**
- * @brief Extended clock type for primitive clock instances
+ * @brief Generic clock type that includes data for primitive clock instances.
  *
  * This type extends the clock base type with fields that can be used to express
  * the low level register interface for many common primitive clock instances.
- * The gclk_reg_ref_t type is used to encode register access information in a compact
- * format. This clock type is meant to be used as the datatype for basic gates, muxes
- * and scalers. It is also possible to combine either a mux or a scaler together with
- * a gate in the same instance.
+ * The @ref gclk_reg_ref_t type is used to encode common register access information
+ * in a compact format. This clock type is meant to be used as the datatype for basic
+ * gates, muxes and scalers. It is also possible to combine either a mux or a scaler
+ * together with a gate in the same instance.
  * A muxable scaler on the other hand must be split into two separate instances that
  * allow either scaling or muxing.
- * In any case, it is always possible to define a fully custom clock type for clocks
- * that are more complex to interface.
+ * In any case, custom clock types can be defined for clocks that are more complex
+ * to interface.
  **/
 typedef struct {
-  gclk_t base;
-  const gclk_reg_ref_t regref;
+  gclk_t base; /**< Clock base type. */
+  const gclk_reg_ref_t regref; /**< Compact register access descriptor. */
 } gclk_basic_clock_t;
 
 /**
- * @brief get more specific basic clock from generic clock type
+ * @brief Get more specific basic clock from generic clock type.
+ *
+ * @pre @p clk must refer to a @ref gclk_basic_clock_t instance.
+ *
+ * @param[in] clk  The generic clock reference.
+ * @return The reference to the basic clock type.
  */
 static inline gclk_basic_clock_t *gclk_to_basic_clock_t(const gclk_t *clk)
 {
     return container_of(clk, gclk_basic_clock_t, base);
 }
 
-/* TODO: check if static inline is preferable here */
+/**
+ * @brief Get the scaling interface pointer of @p clk
+ *
+ * @return  A reference to the instance-specific scaler interface if @p clk is scalable.
+ *          NULL if @p clk is not scalable.
+ */
 const gclk_scale_ops_t *gclk_get_scale_ops(const gclk_t *clk);
+
+/**
+ * @brief Get the muxing interface pointer of @p clk
+ *
+ * @return  A reference to the instance-specific muxing interface if @p clk is muxable.
+ *          NULL if @p clk is not muxable.
+ */
 const gclk_mux_ops_t *gclk_get_mux_ops(const gclk_t *clk);
+
+/**
+ * @brief Get the gating interface pointer of @p clk
+ *
+ * @return  A reference to the instance-specific gating interface if @p clk is gateable.
+ *          NULL if @p clk is not gateable.
+ */
 const gclk_gate_ops_t *gclk_get_gate_ops(const gclk_t *clk);
+
+/**
+ * @brief Get the trim interface pointer of @p clk
+ *
+ * @return  A reference to the instance-specific trim interface if @p clk is trimmable.
+ *          NULL if @p clk is not trimmable.
+ */
 const gclk_trim_ops_t *gclk_get_trim_ops(const gclk_t *clk);
 
 /* combines a constraint that limits input- or output frequency to or from a clock instance */
