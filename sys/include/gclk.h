@@ -370,19 +370,28 @@ typedef union {
     const gclk_trim_ops_t  trim_ops;  /**< Clock trim interface */
 } gclk_op_t;
 
+/**
+ * @brief  Number range with uint8_t values.
+ */
 typedef struct gclk_range8 {
-  uint8_t min;
-  uint8_t max;
+  uint8_t min; /**< min. value. */
+  uint8_t max; /**< max. value. */
 } gclk_range8_t;
 
+/**
+ * @brief  Number range with uint16_t values.
+ */
 typedef struct gclk_range16 {
-  uint16_t min;
-  uint16_t max;
+  uint16_t min; /**< min. value. */
+  uint16_t max; /**< max. value. */
 } gclk_range16_t;
 
+/**
+ * @brief  Number range with uint32_t values.
+ */
 typedef struct gclk_range32 {
-  uint32_t min;
-  uint32_t max;
+  uint32_t min; /**< min. value. */
+  uint32_t max; /**< max. value. */
 } gclk_range32_t;
 
 /* @todo: provide alternatives with different widths (?) */
