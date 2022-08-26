@@ -394,23 +394,34 @@ typedef struct gclk_range32 {
   uint32_t max; /**< max. value. */
 } gclk_range32_t;
 
-/* @todo: provide alternatives with different widths (?) */
-typedef uint8_t  gclk_regval_t;
-typedef uint16_t gclk_numval_t;
-
-/* @todo provide alternative width (single compiletime-fixed option only?) */
+/**
+ * @brief Numerical factor / register value LUT type.
+ *
+ * Used to store lookup tables which map between 16 bit numerical factors and
+ * 8 bit register values.
+ */
 typedef struct gclk_reg_val_factor_lut {
-    uint16_t factor;  /* integer factor the clock ins divided or multiplied (i.e. scaled) by */
-    uint8_t reg_val;  /* value that must be written to its configuration register to set the above factor */
+    uint16_t factor;  /**< Integer factor the clock is scaled by. */
+    uint8_t reg_val;  /**< Value that must be written to the configuration register
+                           to set the above factor */
 } gclk_reg_val_factor_lut_t;
 
-/* This mapping makes the configuration of a clock just strictly depend on another clocks configuration.
- * I.e. one clock (A) statically multiplies by either X or Y depending on the setting of another clock (B) */
+/**
+ * @brief Cross referenced value lookup function descriptor.
+ *
+ * This mapping can be used for clocks whose cnfiguration strictly depend
+ * on another clocks configuration. I.e. one clock (A) statically multiplies/divides
+ * by either X or Y, depending on the setting of another clock (B). */
 typedef struct gclk_reg_val_cross_ref_luf {
-    const gclk_t *ref_clk;
-    /* conf is either set to a specific configuration of the other clock (B) (which is the clock *this* clock (A)
-     * depends on) or it is set to NULL if the current state of clock (A) shall be determined (based on the
-     * current state of clock (B)) */
+    const gclk_t *ref_clk; /**< The reference clock (B), which another clock (A) strictly depends on. */
+    /**
+     * @brief The lookup function translating a specific config state to a numeric value.
+     *
+     * @param[in] clk   The (dependent) clock (A) whose value to get.
+     * @param[in] conf  Either a specific configuration (of the other clock (B)), or
+     *                  NULL to get the current state of clock (A), based on the *current* state (B).
+     * @return The numerical scaling factor of @p clk.
+     */
     uint32_t (* const luf)(const gclk_t *clk, const clk_topology_entry_t *conf);
 } gclk_reg_val_cross_ref_luf_t;
 
