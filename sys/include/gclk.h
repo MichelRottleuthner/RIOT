@@ -614,28 +614,28 @@ typedef struct gclk_base {
      * @brief Clock properties and flags describing features and capabilities.
      */
     struct __attribute__((packed)) {
-        enum gclk_clk_topology_flags   topology_flags  : 4;
-        enum gclk_scaler_type          scaler_type     : 2;  /*@ todo: could/should? be moved to user flags */
-        unsigned int                   conf_cnt        : 16; /* number of configuration options available */
-        unsigned int                   scalable        : 1;  /* 1 if the clock can scale its input frequency.
-                                                                If set, @separated_ops *must* contain a
-                                                                gclk_scale_ops_t compatible reference.*/
-        unsigned int                   muxable         : 1;  /* 1 if the clock be switched to different clock inputs.
-                                                                If set, @separated_ops *must* contain a
-                                                                gclk_mux_ops_t compatible reference.
-                                                                If 0, @fixed_parent must hold a reference
-                                                                to the parent clock that provides input to
-                                                                this clock */
-        unsigned int                   gateable        : 1;  /* 1 if the clock be enabled/disabled.
-                                                                If set, @separated_ops *must* contain a
-                                                                gclk_gate_ops_t compatible reference.*/
-        unsigned int                   trimmable       : 1;  /* 1 if the clock be trimmed.
-                                                                If set, @separated_ops *must* contain a
-                                                                gclk_trim_ops_t compatible reference.*/
-        unsigned int                   is_source       : 1;  /* 1 if the clock is a source.
-                                                                If set, @fixed_freq must be provided.
-                                                                NOTE: not compatible with @muxable!. */
-        unsigned int                   user_flags      : 32 - (1 + 1 + 1 + 1 + 1 + 16 + 2 + 4); /* reserved for platform use */
+        enum gclk_clk_topology_flags topology_flags: 4;
+        enum gclk_scaler_type        scaler_type   : 2;  /**< Type of scaler (mul/div/none). */
+        unsigned int                 conf_cnt      : 16; /**< Number of configuration options available. */
+        unsigned int                 scalable      : 1;  /**< 1 if the clock can scale its input frequency.
+                                                              If set, @separated_ops **MUST** contain a
+                                                              gclk_scale_ops_t compatible reference.*/
+        unsigned int                 muxable       : 1;  /**< 1 if the clock can be switched to different
+                                                              clock inputs. If set, @separated_ops **MUST**
+                                                              contain a gclk_mux_ops_t compatible reference.
+                                                              If 0, @fixed_parent **MUST** hold a reference
+                                                              to the parent feeding this this clock. */
+        unsigned int                 gateable      : 1;  /**< 1 if the clock can be enabled/disabled.
+                                                              If set, @separated_ops **MUST** contain a
+                                                              gclk_gate_ops_t compatible reference.*/
+        unsigned int                 trimmable     : 1;  /**< 1 if the clock be trimmed. If set,
+                                                              @separated_ops **MUST** contain a
+                                                              gclk_trim_ops_t compatible reference.*/
+        unsigned int                 is_source     : 1;  /**< 1 if the clock is a source.
+                                                              If set, @fixed_input_freq must be provided.
+                                                              Never used together with @muxable!. */
+        /** @brief Space reserved for platform-specific flags. */
+        unsigned int                 user_flags    : 32 - (1 + 1 + 1 + 1 + 1 + 16 + 2 + 4);
     } flags;
 } gclk_t;
 
