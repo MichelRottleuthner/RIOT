@@ -425,11 +425,18 @@ typedef struct gclk_reg_val_cross_ref_luf {
     uint32_t (* const luf)(const gclk_t *clk, const clk_topology_entry_t *conf);
 } gclk_reg_val_cross_ref_luf_t;
 
-/* @todo provide alternative width (single compiletime-fixed option only?) */
+/**
+ * @brief Maps numerical values and (OTP) factory calibrated register contents. 
+ *
+ * Some devices have special memory locations that carry one time programmable / factory-
+ * calibrated configuration parameters. This mapping type can be used to map effective
+ * numerical scaling factors to those respective memory locations.
+ */
 typedef struct gclk_reg_val_ptr_lut {
-    uint16_t                 factor;       /* integer factor the clock ins divided or multiplied (i.e. scaled) by */
-    const volatile uint32_t* reg_val_ptr;  /* pointer to the memory that holds the value that must be written to
-                                              its configuration register to set the above factor */
+    uint16_t                 factor;       /**< Integer factor the clock is scaled by. */
+    const volatile uint32_t* reg_val_ptr;  /**< Pointer to the memory that holds the respective
+                                                value that must be written to the configuration
+                                                register to setup the above factor. */
 } gclk_reg_val_ptr_lut_t;
 
 typedef union factor_mapping {
