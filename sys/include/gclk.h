@@ -425,11 +425,6 @@ typedef struct gclk_reg_val_cross_ref_luf {
     uint32_t (* const luf)(const gclk_t *clk, const clk_topology_entry_t *conf);
 } gclk_reg_val_cross_ref_luf_t;
 
-typedef struct gclk_reg_val_clk_lut {
-    const gclk_t *clk;  /* clock that is set up for the below register value */
-    uint8_t reg_val;     /* value that must be written to its configuration register to set the above clock */
-} gclk_reg_val_clk_lut_t;
-
 /* @todo provide alternative width (single compiletime-fixed option only?) */
 typedef struct gclk_reg_val_ptr_lut {
     uint16_t                 factor;       /* integer factor the clock ins divided or multiplied (i.e. scaled) by */
