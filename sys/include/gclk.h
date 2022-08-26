@@ -461,84 +461,158 @@ typedef union factor_mapping {
     const uint32_t                     fixed_factor; /**< (up to) 32 bit single fixed value. */
 } gclk_factor_mapping_t;
 
-/* Type that maps a specific parent selection to a config register value */
+/**
+ * @brief Encodes the config register value for a specific parent selection.
+ */
 typedef struct {
-    const gclk_t * const parent;     /* parent that is selected in this config */
-    const uint32_t  config_reg_val;  /* value that needs to be written to respective config register to select this parent */
+    const gclk_t * const parent;    /**< Parent that is selected with this config value. */
+    const uint32_t  config_reg_val; /**< Value read/written to respective config register
+                                         to select this parent. */
 } gclk_parent_config_lut_t;
 
+/**
+ * @brief Container union to store different parent option encodings.
+ */
 typedef union parent_mapping {
+    /**
+     * @brief A list of possible parents as clock instance pointers.
+     */
     const gclk_t                   * const * plist;
+    /**
+     * @brief A reference to a LUT which maps parent options to regiter values.
+     */
     const gclk_parent_config_lut_t * const lut;
 } gclk_parent_config_mapping_t;
 
 /**
- * @brief clk low level handle
+ * @brief Generic low-level clock handle.
  *
- * This is the common generic low-level handle.
+ * This is the generic low-level handle which describes a clock with its properties and its capbilities.
+ * Clock instances are expected to be provided as const instances via platform code. Clock references
+ * are used to identify a clock, therefore it is **not allowed** to hand copies to the API.
+ *
+ * @todo
+ *  - Factor_map_op and factor_mapping could be merged into one (flexibly)combined reference?
+ *    - For a specific instance they are tied together anyway, so combining them could saves
+ *      some memory if multiple clocks use the same get_factor_op + factor_mapping type.
+ *    - The related performance impact of pointer indirection would need investigation.
  */
 typedef struct gclk_base {
     const gclk_op_t *separated_ops;
-    /* TODO: -combine factor_map_op and mapping type into separate type that we just hold a reference to?
-     *       -they are tied together anyway so combining them saves memory if multiple clocks
-     *        use the same get_factor_op + factor mapping type
-     *       -hardware access could benefit from a similar abstraction by providing separate functions
-     *        that read/write register values
-     *        - for that we would need a somewhat flexible description of involved registers
-     *          (e.g. tinyregref and privateptr) and (a maybe separate) description for procedures
-     *          how to interface those registers.
-     *       -clearly separate access to numerical values from hw specific configuration mapping */
-    /* This is not part of the base type ops as it is expected that this often varies even for
-     * clocks that (apart from the value mapping) share the same fuctionalities (ops).
-     * Having it here makes it possible to overwrite it on a per-instace basis.
+    /**
+     * @brief Configuration map ops.
+     *
+     * This is not part of the base type separated_ops to allow overwriting
+     * it on a per-instace basis, as it is expected to vary a lot - even
+     * between clocks that share the same separated_ops code.
      */
     union {
-        /*
-         * @param idx     the index of the wanted factor (must be guaranteed to be valid!)
-         * @param regval  true when mapping idx to register value
-         *                false when mapping idx to numerical value
+        /**
+         * @brief Translate between config index and factor/register value.
+         *
+         * @param[in] clk     The clock instance to get the data from.
+         * @param[in] idx     The (0-based) index of the wanted value (must be guaranteed to be valid!).
+         * @param[in] regval  true when mapping idx to register value.
+         *                    false when mapping idx to numerical value.
          */
         uint32_t (* const factor_map_op)(const gclk_t *clk, unsigned int idx, bool to_regval);
-        /*
-         * @param idx            the key that will be mapped to a parent (must be guaranteed to be valid!)
-         * @return               register value that corresponds to parent and index
+
+        /**
+         * @brief Translate between config index and factor/register value.
+         *
+         * @param[in]     clk     The clock instance to get the data from.
+         * @param[in,out] parent  Location where to store the parent reference.
+         * @param[in]     idx     The (0-based) index that will be mapped to a parent and
+         *                        register value (must be guaranteed to be valid!).
+         *
+         * @return        The register value corresponding to parent and index.
          */
         uint32_t (* const parent_map_op)(const gclk_t *clk, const gclk_t **parent, unsigned int idx);
-        /*
-         * @Note          This only applies to read-only clocks that are strictily dependent on another clock.
-         *                Therefore the topology_flags.GCLK_STRICT_UPTREE_DEPENDENT must be set.
+
+        /**
+         * @brief Cross-referenced strictly dependent (read-only) clock config.
          *
-         * @param conf    the configuration of the cross-referenced clock this clock depends on
-         *                may be NULL if current value shall be read from the current config of the cross-referenced clock
+         * @note This only applies to read-only clocks that are strictily dependent on another
+         *       clock further up in the tree.  Therefore the
+         *       topology_flags.GCLK_STRICT_UPTREE_DEPENDENT must be set.
+         *
+         * @param[in]  clk     The clock instance to get the data from.
+         * @param[in]  conf    The configuration of the cross-referenced clock this clock depends on
+         *                     NULL to get the current config via the current config of the
+         *                     cross-referenced clock.
+         *
+         * @return     The numeric factor.
          */
         uint32_t (* const cross_ref_factor_map_op)(const gclk_t *clk, const clk_topology_entry_t *conf);
     };
 
-    /* this field is used to store mapping information in one of the following ways:
-     * NOTE: a single instance may only use ONE of these options (they are mutually exclusive)
-     * - a private (HW driver implementation specific) void pointer
-     * - a mapping type that provides information on possible scaling factors
-     * - a mapping type that provides information on possible parent section options
-     **/
+    /**
+     * @breif Factor/parent mapping data reference.
+     *
+     * This field is used to store mapping information in one of the following ways:
+     * - a private (HW driver implementation-specific) void pointer.
+     * - a mapping type that provides information on possible scaling factors.
+     * - a mapping type that provides information on possible parent selection options.
+     *
+     * @note A single instance may only use **ONE** of these options at a time,
+     *       they are mutually exclusive! To avoid misconfigurations also refer
+     *       to the static initialization macro helpers provided in this header.
+     *       See e.g., @ref GCLK_LIST8_STATIC_INIT.
+     */
     union {
         const void                         *private_data;
         const gclk_factor_mapping_t        factor_mapping;
         const gclk_parent_config_mapping_t parent_mapping;
     };
 
-    union {
-        /* this must be set if this clock is ia source, see flags below */
+    /**
+     * @brief Fixed input properties.
+     *
+     * There are two variants of fixed input for a clock, which mutually exlude
+     * each other, hence sharing a union for both.
+     * - Either a clock has a fixed input freq (only possible for a source).
+     *   -> this implies it is not muxable (as in that case the frequency would
+     *      dynamically depend on the selected parent.
+     * - Or the clock has a fixed parent which makes the input frequency strictly depend
+     *   on the parent output.
+     *   - Technically, the frequency may still be fixed in that case,
+     *     (if the parent frequency is fixed) but it keeps the explicit topological
+     *     dependency information.
+     */
+     union {
+        /**
+         * @brief Fixed input frequency in case this is a root source.
+         *
+         * @note This **MUST** be set if this clock is a source, also see flags below.
+         */
         const uint32_t fixed_input_freq;
-        /* this must be set for a non-muxable clock, see flags below */
+
+        /**
+         * @brief Fixed parent clock reference.
+         *
+         * @note This **MUST** be set for phone mascota non-muxable clock, also see flags below.
+         */
         const gclk_t   *fixed_parent;
     };
 
-    /* @todo: add an application specific generic context pointer? */
-    const char          *name;      /**< TODO: can be made compile-time optional as it is not
-                                         functionally required internally. only provides better
-                                         usability for human interaction */
+    /**
+     * @brief Unique human readable name that unabiguously identifies a clock instance.
+     *
+     * The name should be short and chosen as close as possible to names used in the
+     * manufacturer specification, to make it easy to look up furhter HW-specific
+     * information if needed.
+     * This name schould only be used for user-oriented utilities and features used for
+     * debugging/logging. Specifically, the name shall not be used by low-level code to
+     * reference a clock, search a clock, or compare clock instances to each other.
+     *
+     * @todo Add compile-time configuration setting and preprocessor helpers to
+     *       optionaly enable disable presence of this property (and referenced memory).
+     */
+    const char          *name;
 
-    /* @todo: partition generic and user flags */
+    /**
+     * @brief Clock properties and flags describing features and capabilities.
+     */
     struct __attribute__((packed)) {
         enum gclk_clk_topology_flags   topology_flags  : 4;
         enum gclk_scaler_type          scaler_type     : 2;  /*@ todo: could/should? be moved to user flags */
