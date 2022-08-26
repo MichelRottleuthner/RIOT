@@ -333,17 +333,41 @@ typedef struct gclk_gate_ops {
     void (*enable)(const gclk_t *clk, bool on);
 } gclk_gate_ops_t;
 
-/* TODO to be designed and documented properly */
+/**
+ * @brief  Low-level interface to configure clock trimming.
+ * @todo Not yet implemented, subject to change.
+ */
 typedef struct gclk_trim_ops {
+    /**
+     * @brief Get clock accuracy.
+     * @param clk  The clock whose accuracy to get.
+     * @return     Minimal guaranteed accuracy in PPM.
+     */
     unsigned int (*get_accuracy)(const gclk_t *clk);
+
+    /**
+     * @brief Trim the clock speed.
+     * @param clk  The clock to trim.
+     * @param ppb  The trimming value in PPB (parts per billion).
+     * @return     0 on success.
+     */
     unsigned int (*trim)(const gclk_t *clk, unsigned int ppb);
 } gclk_trim_ops_t;
 
+/**
+ * @brief  Common wrapper type for optional clock cpabilities.
+ *
+ * All capability interfaces are optional, and only those supported will
+ * be referenced by a particular clock type driver. As they all have the
+ * same size, the wrapping type can be used to store them in a flexible
+ * length union array. Which op refers to which interface type is then
+ * defined by combining a fixed order and dynamic feature availability.
+ */
 typedef union {
-    const gclk_scale_ops_t scale_ops;
-    const gclk_mux_ops_t   mux_ops;
-    const gclk_gate_ops_t  gate_ops;
-    const gclk_trim_ops_t  trim_ops;
+    const gclk_scale_ops_t scale_ops; /**< Clock scaler interface */
+    const gclk_mux_ops_t   mux_ops;   /**< Clock mux interface */
+    const gclk_gate_ops_t  gate_ops;  /**< Clock gate interface */
+    const gclk_trim_ops_t  trim_ops;  /**< Clock trim interface */
 } gclk_op_t;
 
 typedef struct gclk_range8 {
