@@ -726,25 +726,38 @@ const gclk_gate_ops_t *gclk_get_gate_ops(const gclk_t *clk);
  */
 const gclk_trim_ops_t *gclk_get_trim_ops(const gclk_t *clk);
 
+/**
+ * @brief Types of constraints a clock may be subject to.
+ */
 typedef enum {
-    GCLK_ENSURE_MIN_FREQ,
-    GCLK_ENSURE_MAX_FREQ,
+    GCLK_ENSURE_MIN_FREQ,  /**< A lower bound for the frequency (incl. value). */
+    GCLK_ENSURE_MAX_FREQ,  /**< An upper bound for the frequency (incl. value). */
+    /* below constraints are not needed/implemented as of now. */
+    /* ! @cond Doxygen_Suppress */
     GCLK_ENSURE_EXACT_FREQ,
     GCLK_ENSURE_MIN_FACT,
     GCLK_ENSURE_MAX_FACT,
     GCLK_ENSURE_EXACT_FACT,
     GCLK_ENSURE_EXACT_PARENT,
     GCLK_ENSURE_FIXED_CONF,
+    /* ! @endcond */
 } gclk_constraint_type_t;
 
+/**
+ * @brief Constraint descriptor that encodes limits for a specific clock instance.
+ */
 typedef struct {
-    gclk_constraint_type_t type;
-    const gclk_t *clk;
+    gclk_constraint_type_t type; /**< The type of constraint, defining what kind of limit
+                                      the clock is subject to and what kind of data this
+                                      descriptor refers to additionally. */
+    const gclk_t *clk; /**< The clock that is subject to the constraint. */
+    /**
+     * @brief Additional data defining the value of the constraint. */
     union {
-        uint32_t freq;
-        uint32_t fact;
-        const gclk_t *parent_clk;
-        const clk_topology_entry_t *confs;
+        uint32_t freq; /**< A frequency value. */
+        uint32_t fact; /**< A scaling factor value. */
+        const gclk_t *parent_clk; /**< A parent reference value. */
+        const clk_topology_entry_t *confs; /**< A fully sepecified clock configuration state. */
     };
 } gclk_freq_constraint_t;
 
