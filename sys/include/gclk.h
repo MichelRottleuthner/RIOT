@@ -42,10 +42,12 @@
  * - If applicable, a list of possible scaling factors a clock can be set to.
  *
  * @todo Some aspects that are still WIP/under consideration
- *  - Additional properties (not implemented yet)
+ *  - Additional properties / features to be implemented
  *    - low power capabilities (e.g., pm mode availability)
  *    - type of clock (internal/external, RC/Crystal)
- *    - accuracy (PPM)
+ *    - get_accuracy: to return accuracy limits as derived from oscillator spec. (PPM)
+ *      - methods to evaluate related effect of the topology.
+ *    - trim operations to trim the clock by a given fraction e.g. +- N PPB
  *  - power consumption metrics are currently under development in form of a clock-tree power model.
  *  - There are MCUs where the clock configuration uses a relatively big number of functionally identical instances.
  *    e.g., on the SAMd21 there are ~8 of the same clock generators, and ~the same order of magnitude gateable muxes
@@ -240,12 +242,6 @@ enum gclk_scaler_type {
     GCLK_MUL     = 1, /**< The clock multiplies the input frequency (scalable). */
     GCLK_DIV     = 2, /**< The clock divides the input frequency (scalable). */
 };
-
-/* @todo Potential future features to be implemented.
- * **Trim Operations**
- * -trim: not implemented yet. Trims the clock by a given fraction e.g. +- N PPB
- * -get_accuracy: not implemented yet. returns accuracy limits as derived from oscillator spec (modified by topology)
- */
 
 /**
  * @brief  Low-level interface to configure clock routing.
