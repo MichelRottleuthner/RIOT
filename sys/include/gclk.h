@@ -884,20 +884,38 @@ uint32_t gclk_get_current_equivalent_uptree_factors(const gclk_t *clk, uint32_t 
  */
 unsigned int gclk_get_current_factor(const gclk_t *clk);
 
-
 /**
- * @Note this only applies to clocks with flags.topology_flags.GCLK_STRICT_UPTREE_DEPENDENT flag set.
- * @return the factor of the clock which depends on the given state if another uptree clock
+ * @brief Get an uptree-dependent scaling factor of a clock instance.
+ *
+ * Get the scaling factor of a clock that strictly depends on another clock up in the tree.
+ * This function is for an a priori query of the state from a virtual representation of the tree.
+ * I.e. this function answers the question of *how will the state of @p clk look like in case
+ * the other clocks are configured like @p tree_confs*. To get the current factor, just use
+ * @ref gclk_get_current_factor() as usual.
+ *
+ * @note this only applies to clocks with flags.topology_flags.GCLK_STRICT_UPTREE_DEPENDENT flag set.
+ *
+ * @param[in] clk          The clock to get the scaling factor of.
+ * @param[in] tree_confs   A list of clock configuration states which describe (the relevant subset of)
+ *                         the tree configuration at which the state of @p clk is requested.
+ * @param[in] conf_cnt     Number of elements in @p tree_confs.
+ *
+ * @return The factor of the clock which depends on the given state of another uptree clock.
  */
-unsigned int gclk_get_uptree_dependent_factor(const gclk_t *gclk, const clk_topology_entry_t *tree_confs, unsigned int conf_cnt);
+unsigned int gclk_get_uptree_dependent_factor(const gclk_t *clk, const clk_topology_entry_t *tree_confs, unsigned int conf_cnt);
 
 /**
  * @brief  Get the input frequency of a clock.
- * @return The internal base frequency before any scaling is applied.
- * @note   For clocks that act as a source this returns their internal
- *         frequency property. As any non-source clock depends on its
- *         parent, this function returns the frequency of its current
- *         parent. */
+ *
+ * @note   For clocks that act as a source this returns their internal source
+ *         frequency property. For non-source clocks (where the input depends
+ *         on the parent clock). This function returns the current frequency
+ *         of its current parent.
+ *
+ * @param[in] clk   The clock to get the input frequency of.
+ *
+ * @return The internal base frequency of @p clk before any scaling is applied.
+ */
 uint32_t gclk_get_input_freq(const gclk_t *clk);
 
 /* @todo below utility functionality will probably have to go to a separate file at some point */
