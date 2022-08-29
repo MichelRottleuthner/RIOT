@@ -1309,10 +1309,10 @@ int gclk_set_parent(const gclk_t *clk, unsigned int idx);
 /**
  * @brief Set a clock to the given frequency.
  *
- * This is the most simplified function to set a frequency value of a clock.
+ * This is the most basic function to set a frequency value of a clock.
  * It doesn't take into account any dependencies and constraints that might apply.
  * For more user-friendly / automatic functions for updating the frequency,
- * refer to @ref sys_gclk_manager instead.
+ * refer to respective functions of the @ref sys_gclk_manager instead.
  *
  * @pre @p clk must be scalable.
  * @pre @p freq must be a valid value that can be obtained with the current
@@ -1326,14 +1326,24 @@ int gclk_set_parent(const gclk_t *clk, unsigned int idx);
  */
 uint32_t gclk_set_freq(const gclk_t *clk, uint32_t freq);
 
-/** @brief Set a scaling factor on clocks that support that. */
-int gclk_set_factor(const gclk_t *gclk, uint32_t factor);
-
 /**
- * @brief   get the accuracy of the clock
- * @note    this value may change when this clock is switched to another sources
+ * @brief Set a scaling factor of the given clock.
+ *
+ * This is the most basic function to set a scaling factor of a clock.
+ * It doesn't take into account any dependencies and constraints that might apply.
+ * For more user-friendly / automatic functions for updating the frequency,
+ * refer to respective functions of the @ref sys_gclk_manager instead.
+ *
+ * @pre @p clk must be scalable.
+ * @pre @p factor must be a valid factor for @p clk.
+ *
+ * @param[in] clk     The clock to set the factor for.
+ * @param[in] factor  The wanted (valid!) scaling factor.
+ *
+ * @return 0 on success.
+ *         <0 on error.
  */
-unsigned long gclk_get_accuracy(const gclk_t *gclk);
+int gclk_set_factor(const gclk_t *clk, uint32_t factor);
 
 bool gclk_get_next_freq_conf_of_topology(clk_topology_entry_t *topology, int size);
 
