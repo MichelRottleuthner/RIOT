@@ -566,47 +566,6 @@ uint32_t gclk_get_current_topology_config_leaf(const gclk_t *leaf, clk_topology_
     return 0;
 }
 
-uint32_t gclk_get_current_topology_config(clk_topology_entry_t *topology, uint32_t size) {
-    if (topology) {
-        /* ensure everything is zeroed, apart from the clock instance of the very first entry */
-        const gclk_t *leaf = topology[0].clk;
-        memset(topology, 0, sizeof(clk_topology_entry_t) * size);
-
-        topology[0].clk = leaf;
-
-        for (unsigned i = 0; i < size; i++) {
-            topology[i].clk_freq = gclk_get_current_freq(topology[i].clk);
-
-            if (gclk_is_gateable(topology[i].clk)) {
-                topology[i].enabled = gclk_is_enabled(topology[i].clk);
-            } else {
-                /* a non-gatable clock is assumed to be always active */
-                topology[i].enabled = true;
-            }
-
-            if (gclk_is_scalable(topology[i].clk)) {
-                topology[i].factor = gclk_get_current_factor(topology[i].clk);
-            }
-
-            if (gclk_is_source(topology[i].clk)) {
-                return i;
-            }
-            const gclk_t *parent = gclk_get_current_parent(topology[i].clk);
-            topology[i].par_idx = gclk_parent2idx(topology[i].clk, parent);
-
-            //if (i > 0) {
-            //    topology[i-1].par_freq = topology[i].clk_freq;
-            //}
-
-            if (i < (size -1)) {
-                topology[i+1].clk = parent;
-            }
-        }
-
-    }
-    return 0;
-}
-
 unsigned int gclk_config_cnt(const gclk_t *clk) {
     return clk->flags.conf_cnt;
 }
