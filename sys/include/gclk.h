@@ -761,33 +761,38 @@ typedef struct {
     };
 } gclk_freq_constraint_t;
 
-/* return values for gclk_enable_pin_output function */
+/**
+ * @brief Return values for @ref gclk_enable_pin_output function.
+ */
 enum {
-    ENABLE_PIN_OUTPUT_OK = 0,
-    ENABLE_PIN_OUTPUT_INVALID_CLOCK,
-    ENABLE_PIN_OUTPUT_INVALID_PIN,
+    ENABLE_PIN_OUTPUT_OK = 0, /**< All good, pin now outputs the clock signal. */
+    ENABLE_PIN_OUTPUT_INVALID_CLOCK, /**< The given clock can not be output on a pin. */
+    ENABLE_PIN_OUTPUT_INVALID_PIN, /**< The clock can not be output on the given pin. */
 };
 
-/* a type to represent a factional number in form of n/d */
+/**
+ * @brief A factional number in form of n/d.
+ */
 typedef struct {
-    uint32_t n;
-    uint32_t d;
+    uint32_t n; /**< Numerator */
+    uint32_t d; /**< Denominator */
 } gclk_fraction_t;
 
-/* a type to represent a frequency limit via a min/max value */
+/**
+ * @brief A frequency limit with min/max value.
+ */
 typedef struct {
-    uint32_t min;
-    uint32_t max;
+    uint32_t min; /**< Minimum value. */
+    uint32_t max; /**< Maximum value. */
 } gclk_freq_limit_t;
 
-/* a type to represent a factor limit via a min/max value */
+/**
+ * @brief Factor limit with min/max value.
+ */
 typedef struct {
-    uint32_t min;
-    uint32_t max;
+    uint32_t min; /**< Minimum value. */
+    uint32_t max; /**< Maximum value. */
 } gclk_factor_limit_t;
-
-
-//TODO: do we need a global state object for the gclk module itself?
 
 int gclk_module_init(void);
 const char *gclk_get_name(const gclk_t *clk);
