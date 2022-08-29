@@ -754,10 +754,10 @@ typedef struct {
     /**
      * @brief Additional data defining the value of the constraint. */
     union {
-        uint32_t freq; /**< A frequency value. */
-        uint32_t fact; /**< A scaling factor value. */
-        const gclk_t *parent_clk; /**< A parent reference value. */
-        const clk_topology_entry_t *confs; /**< A fully sepecified clock configuration state. */
+        uint32_t freq; /**< Frequency value. */
+        uint32_t fact; /**< Scaling factor value. */
+        const gclk_t *parent_clk; /**< Parent reference value. */
+        const clk_topology_entry_t *confs; /**< Fully sepecified clock configuration state. */
     };
 } gclk_freq_constraint_t;
 
