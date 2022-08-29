@@ -939,25 +939,6 @@ const gclk_t gclk_efm32_ulfrco_src = {
     .fixed_input_freq = 1000,
 };
 
-static void _pre_cahnge_hook_uart(void * ctx)
-{
-    (void)ctx;
-}
-
-void _post_change_hook_uart(void *ctx) {
-    (void)ctx;
-    stdio_init();
-}
-
-void _pre_change_hook_xtimer(void *ctx) {
-    (void)ctx;
-}
-
-void _post_change_hook_xtimer(void *ctx) {
-    (void)ctx;
-    xtimer_init();
-}
-
 static const gclk_t *_outputtable_clks[]  = { &gclk_efm32_clkout0_mux.base,    &gclk_efm32_clkout1_mux.base };
 static const uint8_t _outpin_loc_shifts[] = { _CMU_ROUTELOC0_CLKOUT0LOC_SHIFT, _CMU_ROUTELOC0_CLKOUT1LOC_SHIFT };
 static const uint32_t _outpin_loc_masks[] = { _CMU_ROUTELOC0_CLKOUT0LOC_MASK,  _CMU_ROUTELOC0_CLKOUT1LOC_MASK };
@@ -1006,31 +987,6 @@ int gclk_enable_pin_output(const gclk_t *clk, const gpio_t pin) {
   }
   return ENABLE_PIN_OUTPUT_INVALID_CLOCK;
 }
-/* TODO: replace this with a linked list implementation that holds one list of notification methods
- *       per clock. Methods should then get registered dynamically depending on the clock they rely
- *       on */
-const reinit_trigger_conf_t reinit_configs[] = {
-    { .affected_clock = &gclk_efm32_usart0_gate.base, .post_change_hook_fptr = _post_change_hook_uart,
-      .pre_change_hook_fptr = _pre_cahnge_hook_uart,
-      .name = "STDIO UART" , .pre_change_freq = 0},
-/* the timer on slstk3402a is currently either driven by
- * either timer 0 or timer 2 of the options 0:WTIMER0+WTIMER1 1:TIMER0+WTIMER1 2:LETIMER0
- * where WTIMER  is driven by HFPERCLKEN0
- *       TIMER   is driven by HFPERCLKEN0
- *       LETIMER is driven by LFACLKEN0 */
-#if IS_ACTIVE(CONFIG_EFM32_XTIMER_USE_LETIMER)
-    { .affected_clock = &gclk_efm32_lfaclk_letimer, .post_change_hook_fptr = _post_change_hook_xtimer,
-      .pre_change_hook_fptr = _pre_change_hook_xtimer,
-      .name = "xtimer (also periph timer)" , .pre_change_freq = 0},
-#else
-    { .affected_clock = &gclk_efm32_hfperclk_wtimer, .post_change_hook_fptr = _post_change_hook_xtimer,
-      .pre_change_hook_fptr = _pre_change_hook_xtimer,
-      .name = "xtimer (also periph timer)" , .pre_change_freq = 0},
-#endif
-};
-
-/* TODO: once migrated to list based notifications this can be dropped */
-const unsigned int GCLK_REINIT_CONFIGS_CNT = ARRAY_SIZE(reinit_configs);
 
 gclk_t const *gclock_handle_for_core_freq = &gclk_efm32_hfcorepresc_scaler.base;
 

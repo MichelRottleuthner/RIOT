@@ -27,8 +27,6 @@
 extern "C" {
 #endif
 
-extern const unsigned int GCLK_REINIT_CONFIGS_CNT;
-extern reinit_trigger_conf_t reinit_configs[];
 extern const gclk_t * const core_clock_instance;
 extern const unsigned int GCLK_PREFERRED_FREQ_CONF_CNT;
 extern gclk_t const *gclock_handle_for_core_freq;
