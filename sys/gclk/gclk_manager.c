@@ -367,8 +367,7 @@ static void _append_dfs_cache_entry(unsigned cidx, uint32_t freq, uint32_t facto
 /** @brief Helper to update cached state. */
 static void _update_cached_state_vars(void) {
     _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclk_core_clock_handle);
-    _mgr_ctx.current_core_topology[0].clk = gclk_core_clock_handle;
-    gclk_get_current_topology_config(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
+    gclk_get_current_topology_config_leaf(gclk_core_clock_handle, _mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
     _mgr_ctx.current_core_topo_id = gclk_topology2id(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
 
     /* always assume there is no applicable scale setting in case none can be found */
@@ -402,8 +401,7 @@ void _init_dvs_wsa_constraint_cache(void) {
 
     /* for all clock instances with assinged vcore/flash-waitstate constraints, load the current config into the cache */
     for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
-        constrained_clocks_conf_cache[i].clk = gclk_freq_conf_limits[i].clk;
-        gclk_get_current_topology_config(&constrained_clocks_conf_cache[i], 1);
+        gclk_get_current_topology_config_leaf(gclk_freq_conf_limits[i].clk, &constrained_clocks_conf_cache[i], 1);
     }
 
     unsigned min_ws;
@@ -729,7 +727,7 @@ static int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_
     }
 
     _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(gclk_core_clock_handle);
-    gclk_get_current_topology_config(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
+    gclk_get_current_topology_config_leaf(gclk_core_clock_handle, _mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
     _mgr_ctx.current_core_topo_id = gclk_topology2id(_mgr_ctx.current_core_topology, _mgr_ctx.current_core_topolen);
 
     if (scs->approach == SCALE_DIRECT ||
@@ -2499,8 +2497,7 @@ void gclk_manager_run_sequence_with_notify(gclk_manager_sequence_step_t *seq, si
      *       useful for regular runtime-use. (the functional benefits can be evaluated as is nonetheless).
      * For now we leave it as is to first evaluate functional operation */
     for (unsigned i = 0; i < GCLK_NUM_OF_CLOCKS; i++) {
-        current_tree_conf[i].clk = gclks[i];
-        gclk_get_current_topology_config(&current_tree_conf[i], 1);
+        gclk_get_current_topology_config_leaf(gclks[i], &current_tree_conf[i], 1);
     }
 
     size_t tree_size = GCLK_NUM_OF_CLOCKS;
@@ -3151,8 +3148,7 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
         LOG_DEBUG("%s: topolen:%u\n", __FUNCTION__, cur_topolen);
         clk_topology_entry_t cur_topology[cur_topolen];
         LOG_DEBUG("%s: get topo\n", __FUNCTION__);
-        cur_topology[0].clk = clk;
-        gclk_get_current_topology_config(cur_topology, cur_topolen);
+        gclk_get_current_topology_config_leaf(clk, cur_topology, cur_topolen);
         int cur_topo_idx = gclk_topology2id(cur_topology, cur_topolen);
 
         printf("%s: Topo switch from %d to %d was requested -> derive transition sequence...\n", __FUNCTION__, cur_topo_idx, target_topology);
