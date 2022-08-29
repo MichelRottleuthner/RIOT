@@ -997,24 +997,79 @@ uint32_t gclk_get_min_freq_of_current_topology(const gclk_t *clk);
  */
 uint32_t gclk_get_max_freq_of_current_topology(const gclk_t *gclk);
 
-void gclk_enable(const gclk_t *gclk);
+/**
+ * @brief Enable a clock.
+ *
+ * This function enables a clock. After calling this, the clock will provide a clock singal
+ * at its output.
+ * If @p clk is not gateable (i.e., it can not be enabled/disabled itself), the request is
+ * delegated up the tree to the first gateable clock, if possible.
+ *
+ * @param[in]  clk   The clock to enable.
+ */
+void gclk_enable(const gclk_t *clk);
 
-void gclk_disable(const gclk_t *gclk);
+/**
+ * @brief Disable a clock.
+ *
+ * This function disables a clock. After calling this, the clock will not provide a clock
+ * singal at its output.
+ * If @p clk is not gateable (i.e., it can not be enabled/disabled itself), the request is
+ * delegated up the tree to the first gateable clock, if possible.
+ *
+ * @param[in]  clk   The clock to disable.
+ */
+void gclk_disable(const gclk_t *clk);
 
-bool gclk_is_enabled(const gclk_t *gclk);
+/**
+ * @brief Get the enabled state of a clock.
+ *
+ * If @p clk can be gated, it reports whether a clock is enabled or not.
+ * If @p clk can **not** be gated, it reports the effective enabled state:
+ * A non-gateable clock is always considered to be enabled, in that case
+ * the request is delegated up the tree to the first gateable clock, if possible.
+ *
+ * @note The enabled state of one clock alone does not necesarily imply it is
+ *       outputting a clock signal. The effective output signal also depends on
+ *       the configuration of uptree clocks that @p clk is driven by.
+ *
+ * @param[in]  clk   The clock to disable.
+ *
+ * @return  true   If the clock is enabled.
+ *          false  If the clock is disabled.
+ */
+bool gclk_is_enabled(const gclk_t *clk);
 
-/* @return the number of available distinct configurations
- * As of now this either reflects the number of available scaling factors or parents because
- * for now the base type gclk_t doesn't support composite clocks that support scaling and routing in the same instance.
- * (still possible via custom implementation by using driver specific mapping)*/
+/**
+ * @brief Get the number of possible configuration values of a clock.
+ *
+ * This either reflects the number of available scaling factors or parents because
+ * for now the base type gclk_t doesn't support composite clocks that support scaling
+ * and routing in the same instance.
+ *
+ * @note It is recommended to use the explicit functions @ref gclk_factor_cnt() and
+ *       @ref gclk_parent_cnt() to ease future separation between both values.
+ *
+ * @return  The number of configurations @p clk can be set to.
+ */
 unsigned int gclk_config_cnt(const gclk_t *clk);
 
-/* @return the number of available factor configs of this clock
- * */
+/**
+ * @brief Get number of possible scaling factors the clock can be set to.
+ *
+ * @param[in] clk  The clock to get the factor count of.
+ *
+ * @return   The number of available factor configs of this clock.
+ */
 unsigned int gclk_factor_cnt(const gclk_t *clk);
 
-/* @return the number of available parent options
- * */
+/**
+ * @brief Get number of possible parent selections the clock can be set to.
+ *
+ * @param[in] clk  The clock to get the parent count of.
+ *
+ * @return   The number of available parent configs of this clock.
+ */
 unsigned int gclk_parent_cnt(const gclk_t *clk);
 
 unsigned int gclk_idx2factor(const gclk_t *gclk, unsigned int idx);
