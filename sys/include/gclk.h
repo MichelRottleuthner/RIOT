@@ -918,15 +918,51 @@ unsigned int gclk_get_uptree_dependent_factor(const gclk_t *clk, const clk_topol
  */
 uint32_t gclk_get_input_freq(const gclk_t *clk);
 
-/* @todo below utility functionality will probably have to go to a separate file at some point */
-unsigned int gclk_get_clk_subtree_max_depth(const gclk_t *clk, unsigned depth);
-uint32_t gclk_get_max_topology_depth(void);
-void gclk_print_topology(clk_topology_entry_t *topology_list, uint32_t depth);
-/* @brief get the number of clock entries of the currently active topoogy of clk
+/**
+ * @brief Get the maximum number of clocks in any source topology of the given clock.
  *
- * @return topology len including the given clock and the source
+ * For all topology variants that are able to drive @p clk, this function determines
+ * the longest one and returns its length (not including @p clk itself).
+ *
+ * @param[in] clk     The clock to get the max input topology length of.
+ * @param[in] depth   The depth to add (for recursive calls).
+ *
+ * @return  The maximum length of any topology which may supply @p clk (excl. @p clk).
+ */
+unsigned int gclk_get_clk_subtree_max_depth(const gclk_t *clk, unsigned depth);
+
+/**
+ * @brief Get the maximum length of any topology chain in the clock tree.
+ *
+ * Determines the global maximum number of elements in any possible clock path from
+ * leaf to source. This defines an upper limit of clock instance any topology chain
+ * may include.
+ *
+ * @return  The maximum length of any possible topology chain (incl. root and leaf).
+ */
+uint32_t gclk_get_max_topology_depth(void);
+
+/**
+ * @brief Utility function to print a topology chain config.
+ *
+ * Prints the given topology chain. Elements must be in correct topological order
+ * from leaf (topology_list[0]) to root source (topology_list[len-1]).
+ *
+ * @param[in] topology_list  Pointer to an array of clock topology config entries.
+ * @param[in] len            Number of elements in @p topology_list.
+ */
+void gclk_print_topology(clk_topology_entry_t *topology_list, uint32_t len);
+
+/**
+ * @brief Get the number of clocks in the currently active topology chain of clk.
+ *
+ * @param[in]  clk   The clock to get the current topology chain length of.
+ *
+ * @return     Length of the topology chain that currently drives @p clk
+ *             (incl. @p clk and the root source).
  * */
 unsigned int gclk_get_current_topology_len(const gclk_t *clk);
+
 uint32_t gclk_get_min_freq_using_topology(const gclk_t *gclk, clk_topology_entry_t *input_topology, uint32_t topology_len);
 uint32_t gclk_get_next_higher_freq_using_topology(const gclk_t *gclk, clk_topology_entry_t *input_topology, uint32_t topology_len, uint32_t hz);
 uint32_t gclk_get_max_freq_using_topology(const gclk_t *gclk, clk_topology_entry_t *input_topology, uint32_t topology_len);
