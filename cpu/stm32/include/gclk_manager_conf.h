@@ -100,60 +100,16 @@ extern const gclk_clk_scaler_ll_t gclk_stm32_apb1_scaler;
 extern const gclk_clk_scaler_ll_t gclk_stm32_msirange_scaler;
 extern const gclk_mux_ll_t gclk_stm32_pll_pre_div_mux;
 
-/* @todo: where to put the wait state information? Transform these heavy tables into tiny lookup function(s)
-          Plotting the data could help finding
-
-   See RM0351 Section 3.3.3 (read access latency) on page 97 (DocID024597 Rev 5)
-   LUF for WS (integer calculation!):
-   range1:  WS = (HCLK_MHz - 1) / 16
-   range2:  WS = (HCLK_MHz - 1) / 7
-
-   The below matrix could be simplified (apart from LUF) to only giving the max possible frequency for a given range,
-   without considering the wait cycles. Since waitcycles will probably have a strong impact on performance they shouldnt
-   be ignored when searching for a consumption / performance sweetspot.
-    */
-const dvfs_conf_t dvfs_confs[] = {
-    { .clk = &gclk_stm32_msirange_scaler.base,    .max_freq =  48000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_msirange_scaler.base,    .max_freq =  24000000, .vcore_mv = 1000 /* range 2 */},
-
-    { .clk = &gclk_stm32_hsi16_gate.base,         .max_freq =  16000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_hsi16_gate.base,         .max_freq =  16000000, .vcore_mv = 1000 /* range 2 */},
-
-    { .clk = &gclk_stm32_hse_gate.base,           .max_freq =  48000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_hse_gate.base,           .max_freq =  26000000, .vcore_mv = 1000 /* range 2 */},
-
-    { .clk = &gclk_stm32_pll_vco_scaler.base,     .max_freq = 344000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_pll_vco_scaler.base,     .max_freq = 128000000, .vcore_mv = 1000 /* range 2 */},
-    { .clk = &gclk_stm32_pllsai1_vco_scaler.base, .max_freq = 344000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_pllsai1_vco_scaler.base, .max_freq = 128000000, .vcore_mv = 1000 /* range 2 */},
-    { .clk = &gclk_stm32_pllsai2_vco_scaler.base, .max_freq = 344000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_pllsai2_vco_scaler.base, .max_freq = 128000000, .vcore_mv = 1000 /* range 2 */},
-
-    { .clk = &gclk_stm32_pllsai1_p_scaler.base,   .max_freq =  80000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_pllsai1_p_scaler.base,   .max_freq =  26000000, .vcore_mv = 1000 /* range 2 */},
-    { .clk = &gclk_stm32_pllsai2_p_scaler.base,   .max_freq =  80000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_pllsai2_p_scaler.base,   .max_freq =  26000000, .vcore_mv = 1000 /* range 2 */},
-    { .clk = &gclk_stm32_pll_p_scaler.base,       .max_freq =  80000000, .vcore_mv = 1200 /* range 1 */},
-    { .clk = &gclk_stm32_pll_p_scaler.base,       .max_freq =  26000000, .vcore_mv = 1000 /* range 2 */},
-
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  16000000, .vcore_mv = 1200 /* range 1 */}, /* 0 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =   6000000, .vcore_mv = 1000 /* range 2 */}, /* 0 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  32000000, .vcore_mv = 1200 /* range 1 */}, /* 1 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  12000000, .vcore_mv = 1000 /* range 2 */}, /* 1 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  48000000, .vcore_mv = 1200 /* range 1 */}, /* 2 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  18000000, .vcore_mv = 1000 /* range 2 */}, /* 2 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  64000000, .vcore_mv = 1200 /* range 1 */}, /* 3 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  26000000, .vcore_mv = 1000 /* range 2 */}, /* 3 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  80000000, .vcore_mv = 1200 /* range 1 */}, /* 4 Wait State */
-    { .clk = &gclk_stm32_ahb_scaler.base,         .max_freq =  26000000, .vcore_mv = 1000 /* range 2 */}, /* 4 Wait State */
-};
-//const unsigned int DVFS_CONFS_CNT = ARRAY_SIZE(dvfs_confs);
-
 /**
  * @name    Frequency limit configuration
- * @{
+ *
+ * All of these limits apply to gclk_stm32_ahb_scaler.
+ *
+ * @note See RM0351 Section 3.3.3 (read access latency) on page 97 (DocID024597 Rev 5)
+ *       Possible alternative encoding as LUF for WS (integer calculation!):
+ *       range1:  WS = (HCLK_MHz - 1) / 16
+ *       range2:  WS = (HCLK_MHz - 1) / 7
  */
-/* all of these limits apply to gclk_stm32_ahb_scaler */
 static const freq_conf_limit_t ahb_freq_vc_ws_limits[] = {
     { .freq_max =  6000000, .vc_idx_min = 0, .ws_min = 0 },
     { .freq_max = 12000000, .vc_idx_min = 0, .ws_min = 1 },
