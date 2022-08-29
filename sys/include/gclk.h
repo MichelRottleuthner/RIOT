@@ -761,11 +761,6 @@ typedef struct {
     };
 } gclk_freq_constraint_t;
 
-typedef struct preferred_freq_conf {
-    const gclk_t *clk;
-    uint32_t     preferred_freq;
-} preferred_freq_conf_t;
-
 /* return values for gclk_enable_pin_output function */
 enum {
     ENABLE_PIN_OUTPUT_OK = 0,
