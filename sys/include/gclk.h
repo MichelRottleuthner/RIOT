@@ -1072,13 +1072,77 @@ unsigned int gclk_factor_cnt(const gclk_t *clk);
  */
 unsigned int gclk_parent_cnt(const gclk_t *clk);
 
-unsigned int gclk_idx2factor(const gclk_t *gclk, unsigned int idx);
+/**
+ * @brief Convert a factor index to the the respective numeric scaling factor value.
+ *
+ * Gets the nth possible scaling factor of @p clk. Use @ref gclk_factor_cnt() to
+ * determine the number of possible values for a specific clock instance.
+ * Valid indexes are from 0 to @ref gclk_factor_cnt() - 1.
+ * This is the inverse operation of @ref gclk_factor2idx().
+ *
+ * @pre @p idx must be a valid factor index for @p clk.
+ *
+ * @param[in] clk  The clock to get the factor of.
+ * @param[in] idx  The index of the factor (zero based).
+ *
+ * @return   The requested scaling factor of @p clk.
+ *           1 for clocks that have no factor mapping.
+ */
+unsigned int gclk_idx2factor(const gclk_t *clk, unsigned int idx);
 
-unsigned int gclk_factor2idx(const gclk_t *gclk, unsigned int factor);
+/**
+ * @brief Convert a numeric scaling factor value to its respective index.
+ *
+ * This is the inverse operation of @ref gclk_idx2factor().
+ *
+ * @pre @p factor must be a valid factor for @p clk.
+ *
+ * @param[in] clk     The clock to get the scaling factor index of.
+ * @param[in] factor  The factor of which to get the index of.
+ *
+ * @return   The index of the given factor for @p clk.
+ *           An invalid index (>= value reported by @ref gclk_factor_cnt())
+ *           if factor is not found.
+ */
+unsigned int gclk_factor2idx(const gclk_t *clk, unsigned int factor);
 
-const gclk_t* gclk_idx2parent(const gclk_t *gclk, unsigned int idx);
+/**
+ * @brief Convert a parent index to the the respective parent clock reference.
+ *
+ * Gets the nth possible parent selection of @p clk. Use @ref gclk_parent_cnt() to
+ * determine the number of possible parents for a specific clock instance.
+ * Valid indexes are from 0 to @ref gclk_parent_cnt() - 1.
+ * This is the inverse operation of @ref gclk_parent2idx().
+ *
+ * @pre @p idx must be a valid parent index for @p clk.
+ *
+ * @param[in] clk  The clock to get the parent of.
+ * @param[in] idx  The index of the parent (zero based).
+ *
+ * @return   A reference to the requested parent of @p clk.
+ *           NULL for clocks that have no factor mapping.
+ *           The fixed parent in case @p clk is not muxable.
+ */
+const gclk_t* gclk_idx2parent(const gclk_t *clk, unsigned int idx);
 
-int gclk_parent2idx(const gclk_t *gclk, const gclk_t *parent);
+/**
+ * @brief Convert a parent reference to its respective index.
+ *
+ * This is the inverse operation of @ref gclk_idx2parent().
+ *
+ * @pre @p parent must be a valid parent for @p clk.
+ *
+ * @param[in] clk     The clock to get the parent index of.
+ * @param[in] parent  The parent of which to get the index of.
+ *
+ * @return   The index of the given parent for @p clk.
+ *           An invalid index (-1)
+ *           if parent is not found.
+ *
+ * @todo Unify how an invalid index is indicated between this
+ *       function and @ref gclk_factor2idx().
+ */
+ int gclk_parent2idx(const gclk_t *clk, const gclk_t *parent);
 
 /*
  * @param gclk    the clock to get the register value for
