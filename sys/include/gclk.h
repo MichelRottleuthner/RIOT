@@ -960,18 +960,42 @@ void gclk_print_topology(clk_topology_entry_t *topology_list, uint32_t len);
  *
  * @return     Length of the topology chain that currently drives @p clk
  *             (incl. @p clk and the root source).
- * */
+ */
 unsigned int gclk_get_current_topology_len(const gclk_t *clk);
 
-uint32_t gclk_get_min_freq_using_topology(const gclk_t *gclk, clk_topology_entry_t *input_topology, uint32_t topology_len);
-uint32_t gclk_get_next_higher_freq_using_topology(const gclk_t *gclk, clk_topology_entry_t *input_topology, uint32_t topology_len, uint32_t hz);
-uint32_t gclk_get_max_freq_using_topology(const gclk_t *gclk, clk_topology_entry_t *input_topology, uint32_t topology_len);
+/**
+ * @brief Get lowest possible frequency of a clock for its current topology.
+ *
+ * This is a utility function to roughly evaluate the lower limit of the frequency range
+ * that @p clk may be configured to when using the current input topology. The function
+ * determines this purely based on the available scaling factor ranges in the current
+ * topology clock path. It explicitly does **NOT** evaluate whether that configuration
+ * is valid or applicable at the moment.
+ * The only information used of the current topology state is the clock routing/muxing
+ * settings, whereas scaling factors are determined from all possible values of each
+ * clock. I.e. the active scaling factors of the current topology config are effectively
+ * ignored.
+ *
+ * @param[in]  clk             The clock to get the min frequency of.
+ */
+uint32_t gclk_get_min_freq_of_current_topology(const gclk_t *clk);
 
-uint32_t gclk_get_min_freq_of_current_topology(const gclk_t *gclk);
+/**
+ * @brief Get highest possible frequency of a clock for its current topology.
+ *
+ * This is a utility function to roughly evaluate the uper limit of the frequency range
+ * that @p clk may be configured to when using the current input topology. The function
+ * determines this purely based on the available scaling factor ranges in the current
+ * topology clock path. It explicitly does **NOT** evaluate whether that configuration
+ * is valid or applicable at the moment.
+ * The only information used of the current topology state is the clock routing/muxing
+ * settings, whereas scaling factors are determined from all possible values of each
+ * clock. I.e. the active scaling factors of the current topology config are effectively
+ * ignored.
+ *
+ * @param[in]  clk             The clock to get the max frequency of.
+ */
 uint32_t gclk_get_max_freq_of_current_topology(const gclk_t *gclk);
-
-/* topology[size - 1] must point to the source */
-bool gclk_init_topology_freqs(clk_topology_entry_t *topology, int size);
 
 void gclk_enable(const gclk_t *gclk);
 
