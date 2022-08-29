@@ -503,11 +503,10 @@ int _sc_derive_sequence(int argc, char **argv) {
                                                                &tidx, cmp_func, (void*)&target_freq, &valid_cnt, forced_nth_conf_idx, NULL);
         unsigned int cur_topolen = gclk_get_current_topology_len(clk);
         clk_topology_entry_t cur_topology[cur_topolen];
-        cur_topology[0].clk = clk;
         if (new_freq != target_freq) {
             printf("best frequency match: %lu Hz\n", new_freq);
         }
-        gclk_get_current_topology_config(cur_topology, cur_topolen);
+        gclk_get_current_topology_config_leaf(clk, cur_topology, cur_topolen);
         int cur_topo_idx = gclk_topology2id(cur_topology, cur_topolen);
 
         if (!run) {
@@ -553,9 +552,7 @@ void _print_valid_conf_cb(clk_topology_entry_t *conf, size_t conf_len, gclk_cmp_
     gclk_manager_print_topology_conf(conf, conf_len, print_min_max, print_factors);
 
     unsigned int cur_topolen = gclk_get_current_topology_len(conf[0].clk);
-    memset(_pvc_cur_topology, 0, sizeof(clk_topology_entry_t) * GCLK_NUM_OF_CLOCKS);
-    _pvc_cur_topology[0].clk = conf[0].clk;
-    gclk_get_current_topology_config(_pvc_cur_topology, cur_topolen);
+    gclk_get_current_topology_config_leaf(conf[0].clk, _pvc_cur_topology, cur_topolen);
 
     int seq_len = gclk_manager_derive_sequence(_pvc_cur_topology, cur_topolen,
                                                 conf, conf_len,
@@ -564,8 +561,7 @@ void _print_valid_conf_cb(clk_topology_entry_t *conf, size_t conf_len, gclk_cmp_
     if (seq_len > 0) {
         /* copy the current tree conf into a buffer to simulate changes on it */
         for (unsigned i = 0; i < GCLK_NUM_OF_CLOCKS; i++) {
-            _print_valid_confs_tree_conf_buf[i].clk = gclk_get(i);
-            gclk_get_current_topology_config(&_print_valid_confs_tree_conf_buf[i], 1);
+            gclk_get_current_topology_config_leaf(gclk_get(i), &_print_valid_confs_tree_conf_buf[i], 1);
         }
 
         for (size_t si = 0; si < (unsigned)seq_len; si++) {
@@ -927,8 +923,7 @@ int _sc_actopo(int argc, char **argv)
     if (clk) {
         unsigned int topolen = gclk_get_current_topology_len(clk);
         clk_topology_entry_t topo[topolen];
-        topo[0].clk = clk;
-        gclk_get_current_topology_config(topo, topolen);
+        gclk_get_current_topology_config_leaf(clk, topo, topolen);
         int tidx = gclk_topology2id(topo, topolen);
         printf("current topology ID of %s: %d\n", gclk_get_name(clk), tidx);
 
