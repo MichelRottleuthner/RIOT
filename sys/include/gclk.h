@@ -761,14 +761,6 @@ typedef struct {
     };
 } gclk_freq_constraint_t;
 
-typedef struct reinit_trigger_conf {
-    const gclk_t *affected_clock;
-    void (*pre_change_hook_fptr)(void *ctx);
-    void (*post_change_hook_fptr)(void *ctx);
-    const char *name;
-    uint32_t   pre_change_freq;
-} reinit_trigger_conf_t;
-
 typedef struct preferred_freq_conf {
     const gclk_t *clk;
     uint32_t     preferred_freq;
