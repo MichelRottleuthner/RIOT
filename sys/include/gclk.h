@@ -1345,6 +1345,8 @@ uint32_t gclk_set_freq(const gclk_t *clk, uint32_t freq);
  */
 int gclk_set_factor(const gclk_t *clk, uint32_t factor);
 
+uint32_t gclk_get_current_topology_config_leaf(const gclk_t *leaf, clk_topology_entry_t *topology, uint32_t size);
+
 uint32_t gclk_get_current_topology_config(clk_topology_entry_t *topology, uint32_t size);
 
 typedef enum gclk_cmp_result {
