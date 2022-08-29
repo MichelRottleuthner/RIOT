@@ -271,15 +271,6 @@ unsigned long gclk_get_current_freq(const gclk_t *clk)
     return fi * mul / div;
 }
 
-/**
- * @brief get the available options for parents that can be configured
- *
- * @param[in] gclk   the clock you want to have the parent options for
- * @param[in] idx    number of the parent
- *
- * @return    the parent clock option at idx position (may be NULL if the respective config disconnects any parent)
- *            the given gclk if no more parents are available at idx
- */
 const gclk_t *gclk_get_parent(const gclk_t *clk, unsigned int idx)
 {
     if (clk == NULL || gclk_is_source(clk)) {
@@ -288,8 +279,6 @@ const gclk_t *gclk_get_parent(const gclk_t *clk, unsigned int idx)
 
     if (clk->flags.muxable) {
         return gclk_idx2parent(clk, idx);
-    } else if (clk->flags.is_source) {
-        return clk;
     } else {
         return clk->fixed_parent;
     }
@@ -406,8 +395,6 @@ bool gclk_is_used(const gclk_t *clk)
     return false;
 }
 
-/* this variant of set_freq is the simplest version that doesn't take into account any dependencies and constraints
-   that might apply. Thus, you should only ever use this function with parameters that are guaranteed to be correct. */
 uint32_t gclk_set_freq(const gclk_t *gclk, uint32_t freq) {
     if (gclk == NULL) {
         LOG_DEBUG("can not set frequency of NULL\n");
