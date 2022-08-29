@@ -939,27 +939,6 @@ const gclk_t gclk_efm32_ulfrco_src = {
     .fixed_input_freq = 1000,
 };
 
-/* TODO: on EFM32PG1B the voltage range affects:
- *       - flash write/erase only available at scale level 2
- *       - TRNG only available a t scale level 2
- *       - HXFO only supported at scale level 2
- * NOTE: scaling voltage down on this platform should use the following pattern:
- *       - decrease clock freq
- *       - update flash wait states
- *       - issue voltage scaling command
- *       - wait for scaling to finish
- *       scaling voltage up:
- *       - issue voltage scaling cmd
- *       - wait for hardware to finish scaling
- *       - update wait states
- *       - increase clock frequency */
-/* @todo: where to put the wait state information? */
-const dvfs_conf_t dvfs_confs[] = {
-    { .clk = &gclk_efm32_hfcorepresc_scaler.base, .max_freq = 96000000, .vcore_mv = 1800 /* range 1 */},
-};
-
-const unsigned int DVFS_CONFS_CNT = ARRAY_SIZE(dvfs_confs);
-
 static void _pre_cahnge_hook_uart(void * ctx)
 {
     (void)ctx;

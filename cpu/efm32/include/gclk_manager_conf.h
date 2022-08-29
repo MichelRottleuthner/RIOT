@@ -27,7 +27,6 @@
 extern "C" {
 #endif
 
-extern const dvfs_conf_t dvfs_confs[];
 extern const unsigned int GCLK_REINIT_CONFIGS_CNT;
 extern reinit_trigger_conf_t reinit_configs[];
 extern const gclk_t * const core_clock_instance;
@@ -94,9 +93,14 @@ gclk_manager_sequence_step_t hfrco_to_hfxo_transition_steps[] = {
 
 /**
  * @name    Frequency limit configuration
- * @{
+ * 
+ * All of these limits apply to gclk_efm32_hfclk_scaler.base.
+ *
+ * @note EFM32PG1B has the following additional requirements regarding voltage range:
+ *  - flash write/erase only available at scale level 2 (vc idx 1)
+ *  - TRNG only available a t scale level 2 (vc idx 1)
+ *  - HXFO only supported at scale level 2 (vc idx 1)
  */
-/* all of these limits apply to gclk_efm32_hfclk_scaler.base */
 static const freq_conf_limit_t hfclk_freq_vc_ws_limits[] = {
     { .freq_max =  7000000, .vc_idx_min = 0, .ws_min = 0 },
     { .freq_max = 14000000, .vc_idx_min = 0, .ws_min = 1 },
