@@ -517,7 +517,7 @@ uint32_t gclk_get_min_freq_of_current_topology(const gclk_t *gclk) {
     uint32_t topolen = gclk_get_clk_subtree_max_depth(gclk, 0) + 1;
 
     clk_topology_entry_t topology[topolen];
-    topolen = gclk_get_current_topology_config_leaf(gclk, topology, topolen);
+    topolen = gclk_get_current_topology_config(gclk, topology, topolen);
     return gclk_get_min_freq_using_topology_conf(topology, topolen);
 }
 
@@ -526,11 +526,11 @@ uint32_t gclk_get_max_freq_of_current_topology(const gclk_t *gclk) {
     uint32_t topolen = gclk_get_clk_subtree_max_depth(gclk, 0) + 1;
 
     clk_topology_entry_t topology[topolen];
-    topolen = gclk_get_current_topology_config_leaf(gclk, topology, topolen);
+    topolen = gclk_get_current_topology_config(gclk, topology, topolen);
     return gclk_get_max_freq_using_topology_conf(topology, topolen);
 }
 
-uint32_t gclk_get_current_topology_config_leaf(const gclk_t *leaf, clk_topology_entry_t *topology, uint32_t size) {
+uint32_t gclk_get_current_topology_config(const gclk_t *leaf, clk_topology_entry_t *topology, uint32_t size) {
 
     /* ensure everything is zeroed, apart from the clock instance of the very first entry */
     memset(topology, 0, sizeof(clk_topology_entry_t) * size);
