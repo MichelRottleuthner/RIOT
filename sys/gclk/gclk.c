@@ -536,12 +536,6 @@ uint32_t gclk_get_max_freq_of_current_topology(const gclk_t *gclk) {
     return gclk_get_max_freq_using_topology_conf(topology, topolen);
 }
 
-/**
- * @brief get the accuracy of the clock
- * @note  this value may change when this clock is siwtched to another sources
- */
-unsigned long gclk_get_accuracy(const gclk_t *gclk);
-
 uint32_t gclk_get_current_topology_config(clk_topology_entry_t *topology, uint32_t size) {
     if (topology) {
         /* ensure everything is zeroed, apart from the clock instance of the very first entry */
