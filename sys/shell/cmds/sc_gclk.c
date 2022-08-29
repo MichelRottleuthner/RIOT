@@ -416,8 +416,6 @@ int _sc_match(int argc, char **argv)
         for (unsigned ti = 0; ti < gclk_get_topology_config_cnt(clk); ti++) {
             if (!tidx_ptr || (ti == tidx)) {
                 size_t size = gclk_get_nth_topology(topology, max_involved_clks, ti);
-                /* populate topology with min / max values */
-                //gclk_init_topology_freqs(topology, size);
                 const gclk_t *src_clk = topology[size - 1].clk;
                 uint32_t src_freq = gclk_get_input_freq(src_clk);
 
