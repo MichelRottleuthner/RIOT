@@ -761,13 +761,6 @@ typedef struct {
     };
 } gclk_freq_constraint_t;
 
-/* the below probably has to go to a separate DVFS implementation file */
-typedef struct {
-    const gclk_t   *clk;
-    const uint32_t max_freq;
-    const uint32_t vcore_mv; /* @todo: maybe just link to the rangedef? */
-} dvfs_conf_t;
-
 typedef struct reinit_trigger_conf {
     const gclk_t *affected_clock;
     void (*pre_change_hook_fptr)(void *ctx);
