@@ -1144,58 +1144,116 @@ const gclk_t* gclk_idx2parent(const gclk_t *clk, unsigned int idx);
  */
  int gclk_parent2idx(const gclk_t *clk, const gclk_t *parent);
 
-/*
- * @param gclk    the clock to get the register value for
- * @param factor  the factor to get the register value for
- * @return        the normalized register value
+/**
+ * @brief Convert a scaling factor to its respective register value.
  *
- * 'normalized' as in right aligned, i.e. not shifted to the actual position it
- * must be written to the register. */
-uint32_t gclk_factor2regval(const gclk_t *gclk, uint32_t factor);
-
-/*
- * @param gclk    the clock to get the factor for
- * @param regval  the inormalized register value to get the numerical value for
- * @return        the numerical factor
+ * Meant to be used for clock instances using the generic scaler
+ * driver functions.
  *
- * 'normalized' as in right aligned, i.e. not shifted to the actual position it
- * must be written to the register. */
-uint32_t gclk_regval2factor(const gclk_t *gclk, uint32_t regval);
-
-/*
- * @param gclk    the clock to get the register value for
- * @param parent  the parent to get the register value for
- * @return        the normalized register value
+ * @pre @p factor must be a valid factor for @p clk.
  *
- * 'normalized' as in right aligned, i.e. not shifted to the actual position it
- * must be written to the register. */
-uint32_t gclk_parent2regval(const gclk_t *gclk, const gclk_t *parent);
-
-/*
- * @param gclk    the clock to get the parent for
- * @param regval  the inormalized register value to get the parent for
- * @return        the numerical factor
+ * @param clk     The clock to get the register value for.
+ * @param factor  The factor to get the register value for.
  *
- * 'normalized' as in right aligned, i.e. not shifted to the actual position it
- * must be written to the register. */
-const gclk_t* gclk_regval2parent(const gclk_t *gclk, uint32_t regval);
+ * @return        The normalized register value. *Normalized* as in
+ *                right aligned, i.e., not shifted to the actual position
+ *                where it must be written to the register.
+ */
+uint32_t gclk_factor2regval(const gclk_t *clk, uint32_t factor);
 
-unsigned int gclk_idx2parentregval(const gclk_t *gclk, unsigned int idx);
+/**
+ * @brief Convert a configuration register value to the respective scaling factor.
+ *
+ * @pre @p regval must be a valid register value for @p clk.
+ *
+ * @param clk     The clock to get the factor for.
+ * @param regval  The normalized register value to get the numerical value for.
+ *                *Normalized* as in right aligned, i.e., not shifted to the
+ *                actual position where it is located in the register.
+ *
+ * @return        The numerical scaling factor
+ */
+uint32_t gclk_regval2factor(const gclk_t *clk, uint32_t regval);
 
-/* @param  clk  The clock to get the scaling factor for.*
- * @return the smallest number clk can be scaled by */
-static inline unsigned int gclk_factor_min(const gclk_t *gclk) {
-    return gclk_idx2factor(gclk, 0);
+/**
+ * @brief Convert a parent selection to the respective configuration register value.
+ *
+ * @pre @p parent must be a valid parent for @p clk.
+ *
+ * @param clk     The clock to get the register value for.
+ * @param parent  The parent to get the register value for.
+ *
+ * @return        The normalized register value. *Normalized* as in right aligned,
+ *                i.e., not shifted to the actual position where it is located in
+ *                the register.
+ *                0 if the parent option is not found.
+ */
+uint32_t gclk_parent2regval(const gclk_t *clk, const gclk_t *parent);
+
+/**
+ * @brief Convert a configuration register value to the respective parent reference.
+ *
+ * @pre @p regval must be a valid register value for @p clk.
+ *
+ * @param clk     The clock to get the parent register value for.
+ * @param regval  The normalized register value to get the parent for
+ *                *Normalized* as in right aligned, i.e. not shifted to the actual
+ *                position it is located in the register.
+ *
+ * @return        The parent reference.
+ *                NULL if the register value is not found.
+ */
+const gclk_t* gclk_regval2parent(const gclk_t *clk, uint32_t regval);
+
+/**
+ * @brief Convert a parent index to its respective configuration register value.
+ *
+ * @pre @p idx must be a valid parent idx for @p clk.
+ *
+ * @param clk     The clock to get the parent register value for.
+ * @param idx     The index of the parent option (zero-based).
+ *
+ * @return        The parent reference.
+ *                0 if the register value is not found or the clock has no
+ *                factor mapping.
+ */
+unsigned int gclk_idx2parentregval(const gclk_t *clk, unsigned int idx);
+
+/**
+ * @brief Get the smallest possible scaling factor of a clock.
+ *
+ * @pre @p clk must be scalable.
+ *
+ * @param  clk  The clock to get the scaling factor for.
+ * @return      The smallest factor @p clk can be scaled by.
+ */
+static inline unsigned int gclk_factor_min(const gclk_t *clk) {
+    /* Static factor options must be defined lowest value first, therefore it is
+     * enough to just return the first possible factor. Defining this function
+     * separately, however, still allows to change this convention transparent
+     * to the application, if needed. */
+    return gclk_idx2factor(clk, 0);
 }
 
-/* @param  clk  The clock to get the scaling factor for.*
- * @return the largest number clk can be scaled by */
+/**
+ * @brief Get the greatest possible scaling factor of a clock.
+ *
+ * @pre @p clk must be scalable.
+ *
+ * @param[in]  clk  The clock to get the scaling factor for.
+ *
+ * @return      The greatest factor @p clk can be scaled by.
+ */
 static inline unsigned int gclk_factor_max(const gclk_t *clk) {
-    /* TODO: add a flag for inverted order? */
+    /* same as with gclk_factor_min(), this works because of the
+     * enforced convention on how configuration options must be defined. */
     return gclk_idx2factor(clk, clk->flags.conf_cnt - 1);
 }
 
-/* @param[in]      clk     The clock to get the scaling factor for.
+/**
+ * @brief Utility funciton to read min/max factor opption into a limit struct.
+ *
+ * @param[in]      clk     The clock to get the scaling factor for.
  * @param[in,out]  limits  Combined factor limit holding both, the min and max factor.
  */
 static inline void gclk_get_factor_minmax(const gclk_t *clk, gclk_factor_limit_t *limits) {
@@ -1204,26 +1262,69 @@ static inline void gclk_get_factor_minmax(const gclk_t *clk, gclk_factor_limit_t
 }
 
 /**
- * @brief get the available options for parents that can be configured
+ * @brief Get the available options for parents that can be configured.
  *
  * @note  There are two cases to consider:
- *        (A): virtual/logical parent association (some node is the source, but it can not be changed, nor read from HW)
- *        (B): runtime-dynamic config (selecting one of multiple parents), can (and must be) read/written from/to HW
+ *        (A): virtual/logical parent association. In this case, the parent can not
+ *             be changed, this info is read from static clock data instead fo HW.
+ *        (B): runtime-dynamic config. In this case one of multiple parents
+ *             can be selected. This must be read from HW.
  *
- * @param[in] gclk   the clock you want to have the parent options for
- * @param[in] idx    number of the parent
+ * @param[in] clk    The clock to get the possible parent selection for.
+ * @param[in] idx    Index of the parent.
  *
- * @return    the parent clock option at idx position (may be NULL if the respective config disconnects any parent)
- *            the given gclk if no more parents are available at idx
+ * @return    The parent clock option with the given @p idx.
+ *            May be NULL if @p clk is NULL, @p clk is a source instance,
+ *            or the given index explicitly connects the clock to no parent.
+ *            For non-muxable clocks this always returns the fixed parent
+ *            regardless of the @p idx value given.
  */
-const gclk_t *gclk_get_parent(const gclk_t *gclk, unsigned int idx);
+const gclk_t *gclk_get_parent(const gclk_t *clk, unsigned int idx);
 
-const gclk_t *gclk_get_current_parent(const gclk_t *gclk);
+/**
+ * @brief Get the parent currently selected by a clock.
+ *
+ * @param[in] clk  The clock to get the current parent for.
+ *
+ * @return  The currently selected parent of @p clk if it is muxable.
+ *          The fixed parent @p clk is always connected to if @p is not muxable.
+ *          NULL if @p clk is a root source clock.
+ */
+const gclk_t *gclk_get_current_parent(const gclk_t *clk);
 
-int gclk_set_parent(const gclk_t *gclk, unsigned int idx);
+/**
+ * @brief Set the active parent to the nth possible value (the given idx).
+ *
+ * @pre @p clk must be muxable.
+ * @pre @p idx must be a valid index value for @p clk.
+ *
+ * @param[in] clk  The clock of which the parent shall be set.
+ * @param[in] idx  The index of the parent to set.
+ *
+ * @return  0  on success..
+ *          <0 on error.
+ */
+int gclk_set_parent(const gclk_t *clk, unsigned int idx);
 
-/** @brief Set a target frequency on clocks that support that. */
-uint32_t gclk_set_freq(const gclk_t *gclk, uint32_t freq);
+/**
+ * @brief Set a clock to the given frequency.
+ *
+ * This is the most simplified function to set a frequency value of a clock.
+ * It doesn't take into account any dependencies and constraints that might apply.
+ * For more user-friendly / automatic functions for updating the frequency,
+ * refer to @ref sys_gclk_manager instead.
+ *
+ * @pre @p clk must be scalable.
+ * @pre @p freq must be a valid value that can be obtained with the current
+ * configuration of @p clk by setting it to one of its possible sclaing factors.
+ *
+ * @param[in] clk   The clock to set the frequency for.
+ * @param[in] freq  The wanted (valid!) frequency in Hz.
+ *
+ * @return The given frequency on success.
+ *         0 on error.
+ */
+uint32_t gclk_set_freq(const gclk_t *clk, uint32_t freq);
 
 /** @brief Set a scaling factor on clocks that support that. */
 int gclk_set_factor(const gclk_t *gclk, uint32_t factor);
