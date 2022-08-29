@@ -517,10 +517,7 @@ uint32_t gclk_get_min_freq_of_current_topology(const gclk_t *gclk) {
     uint32_t topolen = gclk_get_clk_subtree_max_depth(gclk, 0) + 1;
 
     clk_topology_entry_t topology[topolen];
-
-    /* must be set ast starting point for the current topology */
-    topology[0].clk = gclk;
-    topolen = gclk_get_current_topology_config(topology, topolen);
+    topolen = gclk_get_current_topology_config_leaf(gclk, topology, topolen);
     return gclk_get_min_freq_using_topology_conf(topology, topolen);
 }
 
@@ -529,10 +526,7 @@ uint32_t gclk_get_max_freq_of_current_topology(const gclk_t *gclk) {
     uint32_t topolen = gclk_get_clk_subtree_max_depth(gclk, 0) + 1;
 
     clk_topology_entry_t topology[topolen];
-
-    /* must be set ast starting point for the current topology */
-    topology[0].clk = gclk;
-    topolen = gclk_get_current_topology_config(topology, topolen);
+    topolen = gclk_get_current_topology_config_leaf(gclk, topology, topolen);
     return gclk_get_max_freq_using_topology_conf(topology, topolen);
 }
 
