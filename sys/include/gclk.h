@@ -794,47 +794,95 @@ typedef struct {
     uint32_t max; /**< Maximum value. */
 } gclk_factor_limit_t;
 
+/**
+ * @brief Initialize the generic clock configuration module.
+ *
+ * @return   0   On success.
+ *           <0  On Error.
+ */
 int gclk_module_init(void);
+
+/**
+ * @brief Get the human readable name of a clock instance.
+ *
+ * @param[in]  clk  The clock instance.
+ * @return  Pointer to constant zero-terminated string holidng the name.
+ */
 const char *gclk_get_name(const gclk_t *clk);
+
+/**
+ * @brief Get a clock via its human readable name.
+ *
+ * Shall only be used for testing and command line features, not for
+ * finding specific instances in dynamic reconfiguration code. Name properties
+ * are likely to be disabled/made optional in production code.
+ *
+ * @param[in]  name  The human readable name of the wanted clock instance.
+ * @return     Pointer to the clock instance if found.
+ *             Null if no clock with that name exists.
+ */
 const gclk_t* gclk_get_clk_by_name(const char *name);
 
-/* @brief compares two fractions
+/**
+ * @brief Compare two fractions.
  *
- * returns <0 if mul1/div1 is smaller than mul2/div2
- * returns 0  if mul1/div1 is equal to mul2/div2
- * returns >0 if mul1/div1 is greater to mul2/div2
+ * @param[in] a  Reference to a properly initialized fraction a.
+ * @param[in] a  Reference to a properly initialized fraction b.
+ *
+ * return <0 if @p a is smaller than @p b.
+ * return 0  if @p a is equal to @p b.
+ * return >0 if @p a is greater to @p b.
  */
 int gclk_compare_fraction(gclk_fraction_t *a, gclk_fraction_t *b);
 
-/* @brief checks if a frequency is within a given limit.
+/**
+ * @brief Check if a frequency is within a given limit.
+ *
+ * @param[in] freq   The frequency that shall be >= min and <= max of the given limit.
+ * @param[in] limit  The limit.
  *
  * @retval   true   if @p freq is within @p limit.
  * @retval   false  if @p freq is lower or higher than @p limit.
  */
 static inline bool gclk_freq_within_limit(uint32_t freq, const gclk_freq_limit_t *limit) {
-    return (freq < limit->max) && (freq > limit->min);
+    return (freq <= limit->max) && (freq >= limit->min);
 }
 
 /**
- * @brief get the current frequency of this clock
+ * @brief Get the current frequency of this clock.
+ *
+ * This function accesses the hardware configuration of the given clock and all clocks
+ * it depends on to get the currently configuraed frequency.
+ *
+ * @param[in] clk  The clock instance to get the frequency of.
+ *
+ * @return The current frequency in Hz.
  */
-uint32_t gclk_get_current_freq(const gclk_t *gclk);
+uint32_t gclk_get_current_freq(const gclk_t *clk);
 
 /**
- * @brief get an equivalent representation of uptree clocks
+ * @brief Get an equivalent factor representation of uptree clock scalers.
  *
- * @param[in] clk   clock instance for which the uptree config is read
- * @param[in,out] m    equivalent multiplier combining all uptree clocks (must be set to 1 before calling)
- * @param[in,out] d    equivalent divisor combining all uptree clocks (must be set to 1 before calling)
+ * @param[in] clk      Clock instance for which the uptree config is read.
+ * @param[in,out] m    Equivalent multiplier combining all uptree clocks (must be set to 1 before calling).
+ * @param[in,out] d    Equivalent divisor combining all uptree clocks (must be set to 1 before calling).
  *
- * @return the frequency of the root source clock
+ * @return The frequency of the root source clock.
  */
 uint32_t gclk_get_current_equivalent_uptree_factors(const gclk_t *clk, uint32_t *m, uint32_t *d);
 
 /**
- * @brief returs the current scaling factor for scalable clocks
+ * @brief Get the current scaling factor for a scalable clock.
+ *
+ * Accesses the current hardware configuration of the given clock instance to determine the
+ * active frequency scaling factor.
+ *
+ * @param[in] clk  The clock to geth the scaling factor of.
+ *
+ * @return The current scaling factor for a scalable clock.
+ *         1 for a clock that is not scalable.
  */
-unsigned int gclk_get_current_factor(const gclk_t *gclk);
+unsigned int gclk_get_current_factor(const gclk_t *clk);
 
 
 /**
