@@ -1415,55 +1415,213 @@ typedef struct constrained_cmp_ctx {
     uint32_t     target_freq; /**< Target frequency of the toppology leaf clock. */
 } gclk_constrained_cmp_ctx_t;
 
+/**
+ * @brief  Scale a frequency value for better human readability.
+ *
+ * Can be combined with @ref gclk_freq_scale_unit() to get a human readable frequency string.
+ * Only scales down exact multiples of MHz and KHz values. I.e.,
+ * return 10 for 10000 Hz and 10 for 10000000 (@ref gclk_freq_scale_unit() takes care of
+ * returning an appropriate Hz-suffix (kHz MHz). Values that are not exact MHz or kHz values
+ * (e.g., 12500) are left unmodified to not loose information.
+ *
+ * @todo replace this with proper decimal formatting.
+ *
+ * @param[in] val  The frequency value to (potentially) scale down.
+ *
+ * @return The scaled down frequency for exact multiples of kHz and Mhz,
+ *         The unmodivied value if @p val can not be scaled without information loss.
+ */
 uint32_t gclk_print_scale_freq(uint32_t val);
+
+/**
+ * @brief  Get the highest frequency unit suffix (MHz, kHz) that fits @p val exactly.
+ *
+ * @param[in] val  The frequency value to (potentially) scale down.
+ *
+ * @return "Mhz" or "kHz" depending to @p val.
+ */
 char *gclk_freq_scale_unit(uint32_t val);
 
-/** Searches the maximum output frequency for a given clk and stores the first found topology in best_topology.
- *  The algorithm explores every topology that is able to drive clk.
- *  For each topology it bruteforce-tests all possible frequency-configurations of involved intermediate clock nodes.
- *  All possible parents, frequencies and constraints are considered.
- *  Exploration and testing adaptations always starts at the supplied leaf node (clk). Starting from the source is not
- *  feasible for various reasons.
- *  I.e. trying to find the max possible frequency may not resolve properly when starting from the source:
+/**
+ * @brief Prefers higher leaf frequencies.
  *
- *  @note This is far from an optimal implementation becasue brute forcing can take quite some time with more complex
- *        clock trees as configuration possibilities can quickly expand beyond the order of 10k or even 100k.
- *        Solutions besides brute force could calculate viable solutions much more efficently, but then need at least
- *        access to internal state of clock nodes, and a way to express all constraints in a generic way.
- *        Though, this information is in many cases very implementation-, platform- or configuration-specific.
- *        And complex implementation specific details like configuration data, internal dependencies and constraints
- *        are often hard to model and encode in a completely implementation-agnostic way.
- *        The major benefit of brute forcing comes from the fact that no assumptions need to be made about internals
- *        of the clock tree and it's nodes internals.
- *        Brute forcing specific configurations allows to generically consider all constraints and configuration data
- *        by creating a significant runtime overhead.
- *        Another point why this is prefered: the results of this operation can easily be cached for later use.
+ * A very basic compare function used for searching the maximum output frequency for a given clock.
  *
- *  @todo an optimization could first check if clk (and other intermediate clocks) have output constraints to limit
- *        possible configurations
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
  *
- *  @todo there is also potential for optimizing the resulting topology properties, e.g.:
- *        - reduce domain counts (only enable the least required domains)
- *        - reduce the frequency of higher order clocks
- *          (prefer nodes to use a lower frequency if the clock can be multiplied further down the tree)
- *  @todo refactor this to a more generic implementation that judges the derived topology configurations via a generic
- *        function pointer (i.e. a compare function that can be handed by the above layer)
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Not used for this compare function.
  *
- *  @return
- *   GCLK_CONF_INVALID  if the compared conf is not valid at all (in terms of the compare function)
- *   GCLK_CONF_WORSE    if the compared conf is valid but worse than the reference conf
- *   GCLK_CONF_EQUAL    if the compared conf is valid and as good as the reference conf
- *   GCLK_CONF_BETTER   if the compared conf is valid and better than the refernce conf
- *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
  */
 gclk_cmp_result_t gclk_cmp_topology_for_max_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
+
+/**
+ * @brief Prefers lower leaf frequencies (while still being non-zero).
+ *
+ * A very basic compare function used for searching the smallest possible frequency that is
+ * still above zero.
+ *
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
+ *
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Not used for this compare function.
+ *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
+ */
 gclk_cmp_result_t gclk_cmp_topology_for_min_nz_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
+
+/**
+ * @brief Prefers closer matches of the given target frequency.
+ *
+ * A very basic compare function used for searching the closest possible match to a given target frequency.
+ * The frequency difference is compared in absolute terms.
+ *
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
+ *
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Must contain the target frequency as value.
+ *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
+ */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
+
+/**
+ * @brief Prefers closer matches of the given target frequency, opting for a smaller frequency sum if possible.
+ *
+ * This compare function is a bit more complex as it involves two stages. Its first priority is matching the target
+ * frequency as close as possible. The frequency difference is compared in absolute terms.
+ * For two configurations that are equally close, the second priority is minimizing
+ * the sum of all involved frequencies. This may be used as a heuristic approach to find configurations with lower
+ * power consumption (at the same frequency). This effectively avoids selecting scaling factors that scale
+ * up the frequency unnecessarily high at intermediate clock instances. This, however, can not guarantee to
+ * yield the lowest possible power configuration in all cases, because the equivalent capacitance is typically not
+ * uniform across all clock instances. For more accurate results a properly established power model of the platform
+ * must be provided (see e.g., @ref gclk_manager_cmp_topology_closest_leaf_freq_pmin(), and respective model data
+ * in the platform-specific manager config files).
+ *
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
+ *
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Must contain the target frequency as value.
+ *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
+ */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_min_sum(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
+
+/**
+ * @brief Prefers closer matches of the given target frequency, opting for a higher frequency sum if possible.
+ *
+ * Same as @ref gclk_cmp_topology_for_closest_leaf_freq_min_sum(), but favours a higher frequency sum instead.
+ * This is intended to be used for evaluation purposes and practically showing the power consumption impact of
+ * specific scaling factor selection methods. The assumption is that this function will most of the time yield
+ * configurations with higher power consumption even if the exact same frequency is matched.
+ *
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
+ *
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Must contain the target frequency as value.
+ *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
+ */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_max_sum(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
+
+/**
+ * @brief Prefers closer matches of the given target frequency, opting for minimizing the max occurring frequency.
+ *
+ * This compare function is another alternative of a heuristic approach for searching a preferrably lower power
+ * configuration when matching for the closest frequency. It does so by preferrably keeping the maximum
+ * accurring frequency across all clocks in the topology as low as possible. Used for evaluation purposes,
+ * to determine how well such simplified approaches compete to more sophisticated power models and against the
+ * ground truth.
+ *
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
+ *
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Must contain the target frequency as value.
+ *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
+ */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_min_max(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
+
+/**
+ * @brief Prefers closer matches of the given target frequency, opting for maximizing the max occurring frequency.
+ *
+ * Same as @ref gclk_cmp_topology_for_closest_leaf_freq_min_max(), but favours a max frequency sum instead
+ * to compare againt the opposite extreme.
+ *
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
+ *
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Must contain the target frequency as value.
+ *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
+ */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_max_max(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
+
+/**
+ * @brief Prefers closer matches of the given target frequency, but locks a specific clock to a given frequency.
+ *
+ * This compare function flags all configurations as invalid that are not able to drive the constrained clock
+ * exactly at its specified frequency. Out of the configurations that fulfill this constraint, the one with
+ * the closest leaf frequency match is preferred. The constrained clock must be part of the topology,
+ * otherwise it also considered invalid.
+ *
+ * @todo The constraint handling can be extended and generalized:
+ *       - Attatching a flexible list of more than one constaint.
+ *       - Adding more expressive constraint types (like X <= f < Y)
+ *       - Allowing to specify constraints on clocks that are not (directly) included
+ *         in the topology (but still depend on it).
+ *
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
+ *
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Must contain a pointer to a properly initialized @ref gclk_constrained_cmp_ctx_t.
+ *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
+ */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_constrained_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
+
+/**
+ * @brief Accepts only exact leaf frequency matches.
+ *
+ * A very basic compare function (similar to @ref gclk_cmp_topology_for_closest_leaf_freq())
+ * but flags all configs as invalid which are not able to match the target frequency exactly.
+ *
+ * @note Also works with different topology paths (i.e., different source topology and
+ *       different topology lengths).
+ *
+ * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
+ * @param[in] arg        Must contain the target frequency as value.
+ *
+ * @return  The comparison result, see @ref gclk_cmp_result_t.
+ */
 gclk_cmp_result_t gclk_cmp_topology_for_exact_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
 const gclk_t *gclk_get_child(const gclk_t *gclk, uint32_t child_idx);
