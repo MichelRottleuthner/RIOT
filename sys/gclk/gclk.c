@@ -551,7 +551,7 @@ uint32_t gclk_get_current_topology_config(const gclk_t *leaf, clk_topology_entry
         }
 
         if (gclk_is_source(topology[i].clk)) {
-            return i;
+            return i + 1;
         }
         const gclk_t *parent = gclk_get_current_parent(topology[i].clk);
         topology[i].par_idx = gclk_parent2idx(topology[i].clk, parent);
