@@ -1040,6 +1040,35 @@ void gclk_manager_simulate_seq_step_on_tree_conf(gclk_manager_sequence_step_t *s
 /**
  * @brief Bruteforce the best frequency configuration based on a given compare function.
  *
+ * This brite force algorithm explores every topology that is able to drive clk.
+ * For each topology it bruteforce-tests all possible frequency-configurations of involved
+ * intermediate clock nodes. All possible parents, frequencies and constraints are considered,
+ * if not indicated otherwise via below parameters.
+ *
+ * @note Brute force is obviously not optimal and can take quite some time with more complex
+ *       clock trees as configuration possibilities can quickly expand beyond the order of 10k
+ *       or even 100k variants. However, the major benefit of brute forcing comes from the fact
+ *       that no assumptions need to be made about internals of the clock tree and its nodes
+ *       internals. Moreover, it is easy to guarantee that all possible configurations are covered,
+ *       and resulsts of this rather complex operation may easily be cached for later use.
+ *       Refer to factor matching approaches (i.e., the gclk_factor_match_func_t interface) for
+ *       an alternative way to explore configurations (e.g., gclk_match_iter_mul_factorize_div()).
+ *       For future improvements a more generic implementation for ruling out specific configs
+ *       a priori together with a more sophisticated branch-and-bound-style iteration may
+ *       further improve this.
+ *
+ *  @todo An optimization could first check if clk (and other intermediate clocks) have output
+ *        constraints to limit possible configurations. A variant of that is already implemented
+ *        in one of the more complex compare functions,
+ *        see @ref gclk_manager_cmp_single_scaler_range_limited
+ *
+ *  @todo there is also potential for optimizing the resulting topology properties, e.g.:
+ *        - reduce domain counts (only enable the least required domains)
+ *        - reduce the frequency of higher order clocks
+ *          (prefer nodes to use a lower frequency if the clock can be multiplied further down the tree)
+ *  @todo refactor this to a more generic implementation that judges the derived topology configurations via a generic
+ *        function pointer (i.e. a compare function that can be handed by the above layer)
+ *
  * @param[in]  clk                 The clock instance a topology config is searched for.
  * @param[out] best_topology       Pointer to where the topology config result will be stored.
  * @param[in,out] topo_len         in: max length of @p best_topology.
