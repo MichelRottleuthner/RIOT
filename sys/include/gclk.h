@@ -1345,6 +1345,21 @@ uint32_t gclk_set_freq(const gclk_t *clk, uint32_t freq);
  */
 int gclk_set_factor(const gclk_t *clk, uint32_t factor);
 
+/**
+ * @brief Get the current configuration state of the source topology of a clock.
+ *
+ * Reads the current hardware state of each clock up the tree from the given leaf.
+ * The first element of @p topology will contain the state of the given @p leaf clock.
+ * topology[1] will contain its parent configuration, and so forth.
+ * At max @p size elements are read or up to reaching the clock source, whichever comes first.
+ *
+ * @param[in]  leaf      The clock to get the source topology data for.
+ * @param[in]  topology  Location where to store the topology data.
+ * @param[in]  size      Number of elements that can be stored in @p topology.
+ *
+ * @return Number of elements written to @p topology if there was enough storage to reach the source.
+ *         0 if the source was not reached (@p topology now contains an incomplete topology).
+ */
 uint32_t gclk_get_current_topology_config(const gclk_t *leaf, clk_topology_entry_t *topology, uint32_t size);
 
 typedef enum gclk_cmp_result {
