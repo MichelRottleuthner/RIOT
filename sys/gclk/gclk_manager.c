@@ -2988,7 +2988,6 @@ uint32_t gclk_manager_brute_force_freq_conf(const gclk_t *clk, clk_topology_entr
                 LOG_DEBUG("checking topology with size: %d\n", ct_len);
                 LOG_DEBUG("topology after init: \n");
                 if (LOG_LEVEL >= LOG_DEBUG) {
-                    gclk_print_topology_metadata(ct, ct_len);
                     gclk_manager_print_topology_conf(ct, ct_len, true, false);
                 }
                 uint32_t f_min = GCLK_HIGHEST_VALID_FREQ;
