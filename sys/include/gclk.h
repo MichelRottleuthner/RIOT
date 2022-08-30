@@ -1375,14 +1375,44 @@ typedef enum gclk_cmp_result {
     GCLK_CONF_BEST,    /*< the compared conf is known to be the best option */
 } gclk_cmp_result_t;
 
-/** @brief   A function prototype to compare two different topology configs. */
+/**
+ * @brief   Compare function prototype for comparing two different topology configs.
+ *
+ * This kind of function can be used in an exploration phase to evaluate how well different
+ * potential topology configurations to drive a specific clock fulfill a given optimization goal.
+ * There is a selection of different predefined compare functions that aim e.g. for more accurate
+ * frequency matching, reducing the maximum frequency in the tree, or reducing the overall power
+ * consumption. It is also possible to define custom compare functions to favour special user
+ * defined metrics.
+ *
+ * @note It is compare function specific (implementation defined) whether a compare function
+ *       is applicable to different topology paths or only different topology factor configurations
+ *       of the same topology path. Depending on the compare function it may also be needed to
+ *       initialize the context @pr arg in a certain way. Therfore, follow the specific compare
+ *       function documentation carefully.
+ *
+ * @param[in]      topo_best  The best topology found so far. topo_best[0].clk_freq must be initialized
+ *                            to GCLK_INVALID_FREQ if no valid topology is known yet.
+ * @param[in]      len1       Number of clock instances in @p topo_best.
+ * @param[in]      topo_cmp   The topology to compare against @p topo_best.
+ * @param[in]      len2       Number of clock instances in @p topo_cmp.
+ * @param[in,out]  arg        Opaque (compare function specific) context pointer. May also be used
+ *                            to hand out information from the compare function.
+ *
+ * @return  A comparison result indicating how both topology configs compare.
+ */
 typedef gclk_cmp_result_t (*gclk_cmp_func_t)(clk_topology_entry_t *topo_best, size_t len1,
                                              clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
+/**
+ * @brief  Context structure for a constrained comparison.
+ *
+ * Meant to be used with @ref gclk_cmp_topology_for_closest_constrained_leaf_freq().
+ */
 typedef struct constrained_cmp_ctx {
-    const gclk_t *constraint_clk;
-    uint32_t     constraint_clk_freq;
-    uint32_t     target_freq;
+    const gclk_t *constraint_clk; /**< Clock that shall be fixed to a given frequency. */
+    uint32_t     constraint_clk_freq; /**< Fixed frequency of the constrained_clk. */
+    uint32_t     target_freq; /**< Target frequency of the toppology leaf clock. */
 } gclk_constrained_cmp_ctx_t;
 
 uint32_t gclk_print_scale_freq(uint32_t val);
