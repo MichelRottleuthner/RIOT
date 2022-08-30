@@ -450,22 +450,6 @@ uint32_t gclk_get_min_freq_using_topology_conf(clk_topology_entry_t *topology, u
     return (src_freq * min_mul) / max_div;
 }
 
-void gclk_print_topology_metadata(clk_topology_entry_t *t, int len) {
-    for (int i = 0; i < len; i++) {
-        const gclk_t *clk = t[i].clk;
-        printf("[%s]: scalable:", gclk_get_name(clk));
-
-        if (gclk_is_scalable(clk)) {
-            printf("1 (%c%u - %u)", gclk_is_divider(clk) ? '/' : 'x',
-                                      gclk_factor_min(clk), gclk_factor_max(clk));;
-        } else {
-            printf("0");
-        }
-
-        printf("\n");
-    }
-}
-
 uint32_t gclk_get_max_freq_using_topology_conf(clk_topology_entry_t *topology, uint32_t len) {
 
     if (!len || !topology[0].clk) {

@@ -1385,7 +1385,6 @@ typedef struct constrained_cmp_ctx {
     uint32_t     target_freq;
 } gclk_constrained_cmp_ctx_t;
 
-void gclk_print_topology_metadata(clk_topology_entry_t *t, int len);
 uint32_t gclk_print_scale_freq(uint32_t val);
 char *gclk_freq_scale_unit(uint32_t val);
 
