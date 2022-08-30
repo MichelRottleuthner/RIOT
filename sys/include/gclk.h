@@ -1362,6 +1362,11 @@ int gclk_set_factor(const gclk_t *clk, uint32_t factor);
  */
 uint32_t gclk_get_current_topology_config(const gclk_t *leaf, clk_topology_entry_t *topology, uint32_t size);
 
+/**
+ * @brief Possible results of a topology configuration comparison.
+ *
+ * Used as return type for @ref gclk_cmp_func_t compare functions.
+ */
 typedef enum gclk_cmp_result {
     GCLK_CONF_INVALID, /*< the compared conf is not valid at all (in terms of the compare function) */
     GCLK_CONF_WORSE,   /*< the compared conf is valid but worse than the reference conf */
