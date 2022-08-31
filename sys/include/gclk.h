@@ -1624,7 +1624,23 @@ gclk_cmp_result_t gclk_cmp_topology_for_closest_constrained_leaf_freq(clk_topolo
  */
 gclk_cmp_result_t gclk_cmp_topology_for_exact_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
-const gclk_t *gclk_get_child(const gclk_t *gclk, uint32_t child_idx);
+/**
+ * @brief Get nth child of a clock.
+ *
+ * Utility function to iterate through all children of a clock.
+ * The API does not guarantee a particular order, however, the result is deterministic
+ * for a particular configuration of the clock tree being active. I.e., with the same
+ * clock tree setup a given index will deterministically pint to the same clock.
+ * If n clocks use @p clk as parent, this function will return a child clock for all index
+ * values between 0 and n-1.
+ *
+ * @param[in]  clk        Reference to the clock instance to get a child of.
+ * @param[in]  child_idx  Index identifying a child of @p clk.
+ *
+ * @return Reference to the nth child clock of @p clk.
+ *         Null if no child with that index exists.
+ */
+const gclk_t *gclk_get_child(const gclk_t *clk, uint32_t child_idx);
 
 uint32_t gclk_get_cnt(void);
 
