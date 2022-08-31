@@ -1642,10 +1642,41 @@ gclk_cmp_result_t gclk_cmp_topology_for_exact_leaf_freq(clk_topology_entry_t *to
  */
 const gclk_t *gclk_get_child(const gclk_t *clk, uint32_t child_idx);
 
+/**
+ * @brief Get number of clock instances available on this platform.
+ *
+ * The returned number refers to the total number of all available clock instances.
+ * This number includes all sources, intermediate scalers, muxes and gates. Specifically,
+ * this number does not refer to the number of distinct clock *sources*! Use
+ * @ref gclk_is_source() and the like to get such meta data.
+ *
+ * @return Number of distinct clock instances available.
+ */
 uint32_t gclk_get_cnt(void);
 
+/**
+ * @brief Get a clock reference by its unique index.
+ *
+ * The index value for a clock is fixed and will never change during runtime.
+ * Yet, using the index to access a particular clock instance must be done with caution as
+ * future changes to the platforms clock model may change this association.
+ *
+ * @param[in] idx    The index of the clock. Valid values are
+ *                   between 0 and @ref gclk_get_cnt()-1.
+ *
+ * @return A reference to the clock instance.
+ */
 const gclk_t *gclk_get(uint32_t idx);
 
+/**
+ * @brief Get the unique index for a given clock reference.
+ *
+ * Inverse function of @ref gclk_get().
+ *
+ * @param[in] clk  The clock reference.
+ *
+ * @return  The unique index of the given clock.
+ */
 unsigned int gclk_get_index(const gclk_t *gclk);
 
 /* Helper function to update a specific part of a 32 bit register.
