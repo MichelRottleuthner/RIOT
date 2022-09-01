@@ -1977,9 +1977,34 @@ uint32_t gclk_map_func_idx_as_regval_list8(const gclk_t *clk, unsigned int idx, 
  */
 uint32_t gclk_map_func_idx_as_regval_list16(const gclk_t *clk, unsigned int idx, bool to_regval);
 
-/* applicable for encoding via gclk_factor_mapping_t.uint32_t (fixed_factor) */
+/**
+ * @brief Mapping function wrapper for a fixed 32 bit value.
+ *
+ * This is a dummy mapping function that simply returns the fixed numerical value.
+ * Strictly sticking to the pattern of a mapping function allows keeping the calling
+ * code free of conditional code. A fixed factor does not require setting a register
+ * value and has only one possible value, both, @p idx and @p to_regval are ignored
+ * and the function always returns the numerical value.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] idx        Ignored.
+ * @param[in] to_regval  Ignored.
+ *
+ * return The numerical value.
+ */
 uint32_t gclk_map_func_fixed_factor(const gclk_t *clk, unsigned int idx, bool to_regval);
 
+/**
+ * @brief Mapping function for parent and register value encoded as lookup table (@ref gclk_parent_config_lut_t).
+ *
+ * Can be applied for a lookup table that contains an arbitrary register value for each parent.
+ *
+ * @param[in] clk      Clock instance to map the value for.
+ * @param[in] parent   Location where to store the parent reference.
+ * @param[in] idx      Parent index.
+ *
+ * return The register value to select the parent with the given index.
+ */
 uint32_t gclk_map_parent_lut(const gclk_t *clk, const gclk_t **parent, unsigned int idx);
 
 uint32_t gclk_map_parent_list(const gclk_t *clk, const gclk_t **parent, unsigned int idx);
