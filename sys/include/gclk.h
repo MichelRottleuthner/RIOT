@@ -2021,59 +2021,128 @@ uint32_t gclk_map_parent_lut(const gclk_t *clk, const gclk_t **parent, unsigned 
  */
 uint32_t gclk_map_parent_list(const gclk_t *clk, const gclk_t **parent, unsigned int idx);
 
-/*
- * @brief sets up a gpio pin to output the clock signal
+/**
+ * @brief Set up a GPIO pin to output the clock signal.
  *
- * @param clk The clock that will be routed to the pin
- * @param pin The pin to output the signal on
+ * This function does **not** automatically modify the topology configuration to try
+ * routing the signal of arbitrary clocks to the pin output. Therfore, only clocks
+ * that directly support pin output shall be handed to this function. Yet, the
+ * standard configuration functions can of course still be used to explicitly set
+ * up aspecific topology to feed the clock instance that supports the pin output.
  *
- * @return ENABLE_PIN_OUTPUT_OK             on success
- * @return ENABLE_PIN_OUTPUT_INVALID_CLOCK  if clock can not be output
- * @return ENABLE_PIN_OUTPUT_INVALID_PIN    if clock can not be output on this pin
- * * */
+ * @param  clk   The clock that will be routed to the pin.
+ * @param  pin   The pin to output the signal on.
+ *
+ * @return ENABLE_PIN_OUTPUT_OK             On success.
+ * @return ENABLE_PIN_OUTPUT_INVALID_CLOCK  If clock can not be output.
+ * @return ENABLE_PIN_OUTPUT_INVALID_PIN    If clock can not be output on this pin.
+ */
 int gclk_enable_pin_output(const gclk_t *clk, const gpio_t pin);
 
-/* @return the overall count of possible configuration states the list of given clocks can be put into.
+/**
+ * @brief Get combined count of possible factor configs for a list of clocks.
  *
  * The returned number considers all possible states that can be configured in theory. I.e., no physical or
  * logical constraints or other limits are considered that may apply due to inter-dependencies or other
  * restirction that occur at runtime. In some scenarios the number of actually feasible configurations may
  * be a lot lower - but never higher.
- * @param clks  pointer to an array of clock pointers
- * @param cnt   number of clock instances held in clks */
+ * Same as @ref gclk_get_factors_config_cnt_from_topology() but takes a list of clock references
+ * instead of a topology config.
+ *
+ * @param[in]  clks   Pointer to an array of clock pointers.
+ * @param[in]  cnt    Number of clock instances held in clks.
+ *
+ * @return Number of factor combinations possible with all factors of all given clocks.
+ */
 size_t gclk_get_factors_config_cnt(const gclk_t **clks, size_t cnt);
 
-/* same as gclk_get_factors_config_cnt but with a topology as input */
+/**
+ * @brief Get combined count of possible factor configs for all clock in a topology.
+ *
+ * Same as @ref gclk_get_factors_config_cnt() but takes the clock references from a
+ * topology instead of a reference list.
+ *
+ * @param[in]  topology  Topology to get the count of possible factor combinations for.
+ * @param[in]  len       Number of elements in @p topology.
+ *
+ * @return Number of factor combinations possible with the given topology.
+ */
 size_t gclk_get_factors_config_cnt_from_topology(clk_topology_entry_t *topology, size_t len);
 
-/* @return the overall count of possible topologies this clock can be driven by.
+/**
+ * @brief Get overall count of topologies this clock can be driven by.
  *
- * The returned number considers all possible states that can be configured in theory. I.e., no physical or
- * logical constraints or other limits are considered that may apply due to inter-dependencies or other
- * restirction that occur at runtime. In some scenarios the number of actually feasible configurations may
+ * The returned number considers all possible states that can be configured in
+ * theory. I.e., no physical or logical constraints or other limits are
+ * considered that may apply due to inter-dependencies or other restirction
+ * that occur at runtime. In some scenarios the number of actually feasible configurations may
  * be a lot lower - but never higher.
- * @param clk  pointer to the clock to get number of topologies for */
+ *
+ * @param[in] clk  Reference tp the clock to get number of topologies for.
+ *
+ * @return Number of possible input topologies.
+ */
 size_t gclk_get_topology_config_cnt(const gclk_t *clk);
 
-/* Calculate for each clock in the topology the frequency given the configuration
- * parameters (factors).
- * @pre topology[0] holds the output clk and topology[len -1] holds the source */
+/**
+ * @brief Calculate for each clock in the topology the frequency based the set factors.
+ *
+ * Updates the frequency values in the configuration based of factors that are set in
+ * the same config. Frequency values are calculated based on the root frequency and
+ * combined uptree factors at each level to avoid adding up rounding errors at each
+ * level.
+ *
+ * @todo For very big equivalent uptree factors 64 bit arithmetic or a more
+ *       sophisticated calculation (using lossless scaling) may be needed.
+ *
+ * @pre topology[0] holds the output clock and topology[len -1] holds the source.
+ *
+ * @param[in,out] topology  The topology config to update the frequencies for.
+ * @param[in]     len       Number of elements in @p topology.
+ */
 void gclk_calculate_topology_config_freqs(clk_topology_entry_t *topology, size_t len);
 
-/* @pre topology must conatin a valid configuration
- * @pre must refer to a valid conf_id (i.e. any value of 0 - gclk_get_factors_config_cnt)
+/**
+ * @brief Iteration helper to advance a topology to its next possible factor configuration.
+ *
+ * @pre @p topology must contain a valid configuration.
+ * @pre @p conf_id must be a valid configuration index for this topology
+ *      (i.e. any value of 0 - @ref gclk_get_factors_config_cnt() a.k.a.
+ *      0 - @ref gclk_get_factors_config_cnt_from_topology()).
+ *
  * @note the order how this iteration happens is defined by the topology. I.e., there is
  *       no guarantee that frequencies will change only in one direction for each step.
- *       Calling this for all possible configuration IDs will return all possible frequency
- *       configurations. Albeit no configuration is returned twice, the resulting frequency
- *       for multiple different configurations may still be equal.
- * return true if a new setting was possible
- *        false if the last configuration was already reached
+ *       But calling this for all possible configuration IDs will cover all possible
+ *       frequency configurations. Albeit no configuration is returned twice, the
+ *       resulting frequency for multiple different configurations may still be equal.
+ *       Even configurations with the exact same topology path and same output frequency
+ *       may differ in their power consumption. See functions related to the power model
+ *       (e.g., @ref gclk_manager_cmp_topology_closest_leaf_freq_pmin()) on how this can
+ *       be precalculated to find the lowest power option.
+ *
+ * @param[in] topology  The topology to advance to the next factor config.
+ * @param[in] len       Number of elements in @p topology.
+ * @param[in] conf_id   Unique index of the config to store in @p topology (unique per topology).
  */
 void gclk_advance_topology_to_next_frequency_setting(clk_topology_entry_t *topology, size_t len, size_t conf_id);
 
-/* a basic helper to iterate all possible factor configurations of multiple sets */
-void gclk_get_nth_factors_config(const gclk_t **clks, uint32_t *factors, size_t set_cnt, size_t n);
+/**
+ * @brief Iteration helper to advance a list of factors to its next possible combination.
+ *
+ * Alternative to @ref gclk_advance_topology_to_next_frequency_setting() but operates on
+ * a list of clock references and a corresponding list of factors instead of a topology.
+ * The clock list is still expected to form atopology.
+ * The factor corresponding to clks[n] will be stored at factors[n].
+ *
+ * @pre @p clks must point to a valid list of clock references.
+ * @pre @p factors must point to a factor list with the same length as @p clks.
+ *
+ * @param[in]      clks     Pointer to an array of clock references (to be used for factor range metadata).
+ * @param[in,out]  factors  Pointer to an array of factors where the respective scaling factors will be stored.
+ * @param[in]      set_cnt  Number of elements in @p clks as well as @p factors (must be equal!).
+ * @param[in]      conf_id  Unique index of the config to store in @p factors (unique per clock set).
+ */
+void gclk_get_nth_factors_config(const gclk_t **clks, uint32_t *factors, size_t set_cnt, size_t conf_id);
 
 /* For a given topology config it returns the (leaf-unique) topology id for the leaf clock where (topology_conf[0] it the leaf) */
 unsigned int gclk_topology2id(const clk_topology_entry_t *topology_conf, uint32_t topo_len);
