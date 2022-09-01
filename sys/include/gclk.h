@@ -2144,22 +2144,85 @@ void gclk_advance_topology_to_next_frequency_setting(clk_topology_entry_t *topol
  */
 void gclk_get_nth_factors_config(const gclk_t **clks, uint32_t *factors, size_t set_cnt, size_t conf_id);
 
-/* For a given topology config it returns the (leaf-unique) topology id for the leaf clock where (topology_conf[0] it the leaf) */
+/**
+ * @brief Get the (clock specific) unique topology id from a clock topology config.
+ *
+ * For a given topology config it returns the (clock-specific) unique topology id.
+ * The id relates to the leaf clock of the given topology which is given in
+ * topology_conf[0].
+ *
+ * @param[in]  topology_conf  Topology configuration to get the topology id for.
+ * @param[in]  topo_len       Number of elements in @p topology_conf.
+ *
+ * @return The topology id that identifies the given config.
+ */
 unsigned int gclk_topology2id(const clk_topology_entry_t *topology_conf, uint32_t topo_len);
 
+/**
+ * @brief Get the product of a specific factor combination of the given clock list.
+ *
+ * Useful for factor match functions that do not operate on the whole topology and
+ * instead represent a set of factors in a topology chain by an quivalent factor.
+ * This function shall only be used on either a set of only divider or only
+ * multiplier scalers, as mixing them will not yield a scalar value.
+ *
+ * @todo Check whether it is preferrable to replace this by
+ *       @ref gclk_get_current_equivalent_uptree_factors() or the like.
+ *
+ * @param[in]      clks      Pointer to an array of clock references (to be used for factor range metadata).
+ * @param[in]      clks_cnt  Number of elements in @p clks as well as @p factors (must be equal!).
+ * @param[in]      n         Unique index of the config to store in @p factors (unique per clock set).
+ *
+ * return Product of all scale factor values.
+ */
 uint32_t gclk_get_nth_config_equivalent_factor(const gclk_t **clks, size_t clks_cnt, size_t n);
 
-/* @pre topology[0] must conatin the output clock
- * @param topology  The destination where the requested topology config will be written
- * @param max_len   Tat valid maximum number of entries topologie can hold
- * @param tid       Unique ID of the topology that is requested
+/**
+ * @brief Get a topology from its unique index.
  *
- * return the length of the new topology.
+ * @todo make the leaf clock a separate parameter to avoid duplicated code setting the leaf
+ *       clock and unify style with e.g. @ref gclk_get_current_topology_config().
+ *
+ * @pre topology[0] must conatin the output clock
+ * @param[in,out] topology  The location where the requested topology config will be written to.
+ * @param[in]     max_len   Maximum number of entries topology can hold.
+ * @param[in]     tid       Unique ID of the topology that is requested (specific to the leaf clock).
+ *
+ * @return The length of the new topology.
  */
 unsigned int gclk_get_nth_topology(clk_topology_entry_t *topology, size_t max_len, size_t tid);
 
+/**
+ * @brief Get the resulting output frequency from an input frequency and a set of mul/div factors.
+ *
+ * @param[in]     fi         Input frequency.
+ * @param[in]     mfacts     Array of multiplier factor values.
+ * @param[in]     mfact_cnt  Number of multipliers in *p mfacts.
+ * @param[in]     dfacts     Array of divider factor values.
+ * @param[in]     dfact_cnt  Number of dividers in *p dfacts.
+ *
+ * @return The resulting output frequency.
+ */
 uint32_t gclk_get_factor_config_freq(uint32_t fi, uint32_t *mfacts, size_t mfact_cnt, uint32_t *dfacts, size_t dfact_cnt);
 
+/**
+ * @brief Matching function to select the best factors for a given input and output frequency.
+ *
+ * @pre @p mfacts must be big enough to hold @p mul_clks_cnt factors.
+ * @pre @p dfacts must be big enough to hold @p div_clks_cnt factors.
+ *
+ * @param[in]     fi            Input frequency.
+ * @param[in]     fo            Output frequency.
+ * @param[in]     mul_clks      Pointer to clock reference array of multiplier clocks.
+ * @param[in]     mul_clks_cnt  Number of elements in @p mul_clks.
+ * @param[in,out] mfacts        Location where to store the best selected multiplier factors.
+ * @param[in]     div_clks      Pointer to clock reference array of multiplier clocks.
+ * @param[in]     div_clks_cnt  Number of elements in @p div_clks.
+ * @param[in,out] dfacts        Location where to store the best selected divider factors.
+ *
+ * @return true always
+ * @todo change/remove return type.
+ */
 bool gclk_match_closest_full_iter(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
