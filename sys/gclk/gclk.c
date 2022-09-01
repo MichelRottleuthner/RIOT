@@ -728,7 +728,7 @@ uint32_t gclk_map_func_idx_as_regval_list8(const gclk_t *clk, unsigned int idx, 
     return clk->factor_mapping.list8[idx];
 }
 
-uint32_t gclk_map_func_list16(const gclk_t *clk, unsigned int idx, bool to_regval) {
+uint32_t gclk_map_func_idx_as_regval_list16(const gclk_t *clk, unsigned int idx, bool to_regval) {
     if (to_regval) {
         return idx;
     }
