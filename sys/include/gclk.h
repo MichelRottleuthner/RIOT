@@ -1714,36 +1714,120 @@ static inline uint32_t gclk_reg_util_read_masked(volatile uint32_t *reg, uint32_
     return cur_config_reg_val >> bitarithm_lsb(mask);
 }
 
+/**
+ * @brief Set masked bits of a register to 1.
+ *
+ * @param[in] reg   Register address to write to.
+ * @param[in] mask  Mask indicating the bits to be set to 1.
+ */
 static inline void gclk_reg_util_set_mask(uint32_t volatile * const reg, uint32_t mask)
 {
     *reg |= mask;
 }
 
+/**
+ * @brief Clear masked bits of a register.
+ *
+ * @param[in] reg   Register address to write to.
+ * @param[in] mask  Mask indicating the bits to be set to 0.
+ */
 static inline void gclk_reg_util_clear_mask(volatile uint32_t * const reg, uint32_t mask)
 {
     *reg &= (~mask);
 }
 
+/**
+ * @brief Check if a clock instance is muxable.
+ *
+ * A muxable clock can set its input to different parent clocks. Therefore,
+ * it must support the optional @ref gclk_mux_ops_t interface capability.
+ * The number of possible parents and the actual parent instances can be read
+ * via @ref gclk_parent_cnt() and @ref gclk_get_parent() respectively.
+ *
+ * @param[in] clk  The clock instance.
+ *
+ * @return  true if the clock is muxable.
+ *          false if the clock is not muxable.
+ */
 static inline bool gclk_is_muxable(const gclk_t *clk) {
     return clk ? clk->flags.muxable : false;
 }
 
+/**
+ * @brief Check if a clock instance is gateable.
+ *
+ * A gateable clock can enable/disable forwarding of its input clock signal, or,
+ * in case of a clock source is may enable/disable generation of a clock signal.
+ * Therefore, it must support the optional @ref gclk_gate_ops_t interface capability.
+ *
+ * @param[in] clk  The clock instance.
+ *
+ * @return  true if the clock is gateable.
+ *          false if the clock is not gateable.
+ */
 static inline bool gclk_is_gateable(const gclk_t *clk) {
     return clk ? clk->flags.gateable : false;
 }
 
+/**
+ * @brief Check if a clock instance is scalable.
+ *
+ * A scalable clock can apply a scaling factor to a clock signal to modify
+ * its input clock before forwarding it. Therefore, it must support the
+ * optional @ref gclk_scale_ops_t interface capability.
+ *
+ * @param[in] clk  The clock instance.
+ *
+ * @return  true if the clock is scalable.
+ *          false if the clock is not scalable.
+ */
 static inline bool gclk_is_scalable(const gclk_t *clk) {
     return clk ? clk->flags.scaler_type != GCLK_NOSCALE : false;
 }
 
+/**
+ * @brief Check if a clock instance is a divider.
+ *
+ * A divider clock may scale the frequency fed to it by a given set of
+ * divider scaling values. This implies @ref gclk_is_scalable() will be
+ * true for the same instance.
+ *
+ * @param[in] clk  The clock instance.
+ *
+ * @return  true if the clock is a divider.
+ *          false if the clock is not divider.
+ */
 static inline bool gclk_is_divider(const gclk_t *clk) {
     return clk ? clk->flags.scaler_type == GCLK_DIV : false;
 }
 
+/**
+ * @brief Check if a clock instance is a multiplier.
+ *
+ * A multiplier clock may scale the frequency fed to it by a given set of
+ * multiplier values. This implies @ref gclk_is_scalable() will be
+ * true for the same instance.
+ *
+ * @param[in] clk  The clock instance.
+ *
+ * @return  true if the clock is a multiplier.
+ *          false if the clock is not multiplier.
+ */
 static inline bool gclk_is_multiplier(const gclk_t *clk) {
     return clk ? clk->flags.scaler_type == GCLK_MUL : false;
 }
 
+/**
+ * @brief Check if a clock instance is a clock soure.
+ *
+ * A clock source has no further parents and forms the root of one subtree of
+ * the whole clock network.
+ *
+ * @param[in] clk  The clock instance.
+ *
+ * @return  true if the clock is a source.
+ *          false if the clock is not source.
+ */
 static inline bool gclk_is_source(const gclk_t *clk) {
     /* NULL never has a parent so must be a source */
     return clk ? clk->flags.is_source : true;
