@@ -1869,8 +1869,8 @@ uint32_t gclk_map_func_ptr_lut(const gclk_t *clk, unsigned int idx, bool to_regv
  * (which is not possible with other mapping functions).
  * See also @ref gclk_factor_mapping_t.
  *
- * @param[in] clk        Clock instance to map the value for.
- * @param[in] conf       Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ * @param[in] clk     Clock instance to map the value for.
+ * @param[in] conf    State of the clock that the state of @p clk depends on.
  */
 uint32_t gclk_map_func_uptree_cross_ref_luf(const gclk_t *clk, const clk_topology_entry_t *conf);
 
