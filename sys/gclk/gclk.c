@@ -721,7 +721,7 @@ uint32_t gclk_map_func_idx_as_regval_range16(const gclk_t *clk, unsigned int idx
     return idx + clk->factor_mapping.range16->min;
 }
 
-uint32_t gclk_map_func_list8(const gclk_t *clk, unsigned int idx, bool to_regval) {
+uint32_t gclk_map_func_idx_as_regval_list8(const gclk_t *clk, unsigned int idx, bool to_regval) {
     if (to_regval) {
         return idx;
     }

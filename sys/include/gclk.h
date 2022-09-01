@@ -1890,8 +1890,20 @@ uint32_t gclk_map_func_regval_as_numval_range16(const gclk_t *clk, unsigned int 
  * for ranges where the register value equals the index of the mapping entry */
 uint32_t gclk_map_func_idx_as_regval_range16(const gclk_t *clk, unsigned int idx, bool to_regval);
 
-/* applicable for encoding via gclk_factor_mapping_t.uint8_t (list8) */
-uint32_t gclk_map_func_list8(const gclk_t *clk, unsigned int idx, bool to_regval);
+/**
+ * @brief Mapping function for values encoded as @ref uint8_t array.
+ *
+ * Can be applied for value lists where the index also implicitly encodes
+ * the register value, whereas the list itself contains the numerical value.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] idx        Zero based index (number of value pair) to map the value for.
+ * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ *
+ * return The register value if @p to_regval is true.
+ *        The numerical value if @p to_regval is false.
+ */
+uint32_t gclk_map_func_idx_as_regval_list8(const gclk_t *clk, unsigned int idx, bool to_regval);
 
 /* applicable for encoding via gclk_factor_mapping_t.uint16_t (list16) */
 uint32_t gclk_map_func_list16(const gclk_t *clk, unsigned int idx, bool to_regval);
@@ -2063,7 +2075,7 @@ bool gclk_is_used(const gclk_t *clk);
 
 #define GCLK_LIST8_STATIC_INIT(X) .base.factor_mapping.list8 = &(X[0]), \
                                   .base.flags.conf_cnt = ARRAY_SIZE(X), \
-                                  .base.factor_map_op = gclk_map_func_list8
+                                  .base.factor_map_op = gclk_map_func_idx_as_regval_list8
 
 #define GCLK_LIST16_STATIC_INIT(X) .base.factor_mapping.list16 = &(X[0]), \
                                    .base.flags.conf_cnt = ARRAY_SIZE(X), \
