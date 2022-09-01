@@ -2007,6 +2007,18 @@ uint32_t gclk_map_func_fixed_factor(const gclk_t *clk, unsigned int idx, bool to
  */
 uint32_t gclk_map_parent_lut(const gclk_t *clk, const gclk_t **parent, unsigned int idx);
 
+/**
+ * @brief Mapping function for parent and register value encoded as simple list of @ref gclk_t references.
+ *
+ * Can be applied for an array that contains parent references where the position (index) in the array
+ * also implicitly encodes the respective register value.
+ *
+ * @param[in] clk      Clock instance to map the value for.
+ * @param[in] parent   Location where to store the parent reference.
+ * @param[in] idx      Parent index.
+ *
+ * return The register value to select the parent with the given index.
+ */
 uint32_t gclk_map_parent_list(const gclk_t *clk, const gclk_t **parent, unsigned int idx);
 
 /*
