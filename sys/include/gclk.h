@@ -1842,6 +1842,9 @@ static inline bool gclk_is_source(const gclk_t *clk) {
  * @param[in] clk        Clock instance to map the value for.
  * @param[in] idx        Zero based index (number of value pair) to map the value for.
  * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ *
+ * return The register value if @p to_regval is true.
+ *        The numerical value if @p to_regval is false.
  */
 uint32_t gclk_map_func_lut(const gclk_t *clk, unsigned int idx, bool to_regval);
 
@@ -1854,9 +1857,11 @@ uint32_t gclk_map_func_lut(const gclk_t *clk, unsigned int idx, bool to_regval);
  * @param[in] clk        Clock instance to map the value for.
  * @param[in] idx        Zero based index (number of value pair) to map the value for.
  * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ *
+ * return The register value if @p to_regval is true.
+ *        The numerical value if @p to_regval is false.
  */
 uint32_t gclk_map_func_ptr_lut(const gclk_t *clk, unsigned int idx, bool to_regval);
-
 
 /**
  * @brief Mapping function for values encoded as @ref gclk_reg_val_cross_ref_luf_t.
@@ -1871,23 +1876,74 @@ uint32_t gclk_map_func_ptr_lut(const gclk_t *clk, unsigned int idx, bool to_regv
  *
  * @param[in] clk     Clock instance to map the value for.
  * @param[in] conf    State of the clock that the state of @p clk depends on.
+ *
+ * return The numerical value.
  */
 uint32_t gclk_map_func_uptree_cross_ref_luf(const gclk_t *clk, const clk_topology_entry_t *conf);
 
-/* applicable for encoding via gclk_factor_mapping_t.gclk_range8_t
- * for ranges where the register value equals to the numerical value */
+/**
+ * @brief Mapping function for values encoded as @ref gclk_range8_t.
+ *
+ * Can be applied for value ranges where the register value also implicitly encodes
+ * the numerical value.
+ * See also @ref gclk_factor_mapping_t.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] idx        Zero based index (number of value pair) to map the value for.
+ * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ *
+ * return The register value if @p to_regval is true.
+ *        The numerical value if @p to_regval is false.
+ */
 uint32_t gclk_map_func_regval_as_numval_range8(const gclk_t *clk, unsigned int idx, bool to_regval);
 
-/* applicable for encoding via gclk_factor_mapping_t.gclk_range8_t
- * for ranges where the register value equals the index of the mapping entry */
+/**
+ * @brief Mapping function for values encoded as @ref gclk_range8_t.
+ *
+ * Can be applied for value ranges where the index also implicitly encodes
+ * the register value.
+ * See also @ref gclk_factor_mapping_t.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] idx        Zero based index (number of value pair) to map the value for.
+ * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ *
+ * return The register value if @p to_regval is true.
+ *        The numerical value if @p to_regval is false.
+ */
 uint32_t gclk_map_func_idx_as_regval_range8(const gclk_t *clk, unsigned int idx, bool to_regval);
 
-/* applicable for encoding via gclk_factor_mapping_t.gclk_range16_t
- * If the register value equals to the numerical value */
+/**
+ * @brief Mapping function for values encoded as @ref gclk_range16_t.
+ *
+ * Can be applied for value ranges where the register value also implicitly encodes
+ * the numerical value.
+ * See also @ref gclk_factor_mapping_t.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] idx        Zero based index (number of value pair) to map the value for.
+ * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ *
+ * return The register value if @p to_regval is true.
+ *        The numerical value if @p to_regval is false.
+ */
 uint32_t gclk_map_func_regval_as_numval_range16(const gclk_t *clk, unsigned int idx, bool to_regval);
 
-/* applicable for encoding via gclk_factor_mapping_t.gclk_range16_t
- * for ranges where the register value equals the index of the mapping entry */
+/**
+ * @brief Mapping function for values encoded as @ref gclk_range16_t.
+ *
+ * Can be applied for value ranges where the index also implicitly encodes
+ * the register value.
+ * This is a 16 bit variant of @ref gclk_map_func_idx_as_regval_range8().
+ * See also @ref gclk_factor_mapping_t.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] idx        Zero based index (number of value pair) to map the value for.
+ * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ *
+ * return The register value if @p to_regval is true.
+ *        The numerical value if @p to_regval is false.
+ */
 uint32_t gclk_map_func_idx_as_regval_range16(const gclk_t *clk, unsigned int idx, bool to_regval);
 
 /**
