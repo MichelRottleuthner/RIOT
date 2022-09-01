@@ -1833,15 +1833,45 @@ static inline bool gclk_is_source(const gclk_t *clk) {
     return clk ? clk->flags.is_source : true;
 }
 
-/* TODO: below functions could go to a separate file for mapping helpers */
-/* applicable for encoding via gclk_factor_mapping_t.gclk_reg_val_factor_lut_t (lut) */
+/**
+ * @brief Mapping function for values encoded as @ref gclk_reg_val_factor_lut_t.
+ *
+ * Maps the index of a configuration option either to its numeric or register value.
+ * See also @ref gclk_factor_mapping_t.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] idx        Zero based index (number of value pair) to map the value for.
+ * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ */
 uint32_t gclk_map_func_lut(const gclk_t *clk, unsigned int idx, bool to_regval);
 
-/* applicable for encoding via gclk_factor_mapping_t.gclk_reg_val_ptr_lut_t (ptr_lut) */
+/**
+ * @brief Mapping function for values encoded as @ref gclk_reg_val_ptr_lut_t.
+ *
+ * Maps the index of a configuration option either to its numeric or register value.
+ * See also @ref gclk_factor_mapping_t.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] idx        Zero based index (number of value pair) to map the value for.
+ * @param[in] to_regval  Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ */
 uint32_t gclk_map_func_ptr_lut(const gclk_t *clk, unsigned int idx, bool to_regval);
 
-/* applicable for encoding via gclk_factor_mapping_t.gclk_reg_val_cross_ref_luf_t (cross_ref)
- * conf may be NULL to lookup the current conf */
+
+/**
+ * @brief Mapping function for values encoded as @ref gclk_reg_val_cross_ref_luf_t.
+ *
+ * Special mapping function that does not map operate on specific register values but the
+ * logical configuration state of another clock instance. The function translates the
+ * (dependent) state by deriving it form the virtual representation of the sate it
+ * depends on.
+ * Alternatively, if no state is provided, it returns the currently active state
+ * (which is not possible with other mapping functions).
+ * See also @ref gclk_factor_mapping_t.
+ *
+ * @param[in] clk        Clock instance to map the value for.
+ * @param[in] conf       Mapping direction (true: idx -> reg.value, false: idx -> numeric value).
+ */
 uint32_t gclk_map_func_uptree_cross_ref_luf(const gclk_t *clk, const clk_topology_entry_t *conf);
 
 /* applicable for encoding via gclk_factor_mapping_t.gclk_range8_t
