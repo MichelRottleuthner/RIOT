@@ -1679,13 +1679,34 @@ const gclk_t *gclk_get(uint32_t idx);
  */
 unsigned int gclk_get_index(const gclk_t *gclk);
 
-/* Helper function to update a specific part of a 32 bit register.
-   The mask defines which bits will be updated. The value will be shifted up to the mask before writing */
+/**
+ * @brief Write a value to a specific section of a register.
+ *
+ * Helper function to update a specific part of a 32 bit register.
+ * The value is treated right aligned (normalized to the value it would have if
+ * the register was only the size of the mask) and will also be shifted!
+ *
+ * @param[in] reg   Register address to write to.
+ * @param[in] mask  Mask that indicates which bits to update.
+ * @param[in] val   Value to write (LSB will be shifted to lowest bit set in @p mask).
+ */
 static inline void gclk_reg_util_write_masked(volatile uint32_t *reg, uint32_t mask, uint32_t val)
 {
     *reg = (*reg & ~mask) | (val << bitarithm_lsb(mask));
 }
 
+/**
+ * @brief Read a specific section of a register.
+ *
+ * Helper function to read a specific part of a 32 bit register.
+ * The mask indicates which section to return. The value will be returned as
+ * normalized value, i.e., the value will be shifted down so its LSB sits at bit 0.
+ *
+ * @param[in] reg   Register address to read from.
+ * @param[in] mask  Mask that indicates which bits to read.
+ *
+ * @return The normalized value of the register section.
+ */
 static inline uint32_t gclk_reg_util_read_masked(volatile uint32_t *reg, uint32_t mask)
 {
     uint32_t cur_config_reg_val = (*reg & mask);
