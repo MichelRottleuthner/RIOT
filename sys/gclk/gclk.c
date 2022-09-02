@@ -809,6 +809,8 @@ unsigned int gclk_get_nth_topology(clk_topology_entry_t *topology, size_t max_le
     }
 
     LOG_ERROR("gclk_get_nth_topology: didn't find source!\n");
+    //TODO: return 0 to indicate topology is incomplete?
+    //      check if this triggers regressions first!
     return max_len;
 }
 
