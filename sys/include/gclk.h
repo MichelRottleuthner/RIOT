@@ -2294,17 +2294,24 @@ bool gclk_is_sourced_by(const gclk_t *clk, const gclk_t *src);
 /**
  * @brief Check if a clock is a leaf clock (no other clock may use the clock as parent).
  *
- * @param[in] clk  The clock reference to check.
+ * @param[in] clk  The clock instance to check.
  *
  * @return  true   If no other clock can use this clock as parent.
  * @return  false  If there is at least one clock that can use the given clock as parent.
  */
 bool gclk_is_leaf(const gclk_t *clk);
 
-/* @brief check if a clock is currently used as parent by other active clocks
+/**
+ * @brief Check if a clock is currently used as parent by other active clocks.
  *
- * @return true if another active clock is currently sourced by this clock
- *         false otherwise */
+ * This function is useful to determine clocks or sub-trees that can actually
+ * be switched off.
+ *
+ * @param[in] clk  The clock instance to check.
+ *
+ * @return   true   If another active clock is currently sourced by this clock.
+ * @return   false  If no other clock is using the given clock as parent.
+ */
 bool gclk_is_used(const gclk_t *clk);
 
 #define GCLK_REGVAL_AS_NUMVAL_RANGE8_STATIC_INIT(X) .base.factor_mapping.range8 = &(X), \
