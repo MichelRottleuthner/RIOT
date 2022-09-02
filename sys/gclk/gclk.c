@@ -1444,6 +1444,7 @@ static inline bool _clk_equals_if_present(const gclk_t *clk, uint32_t clk_freq, 
     return false;
 }
 
+//TODO: fix the return type!
 gclk_cmp_result_t gclk_cmp_topology_for_closest_constrained_leaf_freq(clk_topology_entry_t *topo_best, size_t len1,
                 clk_topology_entry_t *topo_cmp, size_t len2, void *arg) {
     (void)len1;
