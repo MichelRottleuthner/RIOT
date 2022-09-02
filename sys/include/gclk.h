@@ -2291,10 +2291,14 @@ bool gclk_parent_must_be_stopped_for_change(const gclk_t *clk);
  *       I.e. a clock is considered to be sources by another clock even if it currently is switched off */
 bool gclk_is_sourced_by(const gclk_t *clk, const gclk_t *src);
 
-/* @brief check if a clock is not useable as parent by other clocks
+/**
+ * @brief Check if a clock is a leaf clock (no other clock may use the clock as parent).
  *
- * @return true if no other clock can use this clock as parent
- *         false otherwise */
+ * @param[in] clk  The clock reference to check.
+ *
+ * @return  true   If no other clock can use this clock as parent.
+ * @return  false  If there is at least one clock that can use the given clock as parent.
+ */
 bool gclk_is_leaf(const gclk_t *clk);
 
 /* @brief check if a clock is currently used as parent by other active clocks
