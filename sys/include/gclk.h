@@ -2314,26 +2314,62 @@ bool gclk_is_leaf(const gclk_t *clk);
  */
 bool gclk_is_used(const gclk_t *clk);
 
+/*
+ * @brief Static initialization helper for a range-based scalers (8 bit, regval equal to numval mapping).
+ *
+ * Initializes all required metadata to handle data encoded via @ref gclk_range8_t.
+ * @param X Should be a statically defined @ref gclk_range8_t.
+ */
 #define GCLK_REGVAL_AS_NUMVAL_RANGE8_STATIC_INIT(X) .base.factor_mapping.range8 = &(X), \
                                                     .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                     .base.factor_map_op = gclk_map_func_regval_as_numval_range8
 
+/*
+ * @brief Static initialization helper for a range-based scalers (8 bit, regval equal to idx mapping).
+ *
+ * Initializes all required metadata to handle data encoded via @ref gclk_range8_t.
+ * @param X Should be a statically defined @ref gclk_range8_t.
+ */
 #define GCLK_IDX_AS_REGVAL_RANGE8_STATIC_INIT(X) .base.factor_mapping.range8 = &(X), \
                                                  .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                  .base.factor_map_op = gclk_map_func_idx_as_regval_range8
 
+/*
+ * @brief Static initialization helper for a list-based scalers (8 bit, regval equal to idx mapping).
+ *
+ * Initializes all required metadata to handle data encoded via a uint8_t array.
+ * @param X Should be a statically defined uint8_t array.
+ */
 #define GCLK_LIST8_STATIC_INIT(X) .base.factor_mapping.list8 = &(X[0]), \
                                   .base.flags.conf_cnt = ARRAY_SIZE(X), \
                                   .base.factor_map_op = gclk_map_func_idx_as_regval_list8
 
+/*
+ * @brief Static initialization helper for a list-based scalers (16 bit, regval equal to idx mapping).
+ *
+ * Initializes all required metadata to handle data encoded via a uint16_t array.
+ * @param X Should be a statically defined uint16_t array.
+ */
 #define GCLK_LIST16_STATIC_INIT(X) .base.factor_mapping.list16 = &(X[0]), \
                                    .base.flags.conf_cnt = ARRAY_SIZE(X), \
                                    .base.factor_map_op = gclk_map_func_idx_as_regval_list16
 
+/*
+ * @brief Static initialization helper for a range-based scalers (16 bit, regval equal to numval mapping).
+ *
+ * Initializes all required metadata to handle data encoded via @ref gclk_range16_t.
+ * @param X Should be a statically defined @ref gclk_range16_t.
+ */
 #define GCLK_REGVAL_AS_NUMVAL_RANGE16_STATIC_INIT(X) .base.factor_mapping.range16 = &(X), \
                                                      .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                      .base.factor_map_op = gclk_map_func_regval_as_numval_range16
 
+/*
+ * @brief Static initialization helper for a range-based scalers (16 bit, regval equal to idx mapping).
+ *
+ * Initializes all required metadata to handle data encoded via @ref gclk_range16_t.
+ * @param X Should be a statically defined @ref gclk_range16_t.
+ */
 #define GCLK_IDX_AS_REGVAL_RANGE16_STATIC_INIT(X) .base.factor_mapping.range16 = &(X), \
                                                   .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                   .base.factor_map_op = gclk_map_func_idx_as_regval_range16
