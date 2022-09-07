@@ -2270,7 +2270,7 @@ uint32_t gclk_match_freq_conf(clk_topology_entry_t *topology, uint32_t topo_len,
                               gclk_factor_match_func_t match_op);
 
 /**
- * @brief Matching function to select the best factors for a given input and output frequency.
+ * @brief Find the best matching factors for a given in/out frequency via full iteration.
  *
  * An implementation of the @ref gclk_factor_match_func_t factor matching interface that
  * just iterates through all possible combinations.
@@ -2284,7 +2284,7 @@ bool gclk_match_closest_full_iter(uint32_t fi, uint32_t fo,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
 
 /**
- * @brief Matching function to select the best factors for a given input and output frequency.
+ * @brief Find exactly matching factors for a given in/out frequency via iteration and recursion.
  *
  * An implementation of the @ref gclk_factor_match_func_t factor matching interface that
  * combines multiple scaler values before searching for fitting combinations as it
@@ -2292,7 +2292,7 @@ bool gclk_match_closest_full_iter(uint32_t fi, uint32_t fo,
  * step. Secifically, the multiplier values are iterated by first combining all multipliers
  * into a single value per possible combination. For each of those values the required optimal
  * (combined) divider value for the remaining clocks is then claculated, which is tried to
- * recursively distribute to the remaining scalers.
+ * be recursively distributed to the remaining scalers.
  *
  * @copydetails gclk_factor_match_func_t
  */
@@ -2300,6 +2300,26 @@ bool gclk_match_iter_mul_recurse_div(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
 
+/**
+ * @brief Find exactly matching factors for a given in/out frequency via iteration and factorization.
+ *
+ * This matching function iterates through possible (combined) multipliers same as
+ * @ref gclk_match_iter_mul_recurse_div but instead of recursively trying to match the resulting
+ * combined div factor, it factorizes this combined div value and tries to allocate the factors
+ * across available dividers and returns early in case the min/max possible frequency abtainable
+ * by the dividers rules out a feasibility.
+ *
+ * @note The current implementation of this function does **not** guarantee to cover the whole
+ * configuration space because distributing the prime factors is only tried in one particular
+ * order with a simplified greedy allocation. I.e., each prime factor is allocated to the first
+ * clock that is able to accomodate it.
+ *
+ * @todo As of now this is only safely usable for scalers that cover a full contiguous range
+ *       because feasability of a particular value is only checked against the max value
+ *       of the divider.
+ *
+ * @copydetails gclk_factor_match_func_t
+ */
 bool gclk_match_iter_mul_factorize_div(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
