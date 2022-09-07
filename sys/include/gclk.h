@@ -2208,6 +2208,9 @@ uint32_t gclk_get_factor_config_freq(uint32_t fi, uint32_t *mfacts, size_t mfact
 /**
  * @brief Matching function to select the best factors for a given input and output frequency.
  *
+ * An implementation of the @ref gclk_factor_match_func_t factor matching interface that
+ * just iterates through all possible combinations.
+ *
  * @pre @p mfacts must be big enough to hold @p mul_clks_cnt factors.
  * @pre @p dfacts must be big enough to hold @p div_clks_cnt factors.
  *
@@ -2220,8 +2223,7 @@ uint32_t gclk_get_factor_config_freq(uint32_t fi, uint32_t *mfacts, size_t mfact
  * @param[in]     div_clks_cnt  Number of elements in @p div_clks.
  * @param[in,out] dfacts        Location where to store the best selected divider factors.
  *
- * @return true always
- * @todo change/remove return type.
+ * @return true    Always, because this function is not only searching for exact matches.
  */
 bool gclk_match_closest_full_iter(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
@@ -2260,6 +2262,24 @@ uint32_t gclk_get_dividers_from_topology(const gclk_t **clks, uint32_t len, cons
  */
 uint32_t gclk_get_multipliers_from_topology(const gclk_t **clks, uint32_t topo_len, const gclk_t **mul_clks);
 
+/**
+ * @brief Prototype for factor matching functions.
+ *
+ * @pre @p mfacts must be big enough to hold @p mul_clks_cnt factors.
+ * @pre @p dfacts must be big enough to hold @p div_clks_cnt factors.
+ *
+ * @param[in]     fi            Input frequency.
+ * @param[in]     fo            Output frequency.
+ * @param[in]     mul_clks      Pointer to clock reference array of multiplier clocks.
+ * @param[in]     mul_clks_cnt  Number of elements in @p mul_clks.
+ * @param[in,out] mfacts        Location where to store the best selected multiplier factors.
+ * @param[in]     div_clks      Pointer to clock reference array of multiplier clocks.
+ * @param[in]     div_clks_cnt  Number of elements in @p div_clks.
+ * @param[in,out] dfacts        Location where to store the best selected divider factors.
+ *
+ * @return true    If a match was found.
+ * @return false   If the frequency could not be found.
+ */
 typedef bool (*gclk_factor_match_func_t)(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
