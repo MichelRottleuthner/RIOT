@@ -2234,27 +2234,31 @@ static inline uint32_t gclk_abs_freq_diff(uint32_t a, uint32_t b) {
     return b - a;
 }
 
-/* @param  topology  List of clocks that form the topology to adjust factors for.
- *                   topology[0] contains the output clock node that shall take Fo as frequency
- *                   topology[1] contains the parent of topology[0] and so forth.
- * @param  topo_len  the toplology length i.e., number of clocks in the given topology
- * @param  clks      pointer to where the references to all dividers will be stored.
- *                   must be big enough to store all divider clock references.
- *                   may be NULL to query the size before actually getting the references.
+/**
+ * @brief Get all divider clocks from a list of clocks.
  *
- * @return the number of dividers within the given topology */
-uint32_t gclk_get_dividers_from_topology(const gclk_t **topology, uint32_t topo_len, const gclk_t **div_clks);
+ * @param  clks      Array of arbitrary clock references to filter for dividers.
+ * @param  len       Number of elements in @p clks.
+ * @param  div_clks  Pointer to where the references of all dividers will be stored.
+ *                   Must be big enough to store all divider clock references.
+ *                   Can be set to NULL to query the size before actually getting the references.
+ *
+ * @return The number of dividers within the given list of clocks.
+ */
+uint32_t gclk_get_dividers_from_topology(const gclk_t **clks, uint32_t len, const gclk_t **div_clks);
 
-/* @param  topology  List of clocks that form the topology to adjust factors for.
- *                   topology[0] contains the output clock node that shall take Fo as frequency
- *                   topology[1] contains the parent of topology[0] and so forth.
- * @param  topo_len  the toplology length i.e., number of clocks in the given topology
- * @param  clks      pointer to where the references to all multipliers will be stored.
- *                   must be big enough to store all multiplier clock references.
- *                   may be NULL to query the size before actually getting the references.
+/**
+ * @brief Get all multiplier clocks from a list of clocks.
  *
- * @return the number of multipliers within the given topology */
-uint32_t gclk_get_multipliers_from_topology(const gclk_t **topology, uint32_t topo_len, const gclk_t **mul_clks);
+ * @param  clks      Array of arbitrary clock references to filter for multipliers.
+ * @param  topo_len  the toplology length i.e., number of clocks in the given topology
+ * @param  mul_clks  Pointer to where the references of all multipliers will be stored.
+ *                   Must be big enough to store all multiplier clock references.
+ *                   Can be set to NULL to query the size before actually getting the references.
+ *
+ * @return The number of multipliers within the given list of clocks.
+ */
+uint32_t gclk_get_multipliers_from_topology(const gclk_t **clks, uint32_t topo_len, const gclk_t **mul_clks);
 
 typedef bool (*gclk_factor_match_func_t)(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
