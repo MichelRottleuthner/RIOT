@@ -2334,8 +2334,19 @@ bool gclk_match_iter_mul_factorize_div(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
 
-/* @brief check if a change to a specific clock affects another clock
- **/
+/**
+ * @brief Check if changing a specific clock affects another clock.
+ *
+ * Whether a clock is affected by another clock is **not** a static property. Therefore,
+ * the result of this function is only valid for as long the parent topology of @p affected_clock
+ * remains unchanged in terms of mux settings.
+ *
+ * @param[in] altered_clock   The clock to be changed.
+ * @param[in] affected_clock  The clock to check for being affected by that change.
+ *
+ * @return  true    if it is affected.
+ * @return  false   if not affected.
+ */
 bool gclk_affected_by_change(const gclk_t *altered_clock, const gclk_t *affected_clock);
 
 /* @brief check if a clock must be stopped before changing its configuration */
