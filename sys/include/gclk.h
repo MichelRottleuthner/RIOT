@@ -2314,7 +2314,7 @@ bool gclk_is_leaf(const gclk_t *clk);
  */
 bool gclk_is_used(const gclk_t *clk);
 
-/*
+/**
  * @brief Static initialization helper for a range-based scaler (8 bit, regval equal to numval mapping).
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_range8_t.
@@ -2324,7 +2324,7 @@ bool gclk_is_used(const gclk_t *clk);
                                                     .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                     .base.factor_map_op = gclk_map_func_regval_as_numval_range8
 
-/*
+/**
  * @brief Static initialization helper for a range-based scaler (8 bit, regval equal to idx mapping).
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_range8_t.
@@ -2334,7 +2334,7 @@ bool gclk_is_used(const gclk_t *clk);
                                                  .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                  .base.factor_map_op = gclk_map_func_idx_as_regval_range8
 
-/*
+/**
  * @brief Static initialization helper for a list-based scaler (8 bit, regval equal to idx mapping).
  *
  * Initializes all required metadata to handle data encoded via a uint8_t array.
@@ -2344,7 +2344,7 @@ bool gclk_is_used(const gclk_t *clk);
                                   .base.flags.conf_cnt = ARRAY_SIZE(X), \
                                   .base.factor_map_op = gclk_map_func_idx_as_regval_list8
 
-/*
+/**
  * @brief Static initialization helper for a list-based scaler (16 bit, regval equal to idx mapping).
  *
  * Initializes all required metadata to handle data encoded via a uint16_t array.
@@ -2354,7 +2354,7 @@ bool gclk_is_used(const gclk_t *clk);
                                    .base.flags.conf_cnt = ARRAY_SIZE(X), \
                                    .base.factor_map_op = gclk_map_func_idx_as_regval_list16
 
-/*
+/**
  * @brief Static initialization helper for a range-based scaler (16 bit, regval equal to numval mapping).
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_range16_t.
@@ -2364,7 +2364,7 @@ bool gclk_is_used(const gclk_t *clk);
                                                      .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                      .base.factor_map_op = gclk_map_func_regval_as_numval_range16
 
-/*
+/**
  * @brief Static initialization helper for a range-based scaler (16 bit, regval equal to idx mapping).
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_range16_t.
@@ -2374,7 +2374,7 @@ bool gclk_is_used(const gclk_t *clk);
                                                   .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                   .base.factor_map_op = gclk_map_func_idx_as_regval_range16
 
-/*
+/**
  * @brief Static initialization helper for a pointer-LUT-based scaler.
  *
  * The LUT holds explicit pairs of a factor and a pointer. The memory referred to by
@@ -2388,7 +2388,7 @@ bool gclk_is_used(const gclk_t *clk);
                                     .base.flags.conf_cnt = ARRAY_SIZE((X)), \
                                     .base.factor_map_op = gclk_map_func_ptr_lut
 
-/*
+/**
  * @brief Static initialization helper for a factor-LUT-based scaler.
  *
  * The LUT holds explicit pairs of a factor and a register value.
@@ -2400,7 +2400,7 @@ bool gclk_is_used(const gclk_t *clk);
                                        .base.flags.conf_cnt      = ARRAY_SIZE(X),\
                                        .base.factor_mapping.lut  = &X[0]
 
-/*
+/**
  * @brief Static initialization helper for a parent-LUT-based mux.
  *
  * The LUT holds explicit pairs of a parent reference and a register value.
@@ -2412,7 +2412,7 @@ bool gclk_is_used(const gclk_t *clk);
                                        .base.flags.conf_cnt      = ARRAY_SIZE(X),\
                                        .base.parent_mapping.lut  = &X[0]
 
-/*
+/**
  * @brief Static initialization helper for a clock statically depending on another clock.
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_reg_val_cross_ref_luf_t.
