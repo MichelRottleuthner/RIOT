@@ -2206,30 +2206,6 @@ unsigned int gclk_get_nth_topology(clk_topology_entry_t *topology, size_t max_le
 uint32_t gclk_get_factor_config_freq(uint32_t fi, uint32_t *mfacts, size_t mfact_cnt, uint32_t *dfacts, size_t dfact_cnt);
 
 /**
- * @brief Matching function to select the best factors for a given input and output frequency.
- *
- * An implementation of the @ref gclk_factor_match_func_t factor matching interface that
- * just iterates through all possible combinations.
- *
- * @pre @p mfacts must be big enough to hold @p mul_clks_cnt factors.
- * @pre @p dfacts must be big enough to hold @p div_clks_cnt factors.
- *
- * @param[in]     fi            Input frequency.
- * @param[in]     fo            Output frequency.
- * @param[in]     mul_clks      Pointer to clock reference array of multiplier clocks.
- * @param[in]     mul_clks_cnt  Number of elements in @p mul_clks.
- * @param[in,out] mfacts        Location where to store the best selected multiplier factors.
- * @param[in]     div_clks      Pointer to clock reference array of multiplier clocks.
- * @param[in]     div_clks_cnt  Number of elements in @p div_clks.
- * @param[in,out] dfacts        Location where to store the best selected divider factors.
- *
- * @return true    Always, because this function is not only searching for exact matches.
- */
-bool gclk_match_closest_full_iter(uint32_t fi, uint32_t fo,
-                                 const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
-                                 const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
-
-/**
  * @brief Get all divider clocks from a list of clocks.
  *
  * @param  clks      Array of arbitrary clock references to filter for dividers.
@@ -2277,10 +2253,49 @@ typedef bool (*gclk_factor_match_func_t)(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
 
+/**
+ * @brief Find a matching factor configuration to achieve a target frequency for the given topology.
+ *
+ * @param topology      The topology chain to find a scaling factor combination for.
+ * @param topo_len      Number of elements in @p topology.
+ * @param f_in          Frequency at the input of the topology chain.
+ * @param f_out_target  The wanted target frequency at the topology output.
+ * @param match_op      A factor matching function to be used for the matching process.
+ *
+ * @return  The matched target frequency if a matching config was found.
+ * @return  @p GCLK_INVALID_FREQ if the factors could not be matched.
+ */
 uint32_t gclk_match_freq_conf(clk_topology_entry_t *topology, uint32_t topo_len,
                               uint32_t f_in, uint32_t f_out_target,
                               gclk_factor_match_func_t match_op);
 
+/**
+ * @brief Matching function to select the best factors for a given input and output frequency.
+ *
+ * An implementation of the @ref gclk_factor_match_func_t factor matching interface that
+ * just iterates through all possible combinations.
+ *
+ * @copydetails gclk_factor_match_func_t
+ *
+ * @return true    Always, because this function is not only searching for exact matches.
+ */
+bool gclk_match_closest_full_iter(uint32_t fi, uint32_t fo,
+                                 const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
+                                 const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
+
+/**
+ * @brief Matching function to select the best factors for a given input and output frequency.
+ *
+ * An implementation of the @ref gclk_factor_match_func_t factor matching interface that
+ * combines multiple scaler values before searching for fitting combinations as it
+ * potentially allows to rule out bigger parts of the possible configuration space in each
+ * step. Secifically, the multiplier values are iterated by first combining all multipliers
+ * into a single value per possible combination. For each of those values the required optimal
+ * (combined) divider value for the remaining clocks is then claculated, which is tried to
+ * recursively distribute to the remaining scalers.
+ *
+ * @copydetails gclk_factor_match_func_t
+ */
 bool gclk_match_iter_mul_recurse_div(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
