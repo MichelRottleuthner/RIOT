@@ -2282,6 +2282,16 @@ uint32_t gclk_match_freq_conf(clk_topology_entry_t *topology, uint32_t topo_len,
 bool gclk_match_closest_full_iter(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
+/**
+ * @brief Find exactly matching factors for a given in/out frequency via full iteration.
+ *
+ * Same as @ref gclk_match_closest_full_iter() but only accepts exact matches.
+ *
+ * @copydetails gclk_factor_match_func_t
+ */
+bool gclk_match_exact_full_iter(uint32_t fi, uint32_t fo,
+                                 const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
+                                 const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
 
 /**
  * @brief Find exactly matching factors for a given in/out frequency via iteration and recursion.
@@ -2321,10 +2331,6 @@ bool gclk_match_iter_mul_recurse_div(uint32_t fi, uint32_t fo,
  * @copydetails gclk_factor_match_func_t
  */
 bool gclk_match_iter_mul_factorize_div(uint32_t fi, uint32_t fo,
-                                 const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
-                                 const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
-
-bool gclk_match_exact_full_iter(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
 
