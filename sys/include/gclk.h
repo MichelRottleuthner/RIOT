@@ -1947,7 +1947,7 @@ uint32_t gclk_map_func_regval_as_numval_range16(const gclk_t *clk, unsigned int 
 uint32_t gclk_map_func_idx_as_regval_range16(const gclk_t *clk, unsigned int idx, bool to_regval);
 
 /**
- * @brief Mapping function for values encoded as @ref uint8_t array.
+ * @brief Mapping function for values encoded as @c uint8_t array.
  *
  * Can be applied for value lists where the index also implicitly encodes
  * the register value, whereas the list itself contains the numerical value.
@@ -1962,7 +1962,7 @@ uint32_t gclk_map_func_idx_as_regval_range16(const gclk_t *clk, unsigned int idx
 uint32_t gclk_map_func_idx_as_regval_list8(const gclk_t *clk, unsigned int idx, bool to_regval);
 
 /**
- * @brief Mapping function for values encoded as @ref uint16_t array.
+ * @brief Mapping function for values encoded as @c uint16_t array.
  *
  * Can be applied for value lists where the index also implicitly encodes
  * the register value, whereas the list itself contains the numerical value.
