@@ -2315,7 +2315,7 @@ bool gclk_is_leaf(const gclk_t *clk);
 bool gclk_is_used(const gclk_t *clk);
 
 /*
- * @brief Static initialization helper for a range-based scalers (8 bit, regval equal to numval mapping).
+ * @brief Static initialization helper for a range-based scaler (8 bit, regval equal to numval mapping).
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_range8_t.
  * @param X Should be a statically defined @ref gclk_range8_t.
@@ -2325,7 +2325,7 @@ bool gclk_is_used(const gclk_t *clk);
                                                     .base.factor_map_op = gclk_map_func_regval_as_numval_range8
 
 /*
- * @brief Static initialization helper for a range-based scalers (8 bit, regval equal to idx mapping).
+ * @brief Static initialization helper for a range-based scaler (8 bit, regval equal to idx mapping).
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_range8_t.
  * @param X Should be a statically defined @ref gclk_range8_t.
@@ -2335,7 +2335,7 @@ bool gclk_is_used(const gclk_t *clk);
                                                  .base.factor_map_op = gclk_map_func_idx_as_regval_range8
 
 /*
- * @brief Static initialization helper for a list-based scalers (8 bit, regval equal to idx mapping).
+ * @brief Static initialization helper for a list-based scaler (8 bit, regval equal to idx mapping).
  *
  * Initializes all required metadata to handle data encoded via a uint8_t array.
  * @param X Should be a statically defined uint8_t array.
@@ -2345,7 +2345,7 @@ bool gclk_is_used(const gclk_t *clk);
                                   .base.factor_map_op = gclk_map_func_idx_as_regval_list8
 
 /*
- * @brief Static initialization helper for a list-based scalers (16 bit, regval equal to idx mapping).
+ * @brief Static initialization helper for a list-based scaler (16 bit, regval equal to idx mapping).
  *
  * Initializes all required metadata to handle data encoded via a uint16_t array.
  * @param X Should be a statically defined uint16_t array.
@@ -2355,7 +2355,7 @@ bool gclk_is_used(const gclk_t *clk);
                                    .base.factor_map_op = gclk_map_func_idx_as_regval_list16
 
 /*
- * @brief Static initialization helper for a range-based scalers (16 bit, regval equal to numval mapping).
+ * @brief Static initialization helper for a range-based scaler (16 bit, regval equal to numval mapping).
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_range16_t.
  * @param X Should be a statically defined @ref gclk_range16_t.
@@ -2365,7 +2365,7 @@ bool gclk_is_used(const gclk_t *clk);
                                                      .base.factor_map_op = gclk_map_func_regval_as_numval_range16
 
 /*
- * @brief Static initialization helper for a range-based scalers (16 bit, regval equal to idx mapping).
+ * @brief Static initialization helper for a range-based scaler (16 bit, regval equal to idx mapping).
  *
  * Initializes all required metadata to handle data encoded via @ref gclk_range16_t.
  * @param X Should be a statically defined @ref gclk_range16_t.
@@ -2374,23 +2374,54 @@ bool gclk_is_used(const gclk_t *clk);
                                                   .base.flags.conf_cnt = (X).max - (X).min + 1U, \
                                                   .base.factor_map_op = gclk_map_func_idx_as_regval_range16
 
+/*
+ * @brief Static initialization helper for a pointer-LUT-based scaler.
+ *
+ * The LUT holds explicit pairs of a factor and a pointer. The memory referred to by
+ * the pointer holds the register value corresponding to the factor.  Useful for OTP/flash factory
+ * calibration values.
+ *
+ * Initializes all required metadata to handle data encoded via @ref gclk_reg_val_ptr_lut_t.
+ * @param X Should be a statically defined array of @ref gclk_reg_val_ptr_lut_t.
+ */
 #define GCLK_PTR_LUT_STATIC_INIT(X) .base.factor_mapping.ptr_lut = &(X)[0], \
                                     .base.flags.conf_cnt = ARRAY_SIZE((X)), \
                                     .base.factor_map_op = gclk_map_func_ptr_lut
 
+/*
+ * @brief Static initialization helper for a factor-LUT-based scaler.
+ *
+ * The LUT holds explicit pairs of a factor and a register value.
+ *
+ * Initializes all required metadata to handle data encoded via @ref gclk_reg_val_factor_lut_t.
+ * @param X Should be a statically defined array of @ref gclk_reg_val_factor_lut_t.
+ */
 #define GCLK_FACTOR_LUT_STATIC_INIT(X) .base.factor_map_op       = gclk_map_func_lut,\
                                        .base.flags.conf_cnt      = ARRAY_SIZE(X),\
                                        .base.factor_mapping.lut  = &X[0]
 
+/*
+ * @brief Static initialization helper for a parent-LUT-based mux.
+ *
+ * The LUT holds explicit pairs of a parent reference and a register value.
+ *
+ * Initializes all required metadata to handle data encoded via @ref gclk_parent_config_lut_t.
+ * @param X Should be a statically defined array of @ref gclk_parent_config_lut_t.
+ */
 #define GCLK_PARENT_LUT_STATIC_INIT(X) .base.parent_map_op       = gclk_map_parent_lut,\
                                        .base.flags.conf_cnt      = ARRAY_SIZE(X),\
                                        .base.parent_mapping.lut  = &X[0]
 
+/*
+ * @brief Static initialization helper for a clock statically depending on another clock.
+ *
+ * Initializes all required metadata to handle data encoded via @ref gclk_reg_val_cross_ref_luf_t.
+ * @param X Should be a statically defined array of @ref gclk_reg_val_cross_ref_luf_t.
+ */
 #define GCLK_FACTOR_CROSSREF_UPTREE_LUF_STATIC_INIT(X) .base.factor_mapping.cross_ref = &X,\
                                                        .base.flags.conf_cnt           = 1,\
                                                        .base.cross_ref_factor_map_op  = gclk_map_func_uptree_cross_ref_luf,\
                                                        .base.flags.topology_flags     = GCLK_STRICT_UPTREE_DEPENDENT
-
 
 #ifdef __cplusplus
 }
