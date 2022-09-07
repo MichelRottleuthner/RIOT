@@ -2229,13 +2229,6 @@ bool gclk_match_closest_full_iter(uint32_t fi, uint32_t fo,
                                  const gclk_t **mul_clks, size_t mul_clks_cnt, uint32_t *mfacts,
                                  const gclk_t **div_clks, size_t div_clks_cnt, uint32_t *dfacts);
 
-static inline uint32_t gclk_abs_freq_diff(uint32_t a, uint32_t b) {
-    if (a > b) {
-        return a - b;
-    }
-    return b - a;
-}
-
 /**
  * @brief Get all divider clocks from a list of clocks.
  *

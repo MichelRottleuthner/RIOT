@@ -14,6 +14,13 @@ extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
 #define LOG_LEVEL LOG_NONE
 #include "log.h"
 
+static inline uint32_t gclk_abs_freq_diff(uint32_t a, uint32_t b) {
+    if (a > b) {
+        return a - b;
+    }
+    return b - a;
+}
+
 const gclk_scale_ops_t *gclk_get_scale_ops(const gclk_t *clk) {
     return clk->flags.scalable ? (gclk_scale_ops_t*)&clk->separated_ops[0] : NULL;
 }
