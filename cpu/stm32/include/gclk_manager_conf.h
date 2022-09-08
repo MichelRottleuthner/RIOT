@@ -532,13 +532,9 @@ static inline int gclk_manager_platform_init(void) {
     return 0;
 }
 
-/** @} */
-
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* GCLK_MANAGER_CONF_H */
-/**
- * @}
- */
+/** @} */
