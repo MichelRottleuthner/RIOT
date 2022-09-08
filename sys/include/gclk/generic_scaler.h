@@ -14,6 +14,9 @@
  * @file
  * @brief       Generic implementation of a clock scaler for the gclock module
  *
+ * This models a scaler that changes the frequency of a single clock that is
+ * connected to its input.
+ *
  * @todo        Open considerations for the scaler implementation:
  *              - currently tiny regref can only hold enable, ready and conf reg/mask definitions
  *                where conf is used by muxes for parent config but scaler uses it for scale config
@@ -38,18 +41,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef struct gclk_scaler_regs {
-    volatile uint32_t *enable_reg; /* register responsible to enable/disable this clock */
-    volatile uint32_t *ready_reg;
-    volatile uint32_t *scaler_reg;
-} gclk_scaler_regs_t;
-
-/**
- * @brief   This models a scaler that changes the frequency of a single input clock.
- *
- * @detial  It can be connected behind any other gclk_t instance.
- **/
 
 /* The basic scaler uses the generic basic clock type directly */
 typedef gclk_basic_clock_t gclk_clk_scaler_ll_t; 
