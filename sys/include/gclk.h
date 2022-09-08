@@ -1388,7 +1388,7 @@ typedef enum gclk_cmp_result {
  * @note It is compare function specific (implementation defined) whether a compare function
  *       is applicable to different topology paths or only different topology factor configurations
  *       of the same topology path. Depending on the compare function it may also be needed to
- *       initialize the context @pr arg in a certain way. Therfore, follow the specific compare
+ *       initialize the context @p arg in a certain way. Therfore, follow the specific compare
  *       function documentation carefully.
  *
  * @param[in]      topo_best  The best topology found so far. topo_best[0].clk_freq must be initialized
