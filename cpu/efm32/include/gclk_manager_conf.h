@@ -238,7 +238,6 @@ static const clock_freq_conf_limits_t gclk_freq_conf_limits[] = {
     },
 };
 #define GCLK_FREQ_LIMIT_CLKS_NUMOF   ARRAY_SIZE(gclk_freq_conf_limits)
-/** @} */
 
 /* TODO: also add explicit transition descriptors for same-to-same-topo transitions? */
 gclk_manager_topo_switch_desc_t core_clk_topo_switch_descs[] = {
@@ -272,6 +271,4 @@ static inline int gclk_manager_platform_init(void) {
 #endif
 
 #endif /* GCLK_MANAGER_CONF_H */
-/**
- * @}
- */
+/** @} */
