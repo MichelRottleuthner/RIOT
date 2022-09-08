@@ -14,21 +14,6 @@
  * @file
  * @brief       Generic implementation of a clock gate for the gclock module
  *
- * @todo: Open considerations on the gate functionality:
- *        (A): Add the enable reg and mask definitions (i.e. gate data) as members to the controlled (parent) clock node types.
- *             - provide separate "gateable" variants of scaler/mux ?
- *             - add property to indicate "gateable" -> the enable register definition can already go to tiny regref descriptor
- *        (B): Add a single composite struct pointer holding the gate data to the controlled clock node type.
- *             - effectively this would be a simple way to provide a "gateable" variant of whatever clock...
- *        (C): (B) + also move the switch (enable/disable) ptr to the referenced composite struct
- *             Essentially this would move the "gate-feature" to a separete type that can be referenced with a single pointer.
- *             + Probably saves storage (e.g. unused enable/disable ops pointers in parent clock, and all other unused ops
- *               of this type itself)
- *             + The type could still be used for clocks that are not gateable, with only wasting a single ptr.
- *        (D): For now there is no get_parent implementation -> if parent reference is moved from gclk_t base type
- *             to the specific type it would make sense to add a get_parent impl. (more consistent?)
- *             would also make sense because all of the dynamic.parent clock types waste this pointer effectively
- *
  * @author      Michel Rottleuthner <michel.rottleuthner@haw-hamburg.de>
  */
 #ifndef GCLK_GENERIC_GATE_H
