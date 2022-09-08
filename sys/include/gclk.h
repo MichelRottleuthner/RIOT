@@ -2349,15 +2349,37 @@ bool gclk_match_iter_mul_factorize_div(uint32_t fi, uint32_t fo,
  */
 bool gclk_affected_by_change(const gclk_t *altered_clock, const gclk_t *affected_clock);
 
-/* @brief check if a clock must be stopped before changing its configuration */
+/**
+ * @brief Check if clock must be stopped before changing its configuration.
+ *
+ * @param[in] clk  The clock instance.
+ */
 bool gclk_must_be_stopped_for_change(const gclk_t *clk);
 
-/* @brief check if the parent of a clock must be stopped before changing its configuration */
+/**
+ * @brief Check if the parent of a clock must be stopped before changing its configuration.
+ *
+ * @param[in] clk  The clock instance.
+ */
 bool gclk_parent_must_be_stopped_for_change(const gclk_t *clk);
 
-/* @brief returns true if clk is directly or indirectly driven by src
- * @note does not check if the clock is actually gate by an intermediate clock.
- *       I.e. a clock is considered to be sources by another clock even if it currently is switched off */
+/**
+ * @brief Check if a clock is directly or indirectly driven by another clock.
+ *
+ * This state depends on the the clocks source topology and therefore is only
+ * valid for as long the source topology is not changed.
+ *
+ * @note Only checks for the topologigcal (muxing) config, independent of any
+ *       gating that may be applied by an intermediate clock. I.e. a clock is
+ *       considered to be sourced by another clock even if it currently
+ *       is switched off.
+ *
+ * @param[in] clk  The clock to check if it depends on @p src.
+ * @param[in] src  The potential (intermediate uptree) source of @p clk.
+ *
+ * @return true  if @p src is a (recursive) parent of clk.
+ * @return false if @p src is not part of the topology currently driving @p clk.
+ */
 bool gclk_is_sourced_by(const gclk_t *clk, const gclk_t *src);
 
 /**
