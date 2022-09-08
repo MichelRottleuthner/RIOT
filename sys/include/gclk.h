@@ -1450,12 +1450,8 @@ char *gclk_freq_scale_unit(uint32_t val);
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Not used for this compare function.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_max_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
@@ -1468,12 +1464,8 @@ gclk_cmp_result_t gclk_cmp_topology_for_max_leaf_freq(clk_topology_entry_t *topo
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Not used for this compare function.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_min_nz_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
@@ -1486,12 +1478,8 @@ gclk_cmp_result_t gclk_cmp_topology_for_min_nz_leaf_freq(clk_topology_entry_t *t
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Must contain the target frequency as value.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
@@ -1512,12 +1500,8 @@ gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq(clk_topology_entry_t *
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Must contain the target frequency as value.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_min_sum(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
@@ -1532,12 +1516,8 @@ gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_min_sum(clk_topology_e
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Must contain the target frequency as value.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_max_sum(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
@@ -1553,12 +1533,8 @@ gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_max_sum(clk_topology_e
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Must contain the target frequency as value.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_min_max(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
@@ -1571,12 +1547,8 @@ gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_min_max(clk_topology_e
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Must contain the target frequency as value.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_max_max(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
@@ -1597,12 +1569,8 @@ gclk_cmp_result_t gclk_cmp_topology_for_closest_leaf_freq_max_max(clk_topology_e
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Must contain a pointer to a properly initialized @ref gclk_constrained_cmp_ctx_t.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_closest_constrained_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
@@ -1615,12 +1583,8 @@ gclk_cmp_result_t gclk_cmp_topology_for_closest_constrained_leaf_freq(clk_topolo
  * @note Also works with different topology paths (i.e., different source topology and
  *       different topology lengths).
  *
- * @param[in] topo_best  See interface definition for @ref gclk_cmp_func_t.
- * @param[in] len1       See interface definition for @ref gclk_cmp_func_t.
- * @param[in] topo_cmp   See interface definition for @ref gclk_cmp_func_t.
- * @param[in] arg        Must contain the target frequency as value.
- *
- * @return  The comparison result, see @ref gclk_cmp_result_t.
+ * Documentation related to the general @ref gclk_cmp_func_t interface:
+ * @copydetails gclk_cmp_func_t
  */
 gclk_cmp_result_t gclk_cmp_topology_for_exact_leaf_freq(clk_topology_entry_t *topo_best, size_t len1, clk_topology_entry_t *topo_cmp, size_t len2, void *arg);
 
