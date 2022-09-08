@@ -42,7 +42,9 @@
 extern "C" {
 #endif
 
-/* The basic scaler uses the generic basic clock type directly */
+/**
+ * @brief The generic scaler uses the generic basic clock type directly.
+ */
 typedef gclk_basic_clock_t gclk_clk_scaler_ll_t; 
 
 /**
@@ -101,24 +103,47 @@ unsigned int gclk_generic_scaler_get_factor(const gclk_t *clk);
 /**
  * @brief Configure new factor by writing to hardware
  *
+ * @pre   @p factor must be a valid value for clk.
+ *
  * @param clk     The clock that the factor will be changed of.
  * @param factor  The new factor as numerical value.
- * @pre   @factor must be a valid value for clk.
  *
  */
 void gclk_generic_scaler_set_factor(const gclk_t *clk, unsigned int factor);
 
+/**
+ * @brief get_factor op for a read-only implementation of the scale_ops interface.
+ *
+ * @param[in] clk   The clock instance to read the scaling factor of.
+ *
+ * @return The fixed numerical scaling factor of the clock instance.
+ */
 unsigned int gclk_generic_fixed_scaler_get_factor(const gclk_t *clk);
 
-/* A driver that only implements the scale_ops interface for a scaler that is interfaced
- * via a bitfield in a read/write register that exposes the current selection and
- * also allows changing it. */
+/**
+ * @brief Driver that only implements the scale_ops interface.
+ *
+ * Used for scalers that are interfaced via a bitfield in a read/write
+ * register that exposes the current factor selection and also allows
+ * changing it.
+ */
 extern const gclk_op_t gclk_plain_scaler_ops[];
 
-/* A driver that only implements the get_factor opration of the scale_ops interface to
- * model a read only fixed factor scaler */
+/**
+ * @brief Driver that only implements the get_factor operation of the scale_ops interface.
+ *
+ * Used for read only fixed factor scalers.
+ */
 extern const gclk_op_t gclk_plain_fixed_scaler_ops[];
 
+/**
+ * @brief Static initialization helper for a fixed factor scaler instance.
+ *
+ * Scales a frequency by a fixed factor that can not be changed at any time.
+ *
+ * @param NAME    A unique char string name for the clock instance (without quotes!).
+ * @param FACTOR  The fixed scaling factor of the scaler instance.
+ */
 #define GCLK_PLAIN_FIXED_SCALER_STATIC_INIT(NAME,FACTOR)\
 .base.separated_ops  = gclk_plain_fixed_scaler_ops,\
 .base.flags.scalable = 1,\
