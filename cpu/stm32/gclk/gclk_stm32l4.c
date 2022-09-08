@@ -225,28 +225,6 @@ static const gclk_op_t _bdcr_basic_muxable_gate_ops[] = {
                              .en       = ENABLE_REG_ID,\
                              .en_bit   = ENABLE_BIT,}
 
-//const gclk_ops_t gclk_stm32_common_gate_ops = {
-//    .enable = gclk_stm32_common_xx_gate_enable,
-//    .set_parent = NULL, /* not applicable to pure gates */
-//    .get_parent = NULL, /* a pure gate can not be configured to different parents (otherwise it would be a mux). So it
-//                           is never appliccable to have a dynamic parent. Static parents are handled by the higher
-//                           user facing API */
-//    .set_freq = NULL,   /* not applicable for a gate */
-//    .get_freq = gclk_generic_gate_get_freq,   /* returns 0 if off (gated) or the parent freq */
-//    .check_freq = gclk_generic_gate_check_freq,
-//};
-
-//const gclk_ops_t gclk_stm32_common_src_gate_ops = {
-//    .enable = gclk_stm32_common_xx_gate_enable,
-//    .set_parent = NULL, /* not applicable to pure gates */
-//    .get_parent = NULL, /* a pure gate can not be configured to different parents (otherwise it would be a mux). So it
-//                           is never appliccable to have a dynamic parent. Static parents are handled by the higher
-//                           user facing API */
-//    .set_freq = NULL,   /* not applicable for a gate */
-//    .get_freq = gclk_generic_src_gate_get_freq,  /* returns 0 if off (gated) or the fixed source freq */
-//    .check_freq = gclk_generic_gate_src_check_freq,
-//};
-
 //TODO: move out to generic gate header
 /* initializes a basic gate that acts as a fixed frequency source */
 #define _BASIC_SOURCE_GATE_STATIC_INIT(NAME,FIXFREQ,EN_REG_ID,RDY_REG_ID,EN_BIT,RDY_BIT)\
@@ -398,41 +376,6 @@ const gclk_t gclk_stm32_sai2_ext = {
      *       frequency is changeable at runtime */
     .fixed_input_freq = 0,
 };
-
-//int gclk_stm32_common_mux_set_parent(const gclk_t *clk, unsigned int index)
-//{
-///* we misuse that as a condition to check if BDCR register is present on this MCU */
-//#ifdef RCC_BDCR_LSEON_Pos
-//     gclk_mux_ll_t *stm32clkmux = to_gclk_mux_ll_t(clk);
-//    /* if this is a clock that is configured trough the backup domain */
-//    if (gclk_regref2conf_reg(stm32clkmux->regref) == &RCC->BDCR) {
-//        PWR->REG_PWR_CR |= BIT_CR_DBP; /* < disable write protection first */
-//    }
-//#endif
-//
-//    gclk_plain_mux_set_parent(clk, index);
-//
-//#ifdef RCC_BDCR_LSEON_Pos
-//    if (gclk_regref2conf_reg(stm32clkmux->regref) == &RCC->BDCR) {
-//        PWR->REG_PWR_CR &= ~(BIT_CR_DBP); /* < enable write protection again */
-//    }
-//#endif
-//
-//    (void)index;
-//    return 0;
-//}
-
-//static const gclk_ops_t gclk_stm32_mux_ops = {
-//    .enable     = gclk_generic_mux_enable,        /* not needed as pure mux can not be gated */
-//    .set_parent = gclk_stm32_common_mux_set_parent,
-//    .get_parent = gclk_generic_mux_get_parent,
-//    .set_freq   = gclk_generic_mux_set_freq,    /* not needed for a pure mux */
-//    .get_freq   = gclk_generic_mux_get_freq,    /* not needed for a pure mux, can just use parents get_freq */
-//    .check_freq = gclk_generic_mux_check_freq,
-//};
-
-
-//extern const gclk_t * const gclk_stm32_msi;
 
 /* @todo the data (or config/relation) part of the implementation should be separated from the pure logic
          because for different MCUs the clock tree can vary a lot, parents can be different, or not there at all.
@@ -845,45 +788,6 @@ GCLK_PARENT_LIST_STATIC_INIT(_lptim_1_2_clk_mux_configs),
 static const gclk_range8_t _pll_n_factor_range = {
     .min =  8, .max =  86,
 };
-
-/* @todo here we face a problem: the output frequency of the conditional "post APBx"/"pre TIMx" multiplier node requires
-         internal state of the APB2 prescaler. Just knowing the frequency of the parent (APBx) is not enough, because
-         the condition does not depend on the frequency itself but the internal prescaler value.
-         Possible solutions:
-         (A) give access to the internals of the parent
-         (not only the current state but also the hypothetical i.e. "asked for" state).
-         (B) handover the whole topology config that we want to query.
-            - That way we can deduce the prescaler value from the parent freq and the parent's parent-freq
-              (a.k.a. APBx freq and AHB freq in this case)
-         (C) drop support for preliminary clock config evaluation (always require to change all setting up to a child
-             before it can be queried for options)
-         (D) make explicit exceptions for children that can not be pre-evaluated and signal the "undecidable" state somehow
-             -> i.e. - indicate the frequency conditionally depends on the parent topology
-                     - indicate options: for a given freq the output may be x or y or whatever */
-unsigned long gclk_stm32_common_post_apb_mul_scaler_check_freq(const gclk_t *ll,
-                                                                      clk_topology_entry_t *input_topology,
-                                                                      uint32_t topology_len, uint32_t hz,
-                                                                      uint32_t flags)
-{
-    assert(topology_len >= 2);
-    (void)ll;
-    (void)hz;
-    (void)flags;
-
-    /* in this particular case we know there is only one possibile topology for the next two parents:
-       PCLKx is driven by APBx, APBx is driven by AHB */
-    uint32_t apbx_hz = input_topology[0].clk_freq;
-    uint32_t ahb_hz =  input_topology[1].clk_freq;
-
-    uint32_t pre_tim_mul = 2;
-
-    /* if APBx and AHB frequencies are equal, APBx prescaler must be 1, forcing the pre-timer multiplier to 1 */
-    if (apbx_hz == ahb_hz) {
-        pre_tim_mul = 1;
-    }
-
-    return apbx_hz * pre_tim_mul;
-}
 
 unsigned int gclk_stm32_uptree_dependent_scaler_get_factor(const gclk_t *clk) {
     return clk->cross_ref_factor_map_op(clk, NULL);
