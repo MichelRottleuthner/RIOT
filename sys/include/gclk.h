@@ -249,13 +249,13 @@ enum gclk_scaler_type {
  * To check whether this optional interface capability is supported by a specific
  * clock instance use @ref gclk_is_scalable().
  *
- * @detail This interface is meant to wrap the interaction with the hardware.
- *         No hardware specific knowledge on how to set up respective hardware
- *         state is required as a user of the API. However, it must be ensured
- *         by the caller that values handed to this interface are valid and
- *         applicable to the clock. There are several helper functions to query
- *         possible factor options, see @ref gclk_factor_cnt(),
- *         @ref gclk_idx2factor(), and @ref gclk_factor2idx().
+ * This interface is meant to wrap the interaction with the hardware.
+ * No hardware specific knowledge on how to set up respective hardware
+ * state is required as a user of the API. However, it must be ensured
+ * by the caller that values handed to this interface are valid and
+ * applicable to the clock. There are several helper functions to query
+ * possible factor options, see @ref gclk_factor_cnt(),
+ * @ref gclk_idx2factor(), and @ref gclk_factor2idx().
  *
  * @note The interface can be used for both multipliers and dividers. The effect
  *       of the scaling operation then depends on the type of scaler, which
@@ -285,13 +285,13 @@ typedef struct gclk_scale_ops {
  * To check whether this optional interface capability is supported by a specific
  * clock instance use @ref gclk_is_muxable().
  *
- * @detail This interface is meant to wrap the interaction with the hardware.
- *         No hardware specific knowledge on how to set up respective hardware
- *         state is required as a user of the API. However, it must be ensured
- *         by the caller that values handed to this interface are valid and
- *         applicable to the clock. There are several helper functions to query
- *         possible parent options, see @ref gclk_parent_cnt(),
- *         @ref gclk_idx2parent(), and @ref gclk_parent2idx().
+ * This interface is meant to wrap the interaction with the hardware.
+ * No hardware specific knowledge on how to set up respective hardware
+ * state is required as a user of the API. However, it must be ensured
+ * by the caller that values handed to this interface are valid and
+ * applicable to the clock. There are several helper functions to query
+ * possible parent options, see @ref gclk_parent_cnt(),
+ * @ref gclk_idx2parent(), and @ref gclk_parent2idx().
  */
 typedef struct gclk_mux_ops {
     /**
