@@ -995,7 +995,7 @@ uint32_t gclk_get_min_freq_of_current_topology(const gclk_t *clk);
  *
  * @param[in]  clk             The clock to get the max frequency of.
  */
-uint32_t gclk_get_max_freq_of_current_topology(const gclk_t *gclk);
+uint32_t gclk_get_max_freq_of_current_topology(const gclk_t *clk);
 
 /**
  * @brief Enable a clock.
@@ -1641,7 +1641,7 @@ const gclk_t *gclk_get(uint32_t idx);
  *
  * @return  The unique index of the given clock.
  */
-unsigned int gclk_get_index(const gclk_t *gclk);
+unsigned int gclk_get_index(const gclk_t *clk);
 
 /**
  * @brief Write a value to a specific section of a register.
