@@ -30,7 +30,9 @@
 extern "C" {
 #endif
 
-/* The basic gate uses the generic basic clock type directly */
+/**
+ * @brief The generic gate uses the generic basic clock type directly.
+ */
 typedef gclk_basic_clock_t gclk_generic_gate_t;
 
 /**
@@ -109,12 +111,13 @@ unsigned long gclk_generic_gate_check_freq(const gclk_t *clk,
                                            uint32_t topology_len, uint32_t hz,
                                            uint32_t flags);
 
-/* Implementation of only the gclk_gate_ops interface for a basic gate that is interfaced
- * via a read/write register that uses a single bit to control enable/disable.
- * Optionaly it also uses a ready register to indicate finishing of clock startup.
- * @note The register access MUST be encoded in a way understandable by the
- * generic mux implementation (regref). If that is not possible on a specific platform,
- * custom ops must be defined and used instead. */
+/**
+ * @brief Implementation of just the gclk_gate_ops interface for a basic gate.
+ *
+ * Used for clocks that are interfaced via a read/write register that uses a
+ * single bit to control enable/disable. Optionaly it also uses a ready register
+ * to indicate finishing of clock startup.
+ */
 extern const gclk_op_t gclk_plain_gate_ops[];
 
 #ifdef __cplusplus
