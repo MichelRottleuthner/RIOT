@@ -95,7 +95,6 @@ extern const gclk_clk_scaler_ll_t gclk_stm32_pllsai1_r_scaler;
 extern const gclk_clk_scaler_ll_t gclk_stm32_pllsai1_q_scaler;
 extern const gclk_clk_scaler_ll_t gclk_stm32_pllsai2_p_scaler;
 extern const gclk_clk_scaler_ll_t gclk_stm32_pllsai2_r_scaler;
-extern const gclk_clk_scaler_ll_t gclk_stm32_ahb_scaler;
 extern const gclk_clk_scaler_ll_t gclk_stm32_apb1_scaler;
 extern const gclk_clk_scaler_ll_t gclk_stm32_msirange_scaler;
 extern const gclk_mux_ll_t gclk_stm32_pll_pre_div_mux;
@@ -172,8 +171,6 @@ static const freq_conf_limit_t msi_freq_vc_ws_limits[] = {
     { .freq_max = 24000000, .vc_idx_min = 0, .ws_min = 0 }, //GCLK_WS_NOSPEC
 };
 
-extern const gclk_clk_scaler_ll_t gclk_stm32_ahb_scaler;
-
 /* for each unique clock instance that has associated frequency configuration limits,
  * this points to the limit list */
 static const clock_freq_conf_limits_t gclk_freq_conf_limits[] = {
@@ -216,7 +213,6 @@ static const clock_freq_conf_limits_t gclk_freq_conf_limits[] = {
 };
 #define GCLK_FREQ_LIMIT_CLKS_NUMOF   ARRAY_SIZE(gclk_freq_conf_limits)
 
-extern const gclk_mux_ll_t gclk_stm32_sysclk_mux;
 const gclk_t* gclk_core_clock_handle = &gclk_stm32_sysclk_mux.base;
 
 gclk_scale_setting_t scale_settings[] = {
