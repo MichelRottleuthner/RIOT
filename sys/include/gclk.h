@@ -303,9 +303,9 @@ typedef struct gclk_mux_ops {
 
     /**
      * @brief Configure new parent by writing to hardware.
+     * @pre   @p idx must be a valid value for clk.
      * @param clk  The clock that the parent will be changed of.
      * @param idx  The new parent option as index of possible options.
-     * @pre   @idx must be a valid value for clk.
      */
     void (*set_parent)(const gclk_t *clk, unsigned int idx);
 } gclk_mux_ops_t;
@@ -327,8 +327,8 @@ typedef struct gclk_gate_ops {
 
     /**
      * @brief Enable/disable a clock.
-     * @param clk  The clock to enable/disable.
-     * @param on   The new enabled state of @clk.
+     * @param[in] clk  The clock to enable/disable.
+     * @param[in] on   The new enabled state of @p clk.
      */
     void (*enable)(const gclk_t *clk, bool on);
 } gclk_gate_ops_t;
@@ -827,7 +827,7 @@ const gclk_t* gclk_get_clk_by_name(const char *name);
  * @brief Compare two fractions.
  *
  * @param[in] a  Reference to a properly initialized fraction a.
- * @param[in] a  Reference to a properly initialized fraction b.
+ * @param[in] b  Reference to a properly initialized fraction b.
  *
  * return <0 if @p a is smaller than @p b.
  * return 0  if @p a is equal to @p b.
