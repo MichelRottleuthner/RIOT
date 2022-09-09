@@ -57,13 +57,21 @@ typedef enum {
 #error "must specify gclk conf reg ids for this platform!"
 #endif /* defined(CPU_MODEL_EFM32PG12B500F1024GL125) */
 
-/* Static number ob bits needed to encode a config register index
- * preferrably this should be max 4 to save as much space as possible in the regref field
+/**
+ * @breif bit width needed to encode a register ID.
+ *
+ * Static number ob bits needed to encode a config register index.
+ * Preferrably this should be max 4 to save as much space as possible in the regref field
  * on this platform we have >16 registers so we need at least 5 bits
- * @TODO: derive this from the register ID enum declaration? */
+ * @todo: derive this from the register ID enum declaration?
+ */
 #define GCLK_CONF_REG_IDX_BITWIDTH (5) 
 
-/* Static number of clock instances */
+/**
+ * @brief Static number of clock instances on this platform.
+ * @todo Automatically setting this would be preferrable to avoid manually updating this value
+ *       whe adding new clock drivers.
+ */
 #define GCLK_NUM_OF_CLOCKS         (55)
 
 #ifdef __cplusplus
