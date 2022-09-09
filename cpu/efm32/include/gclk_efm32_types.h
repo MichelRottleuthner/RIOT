@@ -25,20 +25,6 @@
 extern "C" {
 #endif
 
-typedef struct {
-  //uint32_t enable_disable_reg_idx: GCLK_CONF_REG_IDX_BITWIDTH;
-  uint32_t enable_reg_idx:         GCLK_CONF_REG_IDX_BITWIDTH;
-  uint32_t disable_reg_idx:        GCLK_CONF_REG_IDX_BITWIDTH;
-  uint32_t ready_reg_idx:          GCLK_CONF_REG_IDX_BITWIDTH;
-  uint32_t busy_reg_idx:           GCLK_CONF_REG_IDX_BITWIDTH;
-  uint32_t enable_status_reg_idx:  GCLK_CONF_REG_IDX_BITWIDTH;
-  uint32_t enable_bit:             5;
-  uint32_t disable_bit:            5;
-  uint32_t ready_bit:              5;
-  uint32_t busy_bit:               5;
-  uint32_t enable_status_bit:      5;
-} gclk_efm32_en_dis_rdy_bsy_ens_reg_t;
-
 /* Used for muxes that have one register to read the current config from (status) and one to write
  * the new config (status) */
 typedef struct {
