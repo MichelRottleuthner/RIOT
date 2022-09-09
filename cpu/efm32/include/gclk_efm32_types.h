@@ -62,8 +62,8 @@ typedef struct {
                                                             if the clock is ready to be used */
   /* TODO: On this specific platform one of the enable/disable bits could be encoded implicitly
    *       because the disable bit seems to be always enablebit+1 (not checked everywhere) */
-  uint32_t enable_bit:   5; /**< set to enable the clock via @en_dis_reg */
-  uint32_t disable_bit:  5; /**< set to disable the clock via @en_dis_reg */
+  uint32_t enable_bit:   5; /**< set to enable the clock via @ref en_dis_reg_idx */
+  uint32_t disable_bit:  5; /**< set to disable the clock via @ref en_dis_reg_idx */
   uint32_t en_state_bit: 5; /**< set if the clock is enabled (does not guarantee ready) */
   uint32_t ready_bit:    5; /**< set after the startup time is over */
   uint32_t freq_hz;
