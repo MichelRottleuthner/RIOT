@@ -79,22 +79,6 @@ typedef struct {
   uint32_t freq_hz;
 } gclk_efm32_gate_t;
 
-typedef struct gclk_efm32_scaler_ll {
-  gclk_t base;
-  gclk_efm32_en_dis_rdy_bsy_ens_reg_t regs;
-  union {
-      const gclk_reg_val_factor_lut_t *lut;
-      const gclk_reg_val_ptr_lut_t    *ptr_lut;
-      const gclk_range8_t             *range8;
-      const gclk_range16_t            *range16;
-      const uint8_t                   *list8;
-      const uint16_t                  *list16;
-      const uint32_t                  fixed_factor;
-  };
-
-  const gclk_range32_t *out_freq_constraint;
-} gclk_efm32_scaler_ll_t;
-
 typedef struct {
   gclk_t base;
   gclk_efm32_select_status_regs_t regs;
