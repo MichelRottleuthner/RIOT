@@ -25,8 +25,12 @@
 extern "C" {
 #endif
 
-/* Used for muxes that have one register to read the current config from (status) and one to write
- * the new config (status) */
+/**
+ * @brief Custom descriptor for separate select and status config registers.
+ *
+ * Used for muxes that have one register to read the current config from (status) and one to write
+ * the new config (status)
+ */
 typedef struct {
   uint32_t select_reg_idx:         GCLK_CONF_REG_IDX_BITWIDTH;
   uint32_t status_reg_idx:         GCLK_CONF_REG_IDX_BITWIDTH;
@@ -39,13 +43,13 @@ typedef struct {
 /**
  * @brief This models a pure gate (for switching a clock on and off) that is put after another clock-providing node.
  *        Different to the generic gate type we add this as the EFM32 needs separate bits for enable/disable.
- *        TODO: after experimentation this should be merged/adapted with the generic base type.
- *              For now a working implementation focussed - slimming it down should follow later when all the
- *              details are worked out on how generic datatypes can handle this.
- *              An idea to achive this is by organizing the register description in a more dynamic way.
- *              E.g., one bitfiled could specify which registers/bits are available, where each bit stands for a
- *              specific predetermined bit type like enable-disable-bit, enable-bit, disable-bit, rdy-bit, busy-bit,
- *              scale-msb-bit, scale-lsb-bit, enablestatus-bit.
+ * @todo: Consider merging/adaptation with the generic base type.
+ * For now a separate implementation is used - slimming it down should follow later when all the
+ * details are worked out on how generic datatypes can handle this too.
+ * An idea to achive this is by organizing the register description in a more dynamic way.
+ * E.g., one bitfiled could specify which registers/bits are available, where each bit stands for a
+ * specific predetermined bit type like enable-disable-bit, enable-bit, disable-bit, rdy-bit, busy-bit,
+ * scale-msb-bit, scale-lsb-bit, enablestatus-bit.
  **/
 typedef struct {
   gclk_t base;
@@ -65,6 +69,9 @@ typedef struct {
   uint32_t freq_hz;
 } gclk_efm32_gate_t;
 
+/**
+ * @brief A Platform specific mux type that extends the base type with select/state register access.
+ */
 typedef struct {
   gclk_t base;
   gclk_efm32_select_status_regs_t regs;
