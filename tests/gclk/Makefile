@@ -57,6 +57,7 @@ USEMODULE += shell_cmds_default
 
 # RTT is used for idle_timer so we must avoid that it is also used by ztimer
 USEMODULE += ztimer_no_periph_rtt
+USEMODULE += ztimer64_xtimer_compat
 USEMODULE += xtimer
 
 USEMODULE += ps
