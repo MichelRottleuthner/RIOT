@@ -9,8 +9,9 @@
 #include "gclk_manager.h"
 #include "gclk_idle_timer.h"
 #include "shell.h"
-/* include system-shell comand list */
-#include "shell_commands.h"
+#include "xfa.h"
+
+XFA_USE_CONST(shell_command_t*, shell_commands_xfa);
 
 #define CMDLIST_MAX_CMD_CNT     (32)
 #define CMDLIST_MAX_ARG_CNT     (32)
@@ -353,10 +354,12 @@ int _sc_cmdlist_exe(int argc, char **argv) {
             }
         }
 
-        if ((_shell_command_list != NULL) && (!found_local)) {
-            for (unsigned ssci = 0; _shell_command_list[ssci].name != NULL; ssci++) {
-                if (strcmp(_shell_command_list[ssci].name, argvars[0]) == 0) {
-                    _shell_command_list[ssci].handler(argcnt, argvars);
+        if (!found_local) {
+            unsigned n = XFA_LEN(shell_command_t*, shell_commands_xfa);
+            for (unsigned i = 0; i < n; i++) {
+                const volatile shell_command_t *entry = shell_commands_xfa[i];
+                if (strcmp(entry->name, argvars[0]) == 0) {
+                    entry->handler(argcnt, argvars);
                 }
             }
         }
