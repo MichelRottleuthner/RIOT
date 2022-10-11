@@ -307,6 +307,7 @@ PSEUDOMODULES += shell_cmd_cord_ep
 PSEUDOMODULES += shell_cmd_cryptoauthlib
 PSEUDOMODULES += shell_cmd_dfplayer
 PSEUDOMODULES += shell_cmd_fib
+PSEUDOMODULES += shell_cmd_gclk
 PSEUDOMODULES += shell_cmd_gnrc_icmpv6_echo
 PSEUDOMODULES += shell_cmd_gnrc_ipv6_blacklist
 PSEUDOMODULES += shell_cmd_gnrc_ipv6_frag_stats

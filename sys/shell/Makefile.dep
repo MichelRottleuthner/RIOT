@@ -39,6 +39,9 @@ ifneq (,$(filter shell_cmds_default,$(USEMODULE)))
   ifneq (,$(filter fib,$(USEMODULE)))
     USEMODULE += shell_cmd_fib
   endif
+  ifneq (,$(filter gclk,$(USEMODULE)))
+    USEMODULE += shell_cmd_gclk
+  endif
   ifneq (,$(filter gnrc_ipv6_ext_frag_stats,$(USEMODULE)))
     USEMODULE += shell_cmd_gnrc_ipv6_frag_stats
   endif
