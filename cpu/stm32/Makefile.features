@@ -19,6 +19,10 @@ ifneq ($(CPU_FAM),f1)
   FEATURES_PROVIDED += periph_gpio_ll_irq_level_triggered_low
 endif
 
+ifneq (,$(filter $(CPU_FAM),l0 l4))
+  FEATURES_PROVIDED += periph_core_voltage
+endif
+
 ifneq (,$(filter $(CPU_FAM),f0 f1 f3 g0 g4 l0 l1 l4 l5 u5 wb wl))
   FEATURES_PROVIDED += periph_flashpage
   FEATURES_PROVIDED += periph_flashpage_in_address_space
