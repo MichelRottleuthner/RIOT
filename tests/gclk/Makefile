@@ -26,9 +26,6 @@ USEMODULE += gnrc_udp
 #USEMODULE += gnrc_pktdump
 # Additional networking modules that can be dropped if not needed
 USEMODULE += gnrc_icmpv6_echo
-# Add also the shell, some shell commands
-USEMODULE += shell
-USEMODULE += shell_commands
 USEMODULE += ps
 USEMODULE += netstats_l2
 USEMODULE += netstats_ipv6
@@ -55,13 +52,14 @@ USEMODULE += mlwrapper
 FEATURES_REQUIRED += periph_spi
 
 USEMODULE += gclk
+
 USEMODULE += shell
+USEMODULE += shell_cmds_default
 
 # RTT is used for idle_timer so we must avoid that it is also used by ztimer
 USEMODULE += ztimer_no_periph_rtt
 USEMODULE += xtimer
 
-USEMODULE += shell_commands
 USEMODULE += ps
 USEMODULE += schedstatistics
 
