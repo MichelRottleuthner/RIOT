@@ -1500,18 +1500,18 @@ SHELL_COMMAND(topologies, "list all possible topologies to drive a clock", _sc_l
 SHELL_COMMAND(actopo, "list the currently active topology of a clock", _sc_actopo); 
 SHELL_COMMAND(min, "get min configurable frequency !=0 of a clock", _sc_get_min_freq); 
 SHELL_COMMAND(max, "get max configurable frequency of a clock", _sc_get_max_freq); 
-SHELL_COMMAND(closestc, "get closest configurable frequency of a clock under a constraint", _get_closest_freq_cunder_constraint); 
-SHELL_COMMAND(derive_seq, "automagically derive a sequence that sets up a target topology configuration", _derive_sequence); 
-SHELL_COMMAND(match, "match output freq by iterative calculation", _match); 
+SHELL_COMMAND(closestc, "get closest configurable frequency of a clock under a constraint", _sc_get_closest_freq_cunder_constraint); 
+SHELL_COMMAND(derive_seq, "automagically derive a sequence that sets up a target topology configuration", _sc_derive_sequence); 
+SHELL_COMMAND(match, "match output freq by iterative calculation", _sc_match); 
 /* commands that automatically perform changes to the frequency/topology config of the clock tree */
-SHELL_COMMAND(disable_unused, "disable all unused clocks that can safely be disabled", _disable_unused); 
-SHELL_COMMAND(transition, "transition a clock to a new frequency by switching to another clock temporarily", _transition); 
-SHELL_COMMAND(setup_closest, "setup closest possible freq (full topology)", _setup_closest_freq); 
-SHELL_COMMAND(switch_topo, "switch to new topology config closest to given freq", _topo_switch_to_closest_freq); 
-SHELL_COMMAND(scale_freq, "set the frequency using an explicit complex transition if needed", _scale_freq); 
+SHELL_COMMAND(disable_unused, "disable all unused clocks that can safely be disabled", _sc_disable_unused); 
+//SHELL_COMMAND(transition, "transition a clock to a new frequency by switching to another clock temporarily", _transition); 
+SHELL_COMMAND(setup_closest, "setup closest possible freq (full topology)", _sc_setup_closest_freq); 
+SHELL_COMMAND(switch_topo, "switch to new topology config closest to given freq", _sc_topo_switch_to_closest_freq); 
+SHELL_COMMAND(scale_freq, "set the frequency using an explicit complex transition if needed", _sc_scale_freq); 
 /* commands to get/set (runtime) configuration parameters that affect e.g. online-self adaptation */
-SHELL_COMMAND(dvfs, "ATTENTION!! this configures DVFS settings (including core voltage)", _dvfs); 
+SHELL_COMMAND(dvfs, "ATTENTION!! this configures DVFS settings (including core voltage)", _sc_dvfs); 
 /* commands for evaluation measurements and microbenchmarks */
-SHELL_COMMAND(set_freq_eval, "set the frequency of a clock (with GPIO intrumentation)", _set_freq_eval); 
-SHELL_COMMAND(clock, "query and modify the configuration of individual clocks", _clock); 
-SHELL_COMMAND(clockman, "interact with the clock manager", _clockman); 
+SHELL_COMMAND(set_freq_eval, "set the frequency of a clock (with GPIO intrumentation)", _sc_set_freq_eval); 
+SHELL_COMMAND(clock, "query and modify the configuration of individual clocks", _sc_clock); 
+SHELL_COMMAND(clockman, "interact with the clock manager", _sc_clockman); 
