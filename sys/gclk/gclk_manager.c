@@ -1629,11 +1629,11 @@ int gclk_manager_init(void) {
     _mgr_ctx.pu_metadata_collection_enabled = false;
     _mgr_ctx.cpu_util_based_dvfs_enabled = false;
     _mgr_ctx.dvs_policy = DVS_PREFER_LOW_VOLTAGE;
-
     _mgr_ctx.auto_vscale_enabled = false;
     _mgr_ctx.auto_wsadapt_enabled = false;
     _mgr_ctx.registered_clk_change_cb_cnt = 0;
     _mgr_ctx.pre_dfs_enable_freq = 0;
+    _mgr_ctx.freq_change_cb = _freq_change_scale_auto;
     mutex_init(&_mgr_ctx.clock_conf_mutex);
 
 
