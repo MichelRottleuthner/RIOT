@@ -4,6 +4,7 @@
 #include "periph/rtt.h"
 #define LOG_LEVEL LOG_NONE
 #include "log.h"
+#include "irq.h"
 
 volatile bool idle_timer_scheduled   = false;
 volatile bool overflow_already_handled = false;
