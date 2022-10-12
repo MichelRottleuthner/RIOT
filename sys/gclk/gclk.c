@@ -3,13 +3,7 @@
 #include <string.h>
 #include "gclk.h"
 
-#if defined (CPU_FAM_STM32L4)
 extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
-#elif defined (CPU_MODEL_EFM32PG12B500F1024GL125)
-/* @todo: move to generic header once it is aligned with the above */
-extern const gclk_t *gclks[GCLK_NUM_OF_CLOCKS];
-#endif
-
 
 #define LOG_LEVEL LOG_NONE
 #include "log.h"
