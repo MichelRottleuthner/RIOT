@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "periph_cpu.h"
 #include "periph/gpio.h"
@@ -10,6 +11,7 @@ typedef struct dwt_ctrl_option {
     uint32_t mask;
 } dwt_ctrl_option_t;
 
+#if defined(CPU_FAM_STM32L4)
 dwt_ctrl_option_t dwtopts[] = {
     { .name = "CYCEVT",   .mask = DWT_CTRL_CYCEVTENA_Msk },
     { .name = "FOLDEVT",  .mask = DWT_CTRL_FOLDEVTENA_Msk },
@@ -20,6 +22,7 @@ dwt_ctrl_option_t dwtopts[] = {
     { .name = "EXCTRC",   .mask = DWT_CTRL_EXCTRCENA_Msk },
     { .name = "CYCCNT",   .mask = DWT_CTRL_CYCCNTENA_Msk },
 };
+#endif
 
 static void _print_perf_cntrs(void) {
 #if defined(CPU_FAM_STM32L4)
@@ -221,6 +224,7 @@ int dbg_control_sc(int argc, char **argv)
         printf("SWO init: %d Hz\n", speed);
         dbg_control_swo_init(1, 80000000, speed);
         return 0;
+#if defined(CPU_FAM_STM32L4)
     } else if ((argc >= 2) && (strcmp(argv[1], "swosend") == 0)) {
         if (argc != 4) {
             printf("usage: %s %s <portnum> <string>\n", argv[0], argv[1]);
@@ -253,6 +257,7 @@ int dbg_control_sc(int argc, char **argv)
         printf(" }\n");
 
         return 1;
+#endif
     } else if ((argc == 2) && (strcmp(argv[1], "regdump") == 0)) {
         _print_perf_cntrs();
     } else if ((argc == 2) && (strcmp(argv[1], "switchswd") == 0)) {
