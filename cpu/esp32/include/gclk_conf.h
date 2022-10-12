@@ -28,7 +28,7 @@ extern "C" {
 #define GCLK_CONF_REG_IDX_BITWIDTH (4)
 
 /* Static number of clock instances */
-#define GCLK_NUM_OF_CLOCKS (0)
+#define GCLK_NUM_OF_CLOCKS (1)
 
 #ifdef __cplusplus
 }
