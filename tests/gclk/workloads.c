@@ -107,11 +107,12 @@ void work_decrypt(void *ctx) {
 }
 
 static int _spi_read(unsigned spifreq, uint32_t cnt) {
-/* it was ony verified on those two platforms that
+/* it was only verified on those platforms that
  * the driver gracefully handles arbitrary clock frequency values
  * instead of only the fixed defines */
 #if !(defined(CPU_MODEL_EFM32PG12B500F1024GL125) || \
-      defined(CPU_FAM_STM32L4))
+      defined(CPU_FAM_STM32L4) || \
+      defined(CPU_ESP32))
 #warning "handing arbitrary clock values to the SPI driver might lead to unexpected results"
    switch (spifreq) {
     case   100000: spifreq = SPI_CLK_100KHZ; break;
