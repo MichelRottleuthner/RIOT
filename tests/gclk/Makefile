@@ -1,5 +1,10 @@
 include ../Makefile.tests_common
+
+# only include the cmsis-dsp lib for boards that support cmsis (and gclk)
+ifneq (,$(filter nucleo-l476rg slstk3402a,$(BOARD)))
 USEPKG += cmsis-dsp
+endif
+
 FEATURES_REQUIRED = periph_adc
 
 USEPKG += heatshrink
@@ -63,8 +68,8 @@ USEMODULE += xtimer
 USEMODULE += ps
 USEMODULE += schedstatistics
 
-FEATURES_REQUIRED += periph_flash_opt
-FEATURES_REQUIRED += periph_core_voltage
+FEATURES_OPTIONAL += periph_flash_opt
+FEATURES_OPTIONAL += periph_core_voltage
 FEATURES_REQUIRED += periph_rtt
 
 #CFLAGS += -DGCLK_USE_SEPARATE_CONF_REG_ARRAYS
