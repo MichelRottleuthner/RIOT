@@ -159,7 +159,9 @@ void pm_set(unsigned mode)
 
     cortexm_sleep(deep);
 
+#if defined(DBG_GPIO_WFI)
     gpio_clear(DBG_GPIO_WFI);
+#endif
 
     if (deep) {
         /* Re-init clock after STOP */
