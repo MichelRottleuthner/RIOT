@@ -294,6 +294,7 @@ int uart_mode(uart_t uart, uart_data_bits_t data_bits, uart_parity_t parity,
 }
 #endif /* MODULE_PERIPH_UART_MODECFG */
 
+#ifdef MODULE_GCLK
 #include "gclk_stm32_common_conf.h" /* pulls in definitions of the clock instances */
 
 static const gclk_t *_get_gclk_of_uart(uart_t uart) {
@@ -311,6 +312,7 @@ static const gclk_t *_get_gclk_of_uart(uart_t uart) {
         default: return NULL;
     }
 }
+#endif /* MODULE_GCLK */
 
 static inline void uart_init_usart(uart_t uart, uint32_t baudrate)
 {
