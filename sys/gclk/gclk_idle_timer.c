@@ -33,7 +33,7 @@ static void _set_scheduled_timer(void) {
         LOG_DEBUG("scheduled timer\n");
     } else {
         /* wait for next overflow */
-        LOG_DEBUG("not yet in the target period.. target: 0x%lx now: 0x%lx\n",  (uint32_t)idle_timer_target, (uint32_t)idle_timer_now_base);
+        LOG_DEBUG("not yet in the target period.. target: 0x%"PRIx32" now: 0x%"PRIx32"\n",  (uint32_t)idle_timer_target, (uint32_t)idle_timer_now_base);
     }
 }
 
@@ -53,7 +53,7 @@ void idle_timer_overflow_cb(void *arg) {
 
         idle_timer_now_base += elapsed;
 
-        LOG_DEBUG("handle Overflow in ISR! (@%lu) elapsed: %lu\n", timer_cnt, elapsed);
+        LOG_DEBUG("handle Overflow in ISR! (@%"PRIu32") elapsed: %"PRIu32"\n", timer_cnt, elapsed);
     } else {
         LOG_DEBUG("overflow was already handled\n");
     }
@@ -84,7 +84,7 @@ uint64_t idle_timer_read(void) {
     uint32_t ll_base = (idle_timer_now_base & IDLE_TMR_LL_TIMER_MAX);
 
     if (ll_base > timer_cnt) {
-        LOG_DEBUG("Handle overflow in read! %lx > %lx\n", ll_base, timer_cnt);
+        LOG_DEBUG("Handle overflow in read! %"PRIx32" > %"PRIx32"\n", ll_base, timer_cnt);
         /* an overflow event was missed so we increment by a period */
         /* the overflow event will still happen and adjust the time base accordingly */
         //uint32_t ovf_cnt = ll_base - ll_cnt;
@@ -97,7 +97,7 @@ uint64_t idle_timer_read(void) {
     }
 
     irq_restore(state);
-    LOG_DEBUG("timer_cnt: %lu\n", timer_cnt);
+    LOG_DEBUG("timer_cnt: %"PRIu32"\n", timer_cnt);
 
     return idle_timer_now_base;
     //return rtt_get_counter();
@@ -134,13 +134,13 @@ void idle_timer_set_alarm(uint64_t absolute_target) {
     if (_within_this_period(idle_timer_target, abs_now_ref)) {
         uint32_t rel_diff = idle_timer_target - abs_now_ref;
         uint32_t ll_target = ((abs_now_ref & IDLE_TMR_LL_TIMER_MAX) + rel_diff) & IDLE_TMR_LL_TIMER_MAX ;
-        LOG_DEBUG("IDLE_TMR_LL_TIMER_MAX: %08lx\n", (uint32_t)IDLE_TMR_LL_TIMER_MAX);
-        LOG_DEBUG("       extended now:   %08lx%08lx\n", (uint32_t)(abs_now_ref >> 32),
+        LOG_DEBUG("IDLE_TMR_LL_TIMER_MAX: %08"PRIx32"\n", (uint32_t)IDLE_TMR_LL_TIMER_MAX);
+        LOG_DEBUG("       extended now:   %08"PRIx32"%08"PRIx32"\n", (uint32_t)(abs_now_ref >> 32),
                                                          (uint32_t)(abs_now_ref & 0xFFFFFFFF));
-        LOG_DEBUG("extended abs. alarm:   %08lx%08lx\n", (uint32_t)(idle_timer_target >> 32),
+        LOG_DEBUG("extended abs. alarm:   %08"PRIx32"%08"PRIx32"\n", (uint32_t)(idle_timer_target >> 32),
                                                          (uint32_t)(idle_timer_target & 0xFFFFFFFF));
-        LOG_DEBUG("     relative alarm:   %016lx\n", rel_diff);
-        LOG_DEBUG("  absolute ll alarm:   %016lx\n", ll_target);
+        LOG_DEBUG("     relative alarm:   %016"PRIx32"\n", rel_diff);
+        LOG_DEBUG("  absolute ll alarm:   %016"PRIx32"\n", ll_target);
         rtt_set_alarm(ll_target, idle_timer_alarm_cb, NULL);
     } else {
         /* wait for overflows until we can finally set the actual timer */
@@ -165,9 +165,9 @@ void idle_timer_wait(uint32_t ms) {
     mutex_init(&idle_timer_mutex);
     mutex_lock(&idle_timer_mutex);
     uint64_t now_val = idle_timer_read();
-    LOG_DEBUG("current: %08lx%08lx\n",(uint32_t)(now_val >> 32), (uint32_t)now_val & 0xFFFFFFFF); 
+    LOG_DEBUG("current: %08"PRIx32"%08"PRIx32"\n",(uint32_t)(now_val >> 32), (uint32_t)now_val & 0xFFFFFFFF);
     uint64_t new_val = now_val + ((uint64_t)IDLE_TMR_LL_TIMER_FREQ * ms / 1000);
-    LOG_DEBUG("setting: %08lx%08lx\n",(uint32_t)(new_val >> 32), (uint32_t)new_val & 0xFFFFFFFF);
+    LOG_DEBUG("setting: %08"PRIx32"%08"PRIx32"\n",(uint32_t)(new_val >> 32), (uint32_t)new_val & 0xFFFFFFFF);
     idle_timer_set_alarm(new_val);
 
     /* wait for the idle timer to unlock the mutex */
