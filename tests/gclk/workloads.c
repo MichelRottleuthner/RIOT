@@ -21,26 +21,29 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "kernel_defines.h"
 #include "workloads.h"
 #include "periph/spi.h"
 #include "periph/adc.h"
 #include "gclk_idle_timer.h"
-#include "arm_math.h"
 #include "random.h"
 
+#if IS_USED(PACKAGE_CMSIS-DSP)
+#include "arm_math.h"
 #define FFT_LEN (4096)
+arm_rfft_fast_instance_f32 fft_instance;
+float32_t fft_in[FFT_LEN];
+float32_t fft_out[FFT_LEN];
+#endif
 
 #define ADC_RES_MIN_BITS  (6)
 #define ADC_RES_BITS_STEP (2)
 #define ADC_RES_BITS_MAX  (12)
 
 void _adc_custom_extension_set_min_sample_time(uint32_t ns);
-
-arm_rfft_fast_instance_f32 fft_instance;
-float32_t fft_in[FFT_LEN];
-float32_t fft_out[FFT_LEN];
 
 /* we do Not really care for the actual data so we can use the same buffer for in and out */
 uint8_t spi_buff_in_out[1024];
@@ -70,11 +73,13 @@ extern void aes_test_encrypt(int nbytes);
 extern void aes_test_decrypt(int nbytes);
 
 void workloads_init(void) {
+#if IS_USED(PACKAGE_CMSIS-DSP)
     /* static init fft data with random */
     for (unsigned i = 0; i < FFT_LEN; i++) {
         uint32_t rand = random_uint32();
         fft_in[i] = rand;
     }
+#endif
 }
 
 void work_ml(void *ctx) {
@@ -153,6 +158,7 @@ void work_spincrunch(void *ctx) {
    while (cntdwn--) {}
 }
 
+#if IS_USED(PACKAGE_CMSIS-DSP)
 void work_fft(void *ctx) {
    uint32_t *params = (uint32_t*)ctx;
    uint32_t len = params[0];
@@ -162,6 +168,7 @@ void work_fft(void *ctx) {
    uint8_t ifftFlag = ifft;	/* value = 0: RFFT  value = 1: RIFFT */
    arm_rfft_fast_f32(&fft_instance, fft_in, fft_out, ifftFlag);
 }
+#endif
 
 void work_adc(void *ctx) {
     uint32_t *params = (uint32_t*)ctx;
