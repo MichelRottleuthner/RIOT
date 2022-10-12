@@ -237,9 +237,9 @@ int _sc_ctl_idle_timer(int argc, char **argv){
         idle_timer_disable();
     } else if(strcmp(argv[1], "read") == 0) {
         uint64_t t = idle_timer_read();
-        printf("current time: %08lx%08lx\n", (uint32_t)(t >> 32), (uint32_t)(t & 0xFFFFFFFF));
+        printf("current time: %08"PRIx32"%08"PRIx32"\n", (uint32_t)(t >> 32), (uint32_t)(t & 0xFFFFFFFF));
         uint64_t a = idle_timer_read_alarm();
-        printf("alarm time:   %08lx%08lx\n", (uint32_t)(a >> 32), (uint32_t)(a & 0xFFFFFFFF));
+        printf("alarm time:   %08"PRIx32"%08"PRIx32"\n", (uint32_t)(a >> 32), (uint32_t)(a & 0xFFFFFFFF));
     } else if (strcmp(argv[1], "set") == 0) {
         /* as basic test this just sets the timer to one second */
         idle_timer_set_alarm(idle_timer_read() + IDLE_TMR_LL_TIMER_FREQ);
@@ -265,7 +265,7 @@ int _sc_timer_test(int argc, char **argv)
             t_start += 1000000;
             uint32_t spin_cnt = 0;
             while (xtimer_now_usec64() < t_start) {spin_cnt++;}
-            printf("%u (CPU spin: %lu)\n", i, spin_cnt);
+            printf("%u (CPU spin: %"PRIu32")\n", i, spin_cnt);
         }
     } else if (argc == 3 && (strcmp(argv[1], "idle_timer") == 0)) {
         uint64_t t_start = idle_timer_read();
@@ -275,7 +275,7 @@ int _sc_timer_test(int argc, char **argv)
             t_start += IDLE_TMR_LL_TIMER_FREQ;
             uint32_t spin_cnt = 0;
             while (idle_timer_read() < t_start) {spin_cnt++;}
-            printf("%u (CPU spin: %lu)\n", i, spin_cnt);
+            printf("%u (CPU spin: %"PRIu32")\n", i, spin_cnt);
         }
     } else {
         printf("Usage: %s {xtimer|idle_timer} <seconds>\n", argv[0]);
@@ -297,7 +297,7 @@ int _sc_clk_pin(int argc, char **argv)
     uint32_t port_num = atoi(argv[2]);
     uint32_t pin_num = atoi(argv[3]);
 
-    printf("enabling clock output for %s on P%c%lu\n", gclk_get_name(clk), (char)('A' + port_num), pin_num);
+    printf("enabling clock output for %s on P%c%"PRIu32"\n", gclk_get_name(clk), (char)('A' + port_num), pin_num);
     int res = gclk_enable_pin_output(clk, GPIO_PIN(port_num, pin_num));
 
     if (res == ENABLE_PIN_OUTPUT_OK) {
