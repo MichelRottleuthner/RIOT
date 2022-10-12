@@ -480,6 +480,10 @@ ifneq (,$(filter entropy_source_%,$(USEMODULE)))
   endif
 endif
 
+ifneq (,$(filter gclk,$(USEMODULE)))
+  FEATURES_REQUIRED += gclk
+endif
+
 ifneq (,$(filter puf_sram,$(USEMODULE)))
   USEMODULE += hashes
   USEMODULE += random
