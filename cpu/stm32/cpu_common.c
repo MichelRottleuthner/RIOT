@@ -24,57 +24,7 @@
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
-/**
- * @brief   Timer specific additional bus clock prescaler
- *
- * This prescale factor is dependent on the actual APBx bus clock divider, if
- * the APBx presacler is != 1, it is set to 2, if the APBx prescaler is == 1, it
- * is set to 1.
- *
- * See reference manuals section 'reset and clock control'.
- */
-/*
-static const uint8_t apbmul[] = {
-#if (CLOCK_APB1 < CLOCK_CORECLOCK)
-    [APB1] = 2,
-#if defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB) || \
-    defined(CPU_FAM_STM32G0) || defined(CPU_FAM_STM32G4) || \
-    defined(CPU_FAM_STM32L5) || defined(CPU_FAM_STM32U5) || \
-    defined(CPU_FAM_STM32WL)
-    [APB12] = 2,
-#endif
-#else
-    [APB1] = 1,
-#if defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB) || \
-    defined(CPU_FAM_STM32G0) || defined(CPU_FAM_STM32G4) || \
-    defined(CPU_FAM_STM32L5) || defined(CPU_FAM_STM32U5) || \
-    defined(CPU_FAM_STM32WL)
-    [APB12] = 1,
-#endif
-#endif
-#if (CLOCK_APB2 < CLOCK_CORECLOCK)
-    [APB2] = 2
-#else
-    [APB2] = 1
-#endif
-};
-
-uint32_t periph_apb_clk(uint8_t bus)
-{
-    if (bus == APB1) {
-        return CLOCK_APB1;
-    }
-#if defined (CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB)
-    else if (bus == APB12) {
-        return CLOCK_APB1;
-    }
-#endif
-    else {
-        return CLOCK_APB2;
-    }
-}
-*/
-
+#if IS_USED(MODULE_GCLK)
 #include "gclk.h"
 #include "gclk_stm32_common_conf.h" /* pulls in definitions of the clock instances */
 
@@ -127,10 +77,64 @@ uint32_t _get_current_timer_input_clock(uint8_t bus) {
     return gclk_get_current_freq(&gclk_apb1_tim_mul_scaler.base);
 }
 
+#else /* IS_USED(MODULE_GCLK) */
+/**
+ * @brief   Timer specific additional bus clock prescaler
+ *
+ * This prescale factor is dependent on the actual APBx bus clock divider, if
+ * the APBx presacler is != 1, it is set to 2, if the APBx prescaler is == 1, it
+ * is set to 1.
+ *
+ * See reference manuals section 'reset and clock control'.
+ */
+static const uint8_t apbmul[] = {
+#if (CLOCK_APB1 < CLOCK_CORECLOCK)
+    [APB1] = 2,
+#if defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB) || \
+    defined(CPU_FAM_STM32G0) || defined(CPU_FAM_STM32G4) || \
+    defined(CPU_FAM_STM32L5) || defined(CPU_FAM_STM32U5) || \
+    defined(CPU_FAM_STM32WL)
+    [APB12] = 2,
+#endif
+#else
+    [APB1] = 1,
+#if defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB) || \
+    defined(CPU_FAM_STM32G0) || defined(CPU_FAM_STM32G4) || \
+    defined(CPU_FAM_STM32L5) || defined(CPU_FAM_STM32U5) || \
+    defined(CPU_FAM_STM32WL)
+    [APB12] = 1,
+#endif
+#endif
+#if (CLOCK_APB2 < CLOCK_CORECLOCK)
+    [APB2] = 2
+#else
+    [APB2] = 1
+#endif
+};
+
+uint32_t periph_apb_clk(uint8_t bus)
+{
+    if (bus == APB1) {
+        return CLOCK_APB1;
+    }
+#if defined (CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB)
+    else if (bus == APB12) {
+        return CLOCK_APB1;
+    }
+#endif
+    else {
+        return CLOCK_APB2;
+    }
+}
+#endif /* IS_USED(MODULE_GCLK) */
+
 uint32_t periph_timer_clk(uint8_t bus)
 {
+#if IS_USED(MODULE_GCLK)
     return _get_current_timer_input_clock(bus);
-    //return periph_apb_clk(bus) * apbmul[bus];
+#else
+    return periph_apb_clk(bus) * apbmul[bus];
+#endif /* IS_USED(MODULE_GCLK) */
 }
 
 void periph_clk_en(bus_t bus, uint32_t mask)
