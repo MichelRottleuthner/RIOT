@@ -258,7 +258,7 @@ uint32_t gclk_get_current_equivalent_uptree_factors(const gclk_t *clk, uint32_t 
     }
 }
 
-unsigned long gclk_get_current_freq(const gclk_t *clk)
+uint32_t gclk_get_current_freq(const gclk_t *clk)
 {
     if (clk == NULL) {
         return 0;
