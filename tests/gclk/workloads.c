@@ -31,7 +31,7 @@
 #include "gclk_idle_timer.h"
 #include "random.h"
 
-#if IS_USED(PACKAGE_CMSIS-DSP)
+#if IS_USED(MODULE_CMSIS_DSP)
 #include "arm_math.h"
 #define FFT_LEN (4096)
 arm_rfft_fast_instance_f32 fft_instance;
@@ -73,7 +73,7 @@ extern void aes_test_encrypt(int nbytes);
 extern void aes_test_decrypt(int nbytes);
 
 void workloads_init(void) {
-#if IS_USED(PACKAGE_CMSIS-DSP)
+#if IS_USED(MODULE_CMSIS_DSP)
     /* static init fft data with random */
     for (unsigned i = 0; i < FFT_LEN; i++) {
         uint32_t rand = random_uint32();
@@ -159,7 +159,7 @@ void work_spincrunch(void *ctx) {
    while (cntdwn--) {}
 }
 
-#if IS_USED(PACKAGE_CMSIS-DSP)
+#if IS_USED(MODULE_CMSIS_DSP)
 void work_fft(void *ctx) {
    uint32_t *params = (uint32_t*)ctx;
    uint32_t len = params[0];
