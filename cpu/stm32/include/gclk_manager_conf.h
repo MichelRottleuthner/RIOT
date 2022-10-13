@@ -70,6 +70,7 @@ extern const unsigned int GCLK_PREFERRED_FREQ_CONF_CNT;
 /* TIM5 is used for xtimer on nucleo-l476rg, which uses conditionally multiplied APB1 clock */
 extern const gclk_clk_scaler_ll_t gclk_apb1_tim_mul_scaler;
 extern const gclk_clk_scaler_ll_t gclk_stm32_apb1_scaler;
+extern const gclk_clk_scaler_ll_t gclk_stm32_apb2_scaler;
 extern const gclk_clk_scaler_ll_t gclk_stm32_usart2_mux;
 extern const gclk_clk_scaler_ll_t gclk_stm32_ahb_scaler;
 const gclk_t * const scaler_connected_to_xtimer = &gclk_apb1_tim_mul_scaler.base;
@@ -494,26 +495,36 @@ const gclk_manager_power_properties_t clock_power_model[] = {
 
 gclk_clock_change_notify_list_t stdio_nl;
 gclk_clock_change_notify_list_t timer_reinit_nl;
-gclk_clock_change_notify_list_t ahb_nl;
+gclk_clock_change_notify_list_t apb1_nl;
+gclk_clock_change_notify_list_t apb2_nl;
 
 extern bool apb_clk_cached[3];
 
-void _apb_cache_invalidate_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change) {
+void _apb1_cache_invalidate_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change) {
     (void)altered_clk;
     (void)affected_clk;
     (void)f_old;
     (void)f_new;
     if (post_change) {
-       for (unsigned i = 0; i < ARRAY_SIZE(apb_clk_cached); i++) {
-           apb_clk_cached[i] = false;
-       }
+        apb_clk_cached[APB1] = false;
+    }
+}
+
+void _apb2_cache_invalidate_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change) {
+    (void)altered_clk;
+    (void)affected_clk;
+    (void)f_old;
+    (void)f_new;
+    if (post_change) {
+        apb_clk_cached[APB2] = false;
     }
 }
 
 static inline int gclk_manager_platform_init(void) {
     gclk_manager_register_clk_change_cb(&gclk_apb1_tim_mul_scaler.base, &timer_reinit_nl, gclk_manager_default_timer_reinit_cb);
     gclk_manager_register_clk_change_cb(&gclk_stm32_usart2_mux.base, &stdio_nl, gclk_manager_default_stdio_reinit_cb);
-    gclk_manager_register_clk_change_cb(&gclk_stm32_ahb_scaler.base, &ahb_nl, _apb_cache_invalidate_cb);
+    gclk_manager_register_clk_change_cb(&gclk_stm32_apb1_scaler.base, &apb1_nl, _apb1_cache_invalidate_cb);
+    gclk_manager_register_clk_change_cb(&gclk_stm32_apb2_scaler.base, &apb2_nl, _apb2_cache_invalidate_cb);
 
     /* configure APB1 and APB2 to highest possible freq to allow slower core frequencies at same bus frequency.
      * This avoids feeding peripherals (such as high speed timers) with very low frequencies
@@ -522,8 +533,8 @@ static inline int gclk_manager_platform_init(void) {
      * which RIOT does not currently.
      * NOTE: this MUST be called after setting up the clk change callbacks (see above)
      * to ensure the necessary reconfigurations in the peripheral drivers are triggered */
-    gclk_manager_set_factor(gclk_get_clk_by_name("APB1"), 1);
-    gclk_manager_set_factor(gclk_get_clk_by_name("APB2"), 1);
+    gclk_manager_set_factor(&gclk_stm32_apb1_scaler.base, 1);
+    gclk_manager_set_factor(&gclk_stm32_apb2_scaler.base, 1);
 
     return 0;
 }
