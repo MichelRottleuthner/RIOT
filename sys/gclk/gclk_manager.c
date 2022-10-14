@@ -1561,6 +1561,7 @@ void gclk_update_ws_vc_limits(const gclk_t *clk, uint32_t freq,
                     }
                 }
             }
+            LOG_DEBUG("%s requirement: (WS=%u VC=%u @LV) | (WS=%u VC=%u @FF)\n", gclk_get_name(clk), clk_min_ws_lv, clk_min_vc_lv, clk_min_ws_ff, clk_min_vc_ff);
 
             if ((clk_min_ws_ff > *min_ws_ff) || (clk_min_vc_ff > *min_vc_ff)) {
                 *min_ws_ff = clk_min_ws_ff;
