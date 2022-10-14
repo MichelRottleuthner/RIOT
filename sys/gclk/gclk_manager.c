@@ -1588,8 +1588,12 @@ void gclk_get_min_required_ws_vc_from_tree_config(clk_topology_entry_t *tree_con
 
     for (size_t i = 0; i < tree_size; i++) {
         clk_topology_entry_t *tc = &tree_conf[i];
-        gclk_update_ws_vc_limits(tc->clk, tc->clk_freq,
-                &abs_req_min_ws_ff,  &abs_req_min_vc_ff, &abs_req_min_ws_lv, &abs_req_min_vc_lv);
+        /* skip check for disabled clocks */
+        if (tc->enabled) {
+            gclk_update_ws_vc_limits(tc->clk, tc->clk_freq,
+                                     &abs_req_min_ws_ff,  &abs_req_min_vc_ff,
+                                     &abs_req_min_ws_lv, &abs_req_min_vc_lv);
+        }
     }
 
     bool optimize_ws = dvspolicy == DVS_PREFER_FAST_FLASH ? true : false;
