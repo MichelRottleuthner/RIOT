@@ -2731,6 +2731,10 @@ void _update_vcore_and_ws_config(const gclk_t *altered_clk, uint32_t f_new, gclk
 static void _lazy_reg_freq_limit_clk_change_cbs(void) {
     /* only register new callback if no automatic adaption is enabled yet */
     if (!(_mgr_ctx.auto_vscale_enabled || _mgr_ctx.auto_wsadapt_enabled)) {
+        /* update the constrained clock cache if it wasnt updated via callbacks before. */
+        for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
+            gclk_get_current_topology_config(gclk_freq_conf_limits[i].clk, &constrained_clocks_conf_cache[i], 1);
+        }
         for (unsigned i = 0; i < GCLK_FREQ_LIMIT_CLKS_NUMOF; i++) {
             /* DVS just re-uses the notification mechanism to change the
              * voltage to an appropriate value before/after the frequency is adapted */
