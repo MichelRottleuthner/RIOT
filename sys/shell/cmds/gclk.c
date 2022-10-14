@@ -479,11 +479,13 @@ int _sc_derive_sequence(int argc, char **argv) {
     int forced_nth_conf_idx;
 
     int res = _get_topo_match_params(argc, argv, &clk, &target_freq, &tidx, &cmp_func, &forced_nth_conf_idx);
-    printf("derive for forced idx: %d\n", forced_nth_conf_idx);
+
     if (res < 0) {
         /* append rest of usage string */
         printf(" [run]\n");
         return res;
+    } else {
+        printf("derive for forced idx: %d\n", forced_nth_conf_idx);
     }
 
     bool run = false;
