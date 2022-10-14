@@ -3170,28 +3170,8 @@ uint32_t gclk_manager_switch_topology(const gclk_t *clk, int target_topology, ui
             }
 
             LOG_DEBUG("%s: execute sequence...\n", __FUNCTION__);
-            gclk_manager_notify_multi_clk_change(cur_topology, cur_topolen,
-                                                 topology, max_involved_clks,
-                                                 false);
-            //gclk_manager_notify_clk_change(cur_topology[0].clk, cur_topology[0].clk_freq, topology[0].clk_freq, false);
-            //mutex_lock(&clock_conf_mutex);
-            //gpio_irq_disable(AT86RF2XX_PARAM_INT);
-            for (int i = 0; i < seq_size; i++) {
-                gclk_manager_execute_sequence_step(&out_seq[i]);
-            }
+            gclk_manager_run_sequence_with_notify(out_seq, seq_size, false);
 
-            ////TODO: replace that by registering a change notify callback.
-            //gpio_irq_enable(AT86RF2XX_PARAM_INT);
-            //mutex_unlock(&clock_conf_mutex);
-            //gclk_manager_notify_clk_change(cur_topology[0].clk, cur_topology[0].clk_freq, topology[0].clk_freq, true);
-            gclk_manager_notify_multi_clk_change(cur_topology, cur_topolen,
-                                                 topology, max_involved_clks,
-                                                 true);
-
-            // if it can be guaranteed that the target setting is effective and setup correctly
-            // it could be more efficient to just update the values based on the known changes instead of queriying the whole state again.
-            //_mgr_ctx.current_core_topolen = max_involved_clks;
-            //_mgr_ctx.current_core_topo_id = target_topology;
             _update_cached_state_vars();
             /* a topology change in most cases invalidates configured DFS settings.
              * Therefore they are updated to valid default values */
