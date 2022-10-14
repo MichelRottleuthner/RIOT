@@ -3182,6 +3182,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
     /* only check for applicable callbacks if there are registrations */
     if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(adapted_clk, f_old, adapted_clk_new_freq, false);
+        _post_notify_commit(false);
     }
 
     switch (s->approach) {
@@ -3247,6 +3248,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
 
     if (_mgr_ctx.registered_clk_change_cb_cnt) {
         gclk_manager_notify_clk_change(adapted_clk, f_old, adapted_clk_new_freq, true);
+        _post_notify_commit(true);
     }
 
     if (new_freq != freq) {
