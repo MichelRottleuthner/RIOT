@@ -561,20 +561,6 @@ const gclk_freq_constraint_t* gclk_manager_conf_breaks_constraint(const gclk_fre
 void gclk_manager_get_combined_topology_fraction(clk_topology_entry_t *topo, size_t topo_len, gclk_fraction_t *f);
 
 /**
- * @brief Notify multiple clocks of a topology about a configuration change.
- *
- * @param[in]     old_topo       The topology config before the change.
- * @param[in]     old_topo_len   Number of elements in @p old_topo.
- * @param[in]     new_topo       The topology config after the change.
- * @param[in]     new_topo_len   Number of elements in @p new_topo.
- * @param[in]     post_change    true if the change was already performed.
- *                               false if the change is about to happen.
- */
-void gclk_manager_notify_multi_clk_change(clk_topology_entry_t *old_topo, size_t old_topo_len,
-                                          clk_topology_entry_t *new_topo, size_t new_topo_len,
-                                          bool post_change);
-
-/**
  * @brief Runs a sequence of reconfiguration steps and notify about changes.
  *
  * @param[in]     seq         The sequence to execute.

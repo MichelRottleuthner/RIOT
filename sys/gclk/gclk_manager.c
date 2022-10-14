@@ -2567,65 +2567,6 @@ void gclk_manager_run_sequence_with_notify(gclk_manager_sequence_step_t *seq, si
     }
 }
 
-void gclk_manager_notify_multi_clk_change(clk_topology_entry_t *old_topo, size_t old_topo_len,
-                                          clk_topology_entry_t *new_topo, size_t new_topo_len,
-                                          bool post_change) {
-    unsigned affected_cnt = 0;
-    /* registered_clk_change_cb_cnt is actually a pessimistic value (the number of distinct affected clocks micht be lower) */
-    gclk_clock_change_notify_list_t *affected[_mgr_ctx.registered_clk_change_cb_cnt];
-
-    const gclk_t *topmost_altered_clk = NULL;
-    uint32_t tmc_f_old = 0;
-    uint32_t tmc_f_new = 0;
-    for (unsigned oi = old_topo_len -1; oi > 0; oi--) {
-        for (unsigned ni = new_topo_len -1; ni > 0; ni--) {
-            if (old_topo[oi].clk == new_topo[ni].clk) {
-                topmost_altered_clk = old_topo[oi].clk;
-                tmc_f_old = old_topo[oi].clk_freq;
-                tmc_f_new = new_topo[ni].clk_freq;
-                break;
-            }
-        }
-
-        if (topmost_altered_clk) {
-            break;
-        }
-    }
-
-    /* notify all clocks affected by that change */
-    /* @TODO: store flag on pre-call to leverage that on post call ?*/
-    list_node_t *n = _mgr_ctx.clock_change_notify_list.next;
-    while(n) {
-        gclk_clock_change_notify_list_t *ccnl = container_of(n, gclk_clock_change_notify_list_t, node);
-        //list_node_t *cbn = &ccnl->change_cb_list.node;
-        //gclk_change_cb_list_t *cbl = container_of(cbn, gclk_change_cb_list_t, node);
-
-        bool already_added = false;
-        for (unsigned i = 0; i < affected_cnt; i++) {
-            if (affected[i] == ccnl) {
-                already_added = true;
-                break;
-            }
-        }
-
-        if (!already_added &&
-            gclk_affected_by_change(topmost_altered_clk, ccnl->clk)) {
-            affected[affected_cnt++] = ccnl;
-        }
-        n = n->next;
-    }
-
-    for (unsigned i = 0; i < affected_cnt; i++) {
-        gclk_clock_change_notify_list_t *ccnl = affected[i];
-        list_node_t *cbn = &ccnl->change_cb_list.node;
-        do {
-            gclk_change_cb_list_t *cbl = container_of(cbn, gclk_change_cb_list_t, node);
-            cbl->change_cb(topmost_altered_clk, ccnl->clk, tmc_f_old, tmc_f_new, post_change);
-            cbn = cbn->next;
-        } while (cbn);
-    }
-}
-
 void gclk_manager_notify_clk_change(const gclk_t *clk, uint32_t f_old, uint32_t f_new,
                                     bool post_change) {
     /* notify all clocks affected by that change */
