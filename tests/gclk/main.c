@@ -49,6 +49,9 @@
 #include "ztimer/periph_timer.h"
 #include "workloads.h"
 
+#include "net/gcoap.h"
+#include "gcoap_example.h"
+
 #define LOG_LEVEL LOG_NONE
 #include "log.h"
 
@@ -427,6 +430,7 @@ const shell_command_t shell_commands[] = {
     { "spispeed",        "prints the actually obtainable and aimed for spi speed for the current clock config", _sc_spi_speed },
     { "cmdlist_add",     "add a shell command to a list for later execution", _sc_cmdlist_add },
     { "cmdlist_execute", "execute all commands in the command list in FIFO order", _sc_cmdlist_exe },
+    { "coap", "CoAP example", gcoap_cli_cmd },
     { NULL, NULL, NULL }
 };
 
@@ -477,6 +481,7 @@ int main(void)
     //gpio_clear(LED0_PIN);
 
     printf("ScaleClock Test Application!\n");
+    server_init();
     workloads_init();
     msg_init_queue(_msg_queue, MAIN_MSG_QUEUE_SIZE);
 

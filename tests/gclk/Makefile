@@ -40,6 +40,11 @@ CFLAGS+=-DCONFIG_GNRC_IPV6_NIB_NO_RTR_SOL=1
 CFLAGS+=-DCONFIG_GNRC_IPV6_NIB_ADV_ROUTER=1
 USEMODULE += at86rf233
 
+############### Higher-layer Networking stuff
+USEMODULE += gcoap
+# required by gcoap example code
+USEMODULE += od
+
 ############### utensor stuff
 USEPKG += utensor
 
