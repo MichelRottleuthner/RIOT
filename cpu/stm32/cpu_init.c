@@ -363,9 +363,10 @@ void cpu_init(void)
     /*  initialize DMA streams */
     dma_init();
 #endif
+#ifndef EVAL_FORCE_STDIO_DISABLE
     /* initialize stdio prior to periph_init() to allow use of DEBUG() there */
     stdio_init();
-
+#endif
 #ifdef STM32F1_DISABLE_JTAG
     RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;
     AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
