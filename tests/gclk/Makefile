@@ -149,7 +149,9 @@ CFLAGS += -DAT86RF2XX_PARAM_SPI=SPI_DEV\(0\)
 # MOSI 	PA7  / CN5[4] D11 / GPIO_PIN\(0,7\)
 # CS		PB6  / CN5[3] D10 / GPIO_PIN\(1,6\)
 # SCK 	PA5  / CN5[6] D13 / GPIO_PIN\(0,5\)
-CFLAGS += -DAT86RF2XX_PARAM_SPI_CLK=SPI_CLK_5MHZ
+# Maximum supported frequency by at86rf233 is 7.5 MHz
+# (in asychronous mode, i.e., when the radio oscillator is not used as MCU clock source)
+CFLAGS += -DAT86RF2XX_PARAM_SPI_CLK=7500000
 CFLAGS += -DAT86RF2XX_PARAM_CS=GPIO_PIN\(1,6\)
 CFLAGS += -DAT86RF2XX_PARAM_INT=GPIO_PIN\(0,8\)
 CFLAGS += -DAT86RF2XX_PARAM_SLEEP=GPIO_PIN\(1,10\)
