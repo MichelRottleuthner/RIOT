@@ -44,6 +44,25 @@ USEMODULE += at86rf233
 USEMODULE += gcoap
 # required by gcoap example code
 USEMODULE += od
+# Enables DTLS-secured CoAP messaging
+GCOAP_ENABLE_DTLS ?= 1
+ifeq (1,$(GCOAP_ENABLE_DTLS))
+  # Required by DTLS. Currently, only tinyDTLS is supported by sock_dtls.
+  USEPKG += tinydtls
+  USEMODULE += sock_dtls
+  USEMODULE += tinydtls_sock_dtls
+  USEMODULE += gcoap_dtls
+  # tinydtls needs crypto secure PRNG
+  USEMODULE += prng_sha1prng
+
+	# This adds support for TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8
+  CFLAGS+=-DCONFIG_DTLS_ECC
+  CFLAGS+=-DCONFIG_GCOAP_DTLS_HANDSHAKE_TIMEOUT_MSEC=120000
+  CFLAGS+=-DGCOAP_STACK_SIZE=4096
+  #CFLAGS += -DCONFIG_DTLS_DEBUG
+  CFLAGS+=-DSCALECLOCK_DEBUG\(X\)=\{\}
+  #CFLAGS+=-DSCALECLOCK_DEBUG\(X\)=printf\(X\)
+endif
 
 ############### utensor stuff
 USEPKG += utensor
