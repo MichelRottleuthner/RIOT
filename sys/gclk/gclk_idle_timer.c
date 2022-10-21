@@ -106,7 +106,7 @@ uint64_t idle_timer_read(void) {
 void idle_timer_init(void) {
     /* only init rtt if it was not initialized by the system init
      * This is done to avoid a second call to init which might cause spurious interrupts */
-    if (!MODULE_PERIPH_INIT_RTT) {
+    if (!IS_ACTIVE(CONFIG_MODULE_PERIPH_INIT_RTT)) {
         rtt_init();
     }
     rtt_set_overflow_cb(idle_timer_overflow_cb, NULL);
