@@ -186,6 +186,12 @@ CFLAGS += -DOSZI_DEBUG_PIN=GPIO_UNDEF
 CFLAGS += -DRADIO_SUPPLY_SWITCH_PIN=GPIO_UNDEF
 endif
 
+# Enforce that STDIO(UART) is not initialized to enable lower
+# power modes during idle
+#CFLAGS+=DEVAL_FORCE_STDIO_DISABLE
+# Only block the lowest power mode initially
+#CFLAGS+=-DPM_BLOCKER_INITIAL=\{1,0,0\}
+
 FEATURES_REQUIRED += periph_gpio_irq
 
 include Makefile.dep
