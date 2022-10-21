@@ -19,6 +19,8 @@
 #ifndef EVAL_UTIL_H
 #define EVAL_UTIL_H
 
+#include "xtimer.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
