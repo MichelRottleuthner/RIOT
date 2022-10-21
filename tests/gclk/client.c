@@ -30,6 +30,8 @@
 #include "od.h"
 
 #include "gcoap_example.h"
+#include "periph/gpio.h"
+#include "eval_utils.h"
 
 #define ENABLE_DEBUG 0
 #include "debug.h"
@@ -79,6 +81,7 @@ static void _resp_handler(const gcoap_request_memo_t *memo, coap_pkt_t* pdu,
         puts("--- blockwise start ---");
     }
 
+    NOTIFY_STOP_TO_DMM;
     char *class_str = (coap_get_code_class(pdu) == COAP_CLASS_SUCCESS)
                             ? "Success" : "Error";
     printf("gcoap: response %s, code %1u.%02u", class_str,
@@ -279,6 +282,8 @@ int gcoap_cli_cmd(int argc, char **argv)
         ((argc == apos + 3 ||
           argc == apos + 4) && (code_pos > 1))) {     /* post or put */
 
+        NOTIFY_START_TO_DMM;
+
         char *uri = NULL;
         int uri_len = 0;
         if (code_pos) {
@@ -326,8 +331,10 @@ int gcoap_cli_cmd(int argc, char **argv)
             len = coap_opt_finish(&pdu, COAP_OPT_FINISH_NONE);
         }
 
-        printf("gcoap_cli: sending msg ID %u, %u bytes\n", coap_get_id(&pdu),
-               (unsigned) len);
+        // disable unnecessary output that is only intended for the interactve
+        // shell app cause that would not be part of a deployed app
+        //printf("gcoap_cli: sending msg ID %u, %u bytes\n", coap_get_id(&pdu),
+        //       (unsigned) len);
         if (!_send(&buf[0], len, argv[apos], argv[apos+1])) {
             puts("gcoap_cli: msg send failed");
         }
