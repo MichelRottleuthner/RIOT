@@ -5,8 +5,6 @@ ifneq (,$(filter nucleo-l476rg slstk3402a,$(BOARD)))
 USEPKG += cmsis-dsp
 endif
 
-FEATURES_REQUIRED = periph_adc
-
 USEPKG += heatshrink
 # ####################### CRYPTO STUFF
 USEMODULE += cipher_modes
@@ -76,10 +74,12 @@ EXTERNAL_MODULE_DIRS += external_modules
 
 USEMODULE += mlwrapper
 ##############
+#FEATURES_REQUIRED = periph_dma
 
 FEATURES_REQUIRED += periph_spi
 
 USEMODULE += gclk
+FEATURES_REQUIRED = periph_adc
 
 USEMODULE += shell
 USEMODULE += shell_cmds_default
