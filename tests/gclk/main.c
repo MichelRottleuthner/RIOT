@@ -408,10 +408,34 @@ int _sc_work(int argc, char **argv)
     return 0;
 }
 
+#include "net/ieee802154_mac.h"
+
+int _sc_req_data(int argc, char **argv) {
+    (void)argc;
+    (void)argv;
+    gnrc_netif_t *netif = gnrc_netif_iter(NULL);
+    if (argc != 2) {
+       printf("usage: %s {once|<pollperiodms>}\n", argv[0]); 
+       return -1;
+    } else {
+        if (strcmp(argv[1], "once") == 0) {
+            _trigger_data_request(&netif->ieee802154_mac);
+
+        } else {
+            unsigned int periodms = atoi(argv[1]);
+            printf("setting data poll period to %u\n", periodms);
+            _enable_periodic_data_request(&netif->ieee802154_mac, periodms);
+        }
+    }
+    return 0;
+}
+
+
 /* Other clock control commands are provided by the respective
  * shell-command submodule (in /sys/shell/commands/sc_gclk.c) */
 const shell_command_t shell_commands[] = {
 /* utility/test commands to work out quirks and check setup health*/
+    { "reqdata",         "request data from the MAC layer", _sc_req_data },
     { "gpio_test",       "test gpio toggle", _sc_gpio_test },
     { "work",            "perform various kinds of workloads", _sc_work },
     { "blink",           "perform some busy gpio blink work to visualize if CPU is working", _sc_blink },
@@ -512,6 +536,15 @@ int main(void)
     /* init idle timer but turn it off as it is not used initially */
     idle_timer_init();
     idle_timer_disable();
+
+    netopt_enable_t enable = NETOPT_ENABLE;
+    gnrc_netif_t *netif = gnrc_netif_iter(NULL);
+    //kernel_pid_t netif_pid = netif->pid;
+
+    int r = netif_set_opt(&netif->netif, NETOPT_ACK_PENDING, 0, &enable, sizeof(netopt_enable_t));
+    if (r == sizeof(netopt_enable_t)) {
+        printf("sucessfully enabled NETOPT_ACK_PENDING\n");  
+    }
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);

@@ -28,6 +28,7 @@
 #include "net/gnrc/nettype.h"
 #include "net/netopt.h"
 #include "net/netdev.h"
+#include "event.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -129,6 +130,11 @@ typedef struct {
 #if IS_USED(MODULE_IEEE802154_SECURITY) || defined(DOXYGEN)
     ieee802154_sec_context_t sec_ctx;       /**< security context */
 #endif
+    /**
+     * @brief   WIP: custom extension to allow triggering data requests via
+     *          event queue and callback.
+     */
+    event_t data_request_event;
     /** @} */
 } netdev_ieee802154_t;
 

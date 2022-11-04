@@ -195,6 +195,7 @@ int netdev_ieee802154_set(netdev_ieee802154_t *dev, netopt_t opt, const void *va
     int res = -ENOTSUP;
 
     switch (opt) {
+        // TODO: add NETOPT to set MAC pollng intervall
         case NETOPT_CHANNEL:
         {
             assert(len == sizeof(uint16_t));

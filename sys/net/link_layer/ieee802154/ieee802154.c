@@ -150,7 +150,7 @@ size_t ieee802154_get_frame_hdr_len(const uint8_t *mhr)
     }
     return 0;
 }
-
+#include <stdio.h>
 int ieee802154_get_src(const uint8_t *mhr, uint8_t *src, le_uint16_t *src_pan)
 {
     int offset = 3; /* FCF: 0-1, Seq: 2 */
@@ -173,10 +173,12 @@ int ieee802154_get_src(const uint8_t *mhr, uint8_t *src, le_uint16_t *src_pan)
         offset += 10;
     }
     else if (tmp != IEEE802154_FCF_DST_ADDR_VOID) {
+        printf("IEEE802154_FCF_DST_ADDR_VOID\n");
         return -EINVAL;
     }
     else if (mhr[0] & IEEE802154_FCF_PAN_COMP) {
         /* PAN compression, but no destination address => illegal state */
+        printf("IEEE802154_FCF_PAN_COMP\n");
         return -EINVAL;
     }
 
@@ -202,6 +204,7 @@ int ieee802154_get_src(const uint8_t *mhr, uint8_t *src, le_uint16_t *src_pan)
         return 8;
     }
     else if (tmp != IEEE802154_FCF_SRC_ADDR_VOID) {
+        printf("IEEE802154_FCF_SRC_ADDR_VOID\n");
         return -EINVAL;
     }
 

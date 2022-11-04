@@ -2121,6 +2121,7 @@ void gclk_manager_on_idle_hook(void) {
         _sched_stats.busy_ticks_avg = (3 * _sched_stats.busy_ticks_avg + _sched_stats.busy_ticks) >> 2;
     }
     _sched_stats.enter_idle_cnt++;
+    //printf("->IDLE... (%lu)\n", _sched_stats.busy_ticks);
 }
 
 void gclk_manager_enable_dynamic_frequency_scaling(bool enable) {

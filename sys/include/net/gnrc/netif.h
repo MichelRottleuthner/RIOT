@@ -46,6 +46,9 @@
 #if IS_USED(MODULE_GNRC_NETIF_LORAWAN)
 #include "net/gnrc/netif/lorawan.h"
 #endif
+#if IS_USED(MODULE_IEEE802154)
+#include "net/ieee802154_mac.h"
+#endif
 #if IS_USED(MODULE_GNRC_NETIF_6LO)
 #include "net/gnrc/netif/6lo.h"
 #endif
@@ -142,6 +145,9 @@ typedef struct {
 #endif
 #if IS_USED(MODULE_GNRC_NETIF_LORAWAN) || defined(DOXYGEN)
     gnrc_netif_lorawan_t lorawan;           /**< LoRaWAN component */
+#endif
+#if IS_USED(MODULE_IEEE802154) || defined(DOXYGEN)
+    ieee802154_mac_t ieee802154_mac;        /**< 802.15.4 MAC component */
 #endif
 #if IS_USED(MODULE_GNRC_NETIF_IPV6) || defined(DOXYGEN)
     gnrc_netif_ipv6_t ipv6;                 /**< IPv6 component */

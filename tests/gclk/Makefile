@@ -38,6 +38,9 @@ CFLAGS+=-DCONFIG_GNRC_IPV6_NIB_NO_RTR_SOL=1
 CFLAGS+=-DCONFIG_GNRC_IPV6_NIB_ADV_ROUTER=1
 USEMODULE += at86rf233
 
+# needed for the custom extension implementing the 802.15.4 periodic event request
+USEMODULE += event_periodic_callback
+
 ############### Higher-layer Networking stuff
 USEMODULE += gcoap
 # required by gcoap example code
@@ -206,6 +209,18 @@ CFLAGS += -DUNUSED_SPI_SC_PIN=GPIO_UNDEF
 CFLAGS += -DOSZI_DEBUG_PIN=GPIO_UNDEF
 CFLAGS += -DRADIO_SUPPLY_SWITCH_PIN=GPIO_UNDEF
 endif
+
+# Ensure the debug adapter id is also passed to the build when using docker for compilation
+#DOCKER_ENV_VARS += DEBUG_ADAPTER_ID
+# As currently there is no support for association, we inject a fixed coordinator address
+# that results in both nodes assuming the other node is its coordinator for now.
+#
+CFLAGS += -DTEST_ENVIRONMENT_IEEE802154_ADDR1=\{0xEE,0x55,0x9A,0x55,0xEC,0xD7,0x4C,0x2A\}
+CFLAGS += -DTEST_ENVIRONMENT_IEEE802154_ADDR2=\{0xAA,0x58,0xEC,0xB5,0xF6,0xB4,0xA8,0xBC\}
+#ifeq (0670FF3836314B3457143035,$(DEBUG_ADAPTER_ID))
+#endif
+#ifeq (066FFF504955857567222633,$(DEBUG_ADAPTER_ID))
+#endif
 
 # Enforce that STDIO(UART) is not initialized to enable lower
 # power modes during idle

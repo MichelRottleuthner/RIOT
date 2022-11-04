@@ -690,16 +690,23 @@ static void _isr_send_complete(at86rf2xx_t *dev, uint8_t trac_status)
                 break;
 #else
                     case AT86RF2XX_TRX_STATE__TRAC_SUCCESS:
-                    case AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING:
+                        //TODO: for MLME.poll: mlme_poll_confirm(NO_DATA)
                         netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE);
                         DEBUG("[at86rf2xx] TX SUCCESS\n");
                         break;
+                    case AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING:
+                        //TODO: for MLME.poll: mlme_poll_confirm(SUCCESS)
+                        netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE_DATA_PENDING);
+                        DEBUG("[at86rf2xx] TX SUCCESS DATA PENDING\n");
+                        break;
 #endif
                     case AT86RF2XX_TRX_STATE__TRAC_NO_ACK:
+                        //TODO: for MLME.poll: mlme_poll_confirm(NO_ACK)
                         netdev->event_callback(netdev, NETDEV_EVENT_TX_NOACK);
                         DEBUG("[at86rf2xx] TX NO_ACK\n");
                         break;
                     case AT86RF2XX_TRX_STATE__TRAC_CHANNEL_ACCESS_FAILURE:
+                        //TODO: for MLME.poll: mlme_poll_confirm(CHANNEL_ACCESS_FAILURE)
                         netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
                         DEBUG("[at86rf2xx] TX_CHANNEL_ACCESS_FAILURE\n");
                         break;

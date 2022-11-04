@@ -90,6 +90,7 @@ void gnrc_pktbuf_release_error(gnrc_pktsnip_t *pkt, uint32_t err)
     mutex_lock(&gnrc_pktbuf_mutex);
     while (pkt) {
         gnrc_pktsnip_t *tmp;
+        //printf("%p has %d users (contains %d)\n", pkt, pkt->users, gnrc_pktbuf_contains(pkt));
         assert(gnrc_pktbuf_contains(pkt));
         assert(pkt->users > 0);
         tmp = pkt->next;

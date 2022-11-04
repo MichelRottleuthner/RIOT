@@ -53,7 +53,7 @@
 static void _update_l2addr_from_dev(gnrc_netif_t *netif);
 static void _check_netdev_capabilities(netdev_t *dev);
 static void *_gnrc_netif_thread(void *args);
-static void _event_cb(netdev_t *dev, netdev_event_t event);
+//static void _event_cb(netdev_t *dev, netdev_event_t event);
 
 typedef struct {
     gnrc_netif_t *netif;
@@ -1610,11 +1610,15 @@ static void _test_options(gnrc_netif_t *netif)
 }
 #endif /* DEVELHELP */
 
+extern void _custom_event_cb(netdev_t *dev, netdev_event_t event);
+
 int gnrc_netif_default_init(gnrc_netif_t *netif)
 {
     netdev_t *dev = netif->dev;
     /* register the event callback with the device driver */
-    dev->event_callback = _event_cb;
+    //dev->event_callback = _event_cb;
+    dev->event_callback = _custom_event_cb;
+
     dev->context = netif;
     int res = dev->driver->init(dev);
     if (res < 0) {
@@ -1652,6 +1656,7 @@ static void _event_handler_isr(event_t *evp)
     netif->dev->driver->isr(netif->dev);
 }
 
+#if 0
 static void _process_receive_stats(gnrc_netif_t *netdev, gnrc_pktsnip_t *pkt)
 {
     if (!IS_USED(MODULE_NETSTATS_NEIGHBOR)) {
@@ -1672,6 +1677,7 @@ static void _process_receive_stats(gnrc_netif_t *netdev, gnrc_pktsnip_t *pkt)
     src_len = hdr->src_l2addr_len;
     netstats_nb_update_rx(&netdev->netif, src, src_len, hdr->rssi, hdr->lqi);
 }
+#endif
 
 static event_t *_gnrc_netif_fetch_event(gnrc_netif_t *netif)
 {
@@ -1724,6 +1730,7 @@ static void _process_events_await_msg(gnrc_netif_t *netif, msg_t *msg)
     }
 }
 
+#if 0
 static void _send_queued_pkt(gnrc_netif_t *netif)
 {
     (void)netif;
@@ -1736,6 +1743,7 @@ static void _send_queued_pkt(gnrc_netif_t *netif)
     }
 #endif /* IS_USED(MODULE_GNRC_NETIF_PKTQ) */
 }
+#endif
 
 static void _tx_done(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt,
                      gnrc_pktsnip_t *tx_sync , int res, bool push_back)
@@ -1956,6 +1964,7 @@ static void *_gnrc_netif_thread(void *args)
         DEBUG("gnrc_netif: message %u\n", (unsigned)msg.type);
         switch (msg.type) {
 #if IS_USED(MODULE_GNRC_NETIF_PKTQ)
+#error Blaaa..
             case GNRC_NETIF_PKTQ_DEQUEUE_MSG:
                 DEBUG("gnrc_netif: send from packet send queue\n");
                 _send_queued_pkt(netif);
@@ -2020,6 +2029,40 @@ static void *_gnrc_netif_thread(void *args)
     }
     /* never reached */
     return NULL;
+}
+
+#if 0
+static void _process_receive_stats(gnrc_netif_t *netdev, gnrc_pktsnip_t *pkt)
+{
+        if (!IS_USED(MODULE_NETSTATS_NEIGHBOR)) {
+                    return;
+                        }
+
+            gnrc_netif_hdr_t *hdr;
+                const uint8_t *src = NULL;
+                    gnrc_pktsnip_t *netif = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
+
+                        if (netif == NULL) {
+                                    return;
+                                        }
+
+                            size_t src_len;
+                                hdr = netif->data;
+                                    src = gnrc_netif_hdr_get_src_addr(hdr);
+                                        src_len = hdr->src_l2addr_len;
+                                            netstats_nb_update_rx(&netdev->netif, src, src_len, hdr->rssi, hdr->lqi);
+}
+static void _send_queued_pkt(gnrc_netif_t *netif)
+{
+        (void)netif;
+#if IS_USED(MODULE_GNRC_NETIF_PKTQ)
+            gnrc_pktsnip_t *pkt;
+
+                if ((pkt = gnrc_netif_pktq_get(netif)) != NULL) {
+                            _send(netif, pkt, true);
+                                    gnrc_netif_pktq_sched_get(netif);
+                                        }
+#endif /* IS_USED(MODULE_GNRC_NETIF_PKTQ) */
 }
 
 static void _pass_on_packet(gnrc_pktsnip_t *pkt)
@@ -2130,4 +2173,5 @@ static void _event_cb(netdev_t *dev, netdev_event_t event)
         }
     }
 }
+#endif
 /** @} */

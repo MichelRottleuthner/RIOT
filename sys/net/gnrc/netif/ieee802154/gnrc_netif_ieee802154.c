@@ -26,6 +26,21 @@
 
 #include "od.h"
 
+
+#include "net/netstats.h"
+#include "net/netstats/neighbor.h"
+#include "net/gnrc/ipv6.h"
+#include "net/gnrc/ipv6/nib.h"
+#include "event/periodic.h"
+#include "net/gnrc/netif/pktq.h"
+#include "net/ieee802154_mac.h"
+
+//TODO utils to be removed
+gnrc_netif_t* _mac2netif(ieee802154_mac_t *mac);
+netdev_t* _mac2netdev(ieee802154_mac_t *mac);
+ieee802154_mac_t* _netif2mac(void *netif);
+netdev_ieee802154_t* _mac2netdev802154(ieee802154_mac_t *mac);
+
 static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt);
 static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif);
 
@@ -37,11 +52,258 @@ static const gnrc_netif_ops_t ieee802154_ops = {
     .set = gnrc_netif_set_from_netdev,
 };
 
+//static void _process_receive_stats(gnrc_netif_t *netdev, gnrc_pktsnip_t *pkt)
+//{
+//    if (!IS_USED(MODULE_NETSTATS_NEIGHBOR)) {
+//        return;
+//    }
+//
+//    gnrc_netif_hdr_t *hdr;
+//    const uint8_t *src = NULL;
+//    gnrc_pktsnip_t *netif = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
+//
+//    if (netif == NULL) {
+//        return;
+//    }
+//
+//    size_t src_len;
+//    hdr = netif->data;
+//    src = gnrc_netif_hdr_get_src_addr(hdr);
+//    src_len = hdr->src_l2addr_len;
+//    netstats_nb_update_rx(&netdev->netif, src, src_len, hdr->rssi, hdr->lqi);
+//}
+
+static void _send_queued_pkt(gnrc_netif_t *netif)
+{
+    (void)netif;
+    gnrc_pktsnip_t *pkt;
+    if ((pkt = gnrc_netif_pktq_get(netif)) != NULL) {
+        _send(netif, pkt);
+        gnrc_netif_pktq_sched_get(netif);
+    }
+}
+
+static void _pass_on_packet(gnrc_pktsnip_t *pkt)
+{
+    /* throw away packet if no one is interested */
+    if (!gnrc_netapi_dispatch_receive(pkt->type, GNRC_NETREG_DEMUX_CTX_ALL,
+                                      pkt)) {
+        DEBUG("gnrc_netif: unable to forward packet of type %i\n", pkt->type);
+        gnrc_pktbuf_release(pkt);
+        return;
+    }
+}
+
+static void _ieee802154_mlme_poll_confirm_cb(ieee802154_mac_t *mac,
+                                             ieee802154_mlme_poll_confirm_t *confirm)
+{
+    (void)mac;
+    if (confirm->status == MLME_SUCCESS) {
+        printf("_ieee802154_mlme_poll_confirm_cb SUCCESS\n");
+    }
+}
+
+static void _ieee802154_mcps_data_confirm_cb(ieee802154_mac_t *mac,
+                                             ieee802154_mcps_data_confirm_t *confirm)
+{
+    (void)mac;
+    if (confirm->status == MCPS_SUCCESS) {
+        printf("_ieee802154_mcps_data_confirm_cb SUCCESS\n");
+        //res = dev->driver->send(dev, &iolist_header);
+        if (gnrc_netif_netdev_legacy_api(_mac2netif(mac))) {
+            printf("pktbuf release..\n");
+            /* only for legacy drivers we need to release pkt here */
+            gnrc_pktbuf_release(confirm->msdu_handle.pkt);
+        }
+
+    } else {
+        printf("_ieee802154_mcps_data_confirm_cb [OTHER]\n");
+    }
+}
+
+void _custom_event_cb(netdev_t *dev, netdev_event_t event)
+{
+    gnrc_netif_t *netif = (gnrc_netif_t *)dev->context;
+    netdev_ieee802154_t *ieee802154netdev = container_of(dev, netdev_ieee802154_t, netdev);
+    ieee802154_mac_t *mac = _netif2mac(netif);
+    ieee802154_tx_done_info_t info;
+
+    if (event == NETDEV_EVENT_ISR) {
+        event_post(&netif->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW], &netif->event_isr);
+    }
+#if IS_USED(MODULE_NETDEV_NEW_API)
+    else if (gnrc_netif_netdev_new_api(netif)
+             && (event == NETDEV_EVENT_TX_COMPLETE)) {
+        event_post(&netif->evq, &netif->event_tx_done);
+    }
+#endif
+    else {
+        DEBUG("gnrc_netif: event triggered -> %i\n", event);
+        //gnrc_pktsnip_t *pkt = NULL;
+        switch (event) {
+            case NETDEV_EVENT_LINK_UP:
+                if (IS_USED(MODULE_GNRC_IPV6)) {
+                    msg_t msg = { .type = GNRC_IPV6_NIB_IFACE_UP, .content = { .ptr = netif } };
+
+                    msg_send(&msg, gnrc_ipv6_pid);
+                }
+                break;
+            case NETDEV_EVENT_LINK_DOWN:
+                if (IS_USED(MODULE_GNRC_IPV6)) {
+                    msg_t msg = { .type = GNRC_IPV6_NIB_IFACE_DOWN, .content = { .ptr = netif } };
+
+                    msg_send(&msg, gnrc_ipv6_pid);
+                }
+                break;
+            case NETDEV_EVENT_RX_COMPLETE:
+                printf("NETDEV_EVENT_RX_COMPLETE\n");
+                //pkt = netif->ops->recv(netif);
+                //printf("NETDEV_EVENT_RX_COMPLETE: %u\n", pkt->size);
+                mac->driver->rx_done_cb(mac);
+                    
+                //{
+                //    gnrc_pktsnip_t *p = pkt;
+                //    do {
+                //        printf("pkt %p: %d bytes: ", p, p->size);
+                //        for (unsigned i = 0; i < p->size; i++) {
+                //            printf("%02X ", ((uint8_t*)p->data)[i]);
+                //        }
+                //        printf("\n");
+                //        p = p->next;
+                //    } while (p);
+                //}
+
+                ///* send packet previously queued within netif due to the lower
+                // * layer being busy.
+                // * Further packets will be sent on later TX_COMPLETE */
+                //_send_queued_pkt(netif);
+                //if (pkt) {
+                //    _process_receive_stats(netif, pkt);
+                //    _pass_on_packet(pkt);
+                //}
+                break;
+#if IS_USED(MODULE_NETDEV_LEGACY_API)
+#  if IS_USED(MODULE_NETSTATS_L2) || IS_USED(MODULE_GNRC_NETIF_PKTQ)
+            case NETDEV_EVENT_TX_COMPLETE:
+                printf("NETDEV_EVENT_TX_COMPLETE\n");
+                info.recvd_ack = ieee802154_mac_requested_ack(mac);
+                //info.recvd_ack = ieee802154_mac_requested_ack(mac);
+                info.data_pending = false;
+                info.medium_busy = false;
+                mac->driver->tx_done_cb(mac, &info);
+                break;
+
+            case NETDEV_EVENT_TX_COMPLETE_DATA_PENDING:
+                printf("NETDEV_EVENT_TX_COMPLETE_DATA_PENDING\n");
+                /* pending data after TX may only be indicated by an ack,
+                 * so ack reveiced state is always true in this case. */ 
+                info.recvd_ack = true;
+                info.data_pending = true;
+                info.medium_busy = false;
+                mac->driver->tx_done_cb(mac, &info);
+                /* send packet previously queued within netif due to the lower
+                 * layer being busy.
+                 * Further packets will be sent on later TX_COMPLETE or
+                 * TX_MEDIUM_BUSY */
+                _send_queued_pkt(netif);
+#    if IS_USED(MODULE_NETSTATS_L2)
+                /* we are the only ones supposed to touch this variable,
+                 * so no acquire necessary */
+                netif->stats.tx_success++;
+#    endif  /* IS_USED(MODULE_NETSTATS_L2) */
+                if (IS_USED(MODULE_NETSTATS_NEIGHBOR)) {
+                    int8_t retries = -1;
+                    dev->driver->get(dev, NETOPT_TX_RETRIES_NEEDED, &retries, sizeof(retries));
+                    netstats_nb_update_tx(&netif->netif, NETSTATS_NB_SUCCESS, retries + 1);
+                }
+                break;
+#  endif  /* IS_USED(MODULE_NETSTATS_L2) || IS_USED(MODULE_GNRC_NETIF_PKTQ) */
+#  if IS_USED(MODULE_NETSTATS_L2) || IS_USED(MODULE_GNRC_NETIF_PKTQ) || \
+      IS_USED(MODULE_NETSTATS_NEIGHBOR)
+            case NETDEV_EVENT_TX_MEDIUM_BUSY:
+                printf("NETDEV_EVENT_TX_MEDIUM_BUSY\n");
+                info.recvd_ack = false;
+                info.data_pending = false;
+                info.medium_busy = true;
+                mac->driver->tx_done_cb(mac, &info);
+
+                /* update neighbor statistics */
+                if (IS_USED(MODULE_NETSTATS_NEIGHBOR)) {
+                    int8_t retries = -1;
+                    netstats_nb_result_t result = NETSTATS_NB_BUSY;
+                    netstats_nb_update_tx(&netif->netif, result, retries + 1);
+                }
+#    if IS_USED(MODULE_NETSTATS_L2)
+                /* we are the only ones supposed to touch this variable,
+                 * so no acquire necessary */
+                netif->stats.tx_failed++;
+#    endif  /* IS_USED(MODULE_NETSTATS_L2) */
+                break;
+                
+            case NETDEV_EVENT_TX_NOACK:
+                printf("NETDEV_EVENT_TX_NOACK\n");
+                info.recvd_ack = false;
+                info.data_pending = false;
+                info.medium_busy = false;
+                mac->driver->tx_done_cb(mac, &info);
+
+                /* update neighbor statistics */
+                if (IS_USED(MODULE_NETSTATS_NEIGHBOR)) {
+                    int8_t retries = -1;
+                    netstats_nb_result_t result = NETSTATS_NB_NOACK;
+                    dev->driver->get(dev, NETOPT_TX_RETRIES_NEEDED, &retries, sizeof(retries));
+                    netstats_nb_update_tx(&netif->netif, result, retries + 1);
+                }
+                ///* send packet previously queued within netif due to the lower
+                // * layer being busy.
+                // * Further packets will be sent on later TX_COMPLETE or
+                // * TX_MEDIUM_BUSY */
+                //_send_queued_pkt(netif);
+#    if IS_USED(MODULE_NETSTATS_L2)
+                /* we are the only ones supposed to touch this variable,
+                 * so no acquire necessary */
+                netif->stats.tx_failed++;
+#    endif  /* IS_USED(MODULE_NETSTATS_L2) */
+                break;
+#  endif  /* IS_USED(MODULE_NETSTATS_L2) || IS_USED(MODULE_GNRC_NETIF_PKTQ) */
+#endif /* IS_USED(MODULE_NETDEV_LEGACY_API) */
+            case NETDEV_EVENT_REQUEST_DATA:
+                {
+                ieee802154_mlme_poll_request_t request;
+                //TODO: move to util function
+                request.coord_addr_mode = IEEE802154_ADDR_MODE_EXTENDED;
+                request.coord_pan_id = byteorder_htols(ieee802154netdev->pan);
+               
+                ieee802154_l2addr_t *coord_addr = ieee802154_mac_get_coordinator_l2addr(mac);
+                memcpy(request.coord_address.l2addr,
+                       &coord_addr->l2addr,
+                       coord_addr->l2addr_len);
+                request.coord_address.l2addr_len = coord_addr->l2addr_len;
+
+                ieee802154_mlme_poll_request(_netif2mac(netif),
+                                             &request,
+                                             &_ieee802154_mlme_poll_confirm_cb);
+                }
+                break;
+            case NETDEV_EVENT_HANDLE_DATA_REQUEST:
+                _send_queued_pkt(netif);
+                //_send_indirect_tx_queued_pkt(gnrc_netif_t *netif,
+                //                             ieee802154_l2addr_t *addr)
+                
+                break;
+            default:
+                DEBUG("gnrc_netif: warning: unhandled event %u.\n", event);
+        }
+    }
+}
+
 int gnrc_netif_ieee802154_create(gnrc_netif_t *netif, char *stack, int stacksize,
                                  char priority, const char *name, netdev_t *dev)
 {
-    return gnrc_netif_create(netif, stack, stacksize, priority, name, dev,
-                             &ieee802154_ops);
+    int res = gnrc_netif_create(netif, stack, stacksize, priority, name, dev,
+                                &ieee802154_ops);
+    _init_mac_data(_netif2mac(netif));
+    return res;
 }
 
 static gnrc_pktsnip_t *_make_netif_hdr(uint8_t *mhr)
@@ -75,6 +337,33 @@ static gnrc_pktsnip_t *_make_netif_hdr(uint8_t *mhr)
     }
     return snip;
 }
+
+void _netif_handover_mpdu(gnrc_netif_t *netif, gnrc_pktsnip_t *mpdu, gnrc_pktsnip_t *ieee802154_hdr)
+{
+    netdev_t *dev = netif->dev;
+    gnrc_pktsnip_t *netif_hdr;
+    gnrc_netif_hdr_t *hdr;
+    //uint8_t *mhr = pkt->data;
+    uint8_t *mhr = ieee802154_hdr->data;
+    netif_hdr = _make_netif_hdr(mhr);
+    if (netif_hdr == NULL) {
+        DEBUG("_recv_ieee802154: no space left in packet buffer\n");
+        gnrc_pktbuf_release(mpdu);
+        return;
+    } else {
+        hdr = netif_hdr->data;
+        gnrc_netif_hdr_set_netif(hdr, netif);
+        dev->driver->get(dev, NETOPT_PROTO, &mpdu->type, sizeof(mpdu->type));
+        
+        /* drop 802.15.4 header.. (mpdu contains raw MSDU afterwards) */ 
+        gnrc_pktbuf_remove_snip(mpdu, ieee802154_hdr);
+        /* ..and append netif header instead. */ 
+        mpdu = gnrc_pkt_append(mpdu, netif_hdr);
+        /* pass on packet with netif header. */ 
+        _pass_on_packet(mpdu);
+    }
+}
+
 
 #if MODULE_GNRC_NETIF_DEDUP
 static inline bool _already_received(gnrc_netif_t *netif,
@@ -233,6 +522,41 @@ static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif)
                 gnrc_pktbuf_release(netif_hdr);
                 return NULL;
             }
+
+
+            printf("ieee802154_hdr: %d bytes: ", ieee802154_hdr->size);
+            for (unsigned i = 0; i < ieee802154_hdr->size; i++) {
+                printf("%02X ", ((uint8_t*)ieee802154_hdr->data)[i]);
+            }
+            printf("\n");
+            if (((uint8_t*)ieee802154_hdr->data)[0] & IEEE802154_FCF_TYPE_MACCMD) {
+                printf("received a MAC CMD\n");
+                /* check if it is a data request... */
+                if (((uint8_t*)pkt->data)[0] == IEEE802154_MAC_CMD_DATA_REQUEST) {
+                    /* check if there is pending data for that address */
+                    printf("got a Data Request!\n"); 
+                    ieee802154_l2addr_t *svdaddr = _save_l2addr_for_idtx(&netif->ieee802154_mac,
+                                                   gnrc_netif_hdr_get_src_addr(hdr),
+                                                   hdr->src_l2addr_len);
+                    printf("saved at %p\n", svdaddr);
+                    if (svdaddr) {
+                        printf("checking if there is any pending TX for the requester...\n");
+                        //_send_indirect_tx_queued_pkt(netif, svdaddr);
+                        // TODO: post event to handle IDTX
+                        
+                        gnrc_pktsnip_t *idtx_pkt = _get_next_indirect_pkt(&netif->ieee802154_mac, svdaddr);
+                        if (idtx_pkt) {
+                            printf("found pkt in IDTXQ\n");
+                            //gnrc_netif_pktq_put(netif, gnrc_pktsnip_t *pkt);
+                            
+                        }
+                        //gnrc_pktqueue_t *qe = gnrc_pktqueue_remove(gnrc_pktqueue_t **queue, gnrc_pktqueue_t *node)
+                        
+                    }
+
+                }
+            }
+
             nread -= ieee802154_hdr->size;
             gnrc_pktbuf_remove_snip(pkt, ieee802154_hdr);
             pkt = gnrc_pkt_append(pkt, netif_hdr);
@@ -248,24 +572,109 @@ static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif)
     return pkt;
 }
 
+char* _pkttype2str(gnrc_nettype_t type)
+{
+    switch(type) {
+        case GNRC_NETTYPE_TX_SYNC: return "GNRC_NETTYPE_TX_SYNC";
+        case GNRC_NETTYPE_NETIF: return "GNRC_NETTYPE_NETIF";
+        case GNRC_NETTYPE_UNDEF: return "GNRC_NETTYPE_UNDEF";
+        case GNRC_NETTYPE_SIXLOWPAN: return "GNRC_NETTYPE_SIXLOWPAN";
+        //case GNRC_NETTYPE_GOMACH: return "GNRC_NETTYPE_GOMACH";
+        //case GNRC_NETTYPE_LWMAC: return "GNRC_NETTYPE_LWMAC";
+        //case GNRC_NETTYPE_CUSTOM: return "GNRC_NETTYPE_CUSTOM";
+        case GNRC_NETTYPE_IPV6: return "GNRC_NETTYPE_IPV6";
+        //case GNRC_NETTYPE_IPV6_EXT: return "GNRC_NETTYPE_IPV6_EXT";
+        case GNRC_NETTYPE_ICMPV6: return "GNRC_NETTYPE_ICMPV6";
+        //jcase GNRC_NETTYPE_TCP: return "GNRC_NETTYPE_TCP";
+        case GNRC_NETTYPE_UDP: return "GNRC_NETTYPE_UDP";
+        //case GNRC_NETTYPE_CCN: return "GNRC_NETTYPE_CCN";
+        //case GNRC_NETTYPE_CCN_CHUNK: return "GNRC_NETTYPE_CCN_CHUNK";
+        //case GNRC_NETTYPE_NDN: return "GNRC_NETTYPE_NDN";
+        //case GNRC_NETTYPE_LORAWAN: return "GNRC_NETTYPE_LORAWAN";
+        //case GNRC_NETTYPE_TEST: return "GNRC_NETTYPE_TEST";
+        case GNRC_NETTYPE_NUMOF: return "GNRC_NETTYPE_NUMOF";
+        default: return "NONE";
+    }
+}
+
+void _print_pktsnip(gnrc_pktsnip_t *p, const char* prefix_str) {
+    while (p) {
+        printf("%s pktsnip (%s) has %d bytes\n", prefix_str, _pkttype2str(p->type), p->size);
+        for (unsigned i = 0; i < p->size; i++) {
+            printf("0x%02x ", ((uint8_t*)p->data)[i]);
+        }
+        printf("\n");
+        p = p->next;
+    }
+}
+
+void _build_mcps_data_request(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt,
+                              ieee802154_mcps_data_request_t *request)
+{
+    //_print_pktsnip(pkt, "BUILD MCPS-DR: ");
+
+    netdev_t *dev = netif->dev;
+    netdev_ieee802154_t *netdev_ieee802154 = container_of(dev, netdev_ieee802154_t, netdev);
+    
+    gnrc_netif_hdr_t *netif_hdr = pkt->data;
+ 
+    request->ack_tx = netdev_ieee802154->flags & NETDEV_IEEE802154_ACK_REQ;
+    printf("REQ ACK: %s\n", request->ack_tx ? "true" : "false");
+    // TODO: dst pan might be different from device pan
+    request->dst_pan_id = byteorder_htols(netdev_ieee802154->pan);
+    request->src_addr_mode = (netdev_ieee802154->flags & NETDEV_IEEE802154_SRC_MODE_LONG) ?
+                             IEEE802154_ADDR_MODE_EXTENDED : IEEE802154_ADDR_MODE_SHORT;
+
+#if IS_USED(MODULE_IEEE802154_SECURITY)
+    if (netdev_ieee802154->flags & NETDEV_IEEE802154_SECURITY_EN) {
+        request->security_level = netdev_ieee802154->sec_ctx.security_level;
+    } else {
+        request->security_level = IEEE802154_SEC_SCF_SECLEVEL_NONE;
+    }
+#else
+    request->security_level = IEEE802154_SEC_SCF_SECLEVEL_NONE;
+#endif
+
+    /* prepare destination address */
+    if (netif_hdr->flags & /* If any of these flags is set assume broadcast */
+        (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST)) {
+        memcpy(request->dst_address.l2addr, ieee802154_addr_bcast, IEEE802154_ADDR_BCAST_LEN);
+        request->dst_address.l2addr_len = IEEE802154_ADDR_BCAST_LEN;
+        //TODO this info is implicitly contained in l2_addr_len
+        request->dst_addr_mode = IEEE802154_ADDR_MODE_SHORT;
+    } else {
+        memcpy(request->dst_address.l2addr, gnrc_netif_hdr_get_dst_addr(netif_hdr), netif_hdr->dst_l2addr_len);
+        request->dst_address.l2addr_len = netif_hdr->dst_l2addr_len;
+        if (request->dst_address.l2addr_len == IEEE802154_SHORT_ADDRESS_LEN) {
+            request->dst_addr_mode = IEEE802154_ADDR_MODE_SHORT;
+        } else {
+            request->dst_addr_mode = IEEE802154_ADDR_MODE_EXTENDED;
+        }
+    }
+
+    if (netdev_ieee802154->flags & NETDEV_IEEE802154_SECURITY_EN) {
+        /* need to include long source address because the recipient
+           will need it to decrypt the frame */
+        request->src_addr_mode = IEEE802154_ADDR_MODE_EXTENDED;
+    }
+
+    request->indirect_tx = ieee802154_dst_addr_uses_idtx(_netif2mac(netif), &request->dst_address);
+
+    /* remove netif header as we already retreived all needed data from it */
+    gnrc_pktsnip_t *netif_hdr_snip = pkt;
+    pkt = gnrc_pkt_delete(pkt, netif_hdr_snip);
+    //gnrc_pktbuf_release(netif_hdr_snip);
+    /* set the MSDU to the payload given in the netif pkt */
+    request->msdu.pkt = pkt;
+}
+
+extern void _print_data_request(ieee802154_mcps_data_request_t *r);
+
 static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
 {
-    netdev_t *dev = netif->dev;
-    netdev_ieee802154_t *state = container_of(dev, netdev_ieee802154_t, netdev);
     gnrc_netif_hdr_t *netif_hdr;
-    const uint8_t *src, *dst = NULL;
     int res = 0;
-    size_t src_len, dst_len;
-    uint8_t mhr_len;
-#if IS_USED(MODULE_IEEE802154_SECURITY)
-    uint8_t mhr[IEEE802154_MAX_HDR_LEN + IEEE802154_SEC_MAX_AUX_HDR_LEN];
-#else
-    uint8_t mhr[IEEE802154_MAX_HDR_LEN];
-#endif
-    uint8_t flags = (uint8_t)(state->flags & NETDEV_IEEE802154_SEND_MASK);
-    le_uint16_t dev_pan = byteorder_htols(state->pan);
 
-    flags |= IEEE802154_FCF_TYPE_DATA;
     if (pkt == NULL) {
         DEBUG("_send_ieee802154: pkt was NULL\n");
         return -EINVAL;
@@ -275,109 +684,9 @@ static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
         return -EBADMSG;
     }
     netif_hdr = pkt->data;
-    if (netif_hdr->flags & GNRC_NETIF_HDR_FLAGS_MORE_DATA) {
-        /* Set frame pending field */
-        flags |= IEEE802154_FCF_FRAME_PEND;
-    }
-    /* prepare destination address */
-    if (netif_hdr->flags & /* If any of these flags is set assume broadcast */
-        (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST)) {
-        dst = ieee802154_addr_bcast;
-        dst_len = IEEE802154_ADDR_BCAST_LEN;
-    }
-    else {
-        dst = gnrc_netif_hdr_get_dst_addr(netif_hdr);
-        dst_len = netif_hdr->dst_l2addr_len;
-    }
-    if (flags & NETDEV_IEEE802154_SECURITY_EN) {
-        /* need to include long source address because the recipient
-           will need it to decrypt the frame */
-        src_len = IEEE802154_LONG_ADDRESS_LEN;
-        src = state->long_addr;
-    }
-    else {
-        src_len = netif_hdr->src_l2addr_len;
-        if (src_len > 0) {
-            src = gnrc_netif_hdr_get_src_addr(netif_hdr);
-        }
-        else {
-            src_len = netif->l2addr_len;
-            src = netif->l2addr;
-        }
-    }
-    /* fill MAC header, seq should be set by device */
-    if ((res = ieee802154_set_frame_hdr(mhr, src, src_len,
-                                        dst, dst_len, dev_pan,
-                                        dev_pan, flags, state->seq++)) == 0) {
-        DEBUG("_send_ieee802154: Error preperaring frame\n");
-        gnrc_pktbuf_release(pkt);
-        return -EINVAL;
-    }
-    mhr_len = res;
+    
+    //_print_pktsnip(pkt, "NETIF _send: ");
 
-    /* prepare iolist for netdev / mac layer */
-    iolist_t iolist_header = {
-        .iol_next = (iolist_t *)pkt->next,
-        .iol_base = mhr,
-        .iol_len = mhr_len
-    };
-
-#if IS_USED(MODULE_IEEE802154_SECURITY)
-    {
-        /* write protect `pkt` to set `pkt->next` */
-        gnrc_pktsnip_t *tmp = gnrc_pktbuf_start_write(pkt);
-        if (!tmp) {
-            DEBUG("_send_ieee802154: no write access to pkt");
-            gnrc_pktbuf_release(pkt);
-            return -ENOMEM;
-        }
-        pkt = tmp;
-        tmp = gnrc_pktbuf_start_write(pkt->next);
-        if (!tmp) {
-            DEBUG("_send_ieee802154: no write access to pkt->next");
-            gnrc_pktbuf_release(pkt);
-            return -ENOMEM;
-        }
-        pkt->next = tmp;
-        /* merge snippets to store the L2 payload uniformly in one buffer */
-        res = gnrc_pktbuf_merge(pkt->next);
-        if (res < 0) {
-            DEBUG("_send_ieee802154: failed to merge pktbuf\n");
-            gnrc_pktbuf_release(pkt);
-            return res;
-        }
-
-        iolist_header.iol_next = (iolist_t *)pkt->next;
-
-        uint8_t mic[IEEE802154_SEC_MAX_MAC_SIZE];
-        uint8_t mic_size = 0;
-
-        if (flags & NETDEV_IEEE802154_SECURITY_EN) {
-            res = ieee802154_sec_encrypt_frame(&state->sec_ctx,
-                                               mhr, &mhr_len,
-                                               pkt->next->data, pkt->next->size,
-                                               mic, &mic_size,
-                                               state->long_addr);
-            if (res != 0) {
-                DEBUG("_send_ieee802154: encryption failedf\n");
-                gnrc_pktbuf_release(pkt);
-                return res;
-            }
-        }
-        if (mic_size) {
-            gnrc_pktsnip_t *pktmic = gnrc_pktbuf_add(pkt->next->next,
-                                                     mic, mic_size,
-                                                     GNRC_NETTYPE_UNDEF);
-            if (!pktmic) {
-                DEBUG("_send_ieee802154: no space left in pktbuf to allocate MIC\n");
-                gnrc_pktbuf_release(pkt);
-                return -ENOMEM;
-            }
-            pkt->next->next = pktmic;
-        }
-        iolist_header.iol_len = mhr_len;
-    }
-#endif
 #ifdef MODULE_NETSTATS_L2
     if (netif_hdr->flags &
             (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST)) {
@@ -387,21 +696,15 @@ static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
         netif->stats.tx_unicast_count++;
     }
 #endif
-#ifdef MODULE_GNRC_MAC
-    if (netif->mac.mac_info & GNRC_NETIF_MAC_INFO_CSMA_ENABLED) {
-        res = csma_sender_csma_ca_send(dev, &iolist_header, &netif->mac.csma_conf);
-    }
-    else {
-        res = dev->driver->send(dev, &iolist_header);
-    }
-#else
-    res = dev->driver->send(dev, &iolist_header);
-#endif
+    
+    ieee802154_mcps_data_request_t request;
+    
+    _build_mcps_data_request(netif, pkt, &request);
+    
+    //_print_data_request(&request);
 
-    if (gnrc_netif_netdev_legacy_api(netif)) {
-        /* only for legacy drivers we need to release pkt here */
-        gnrc_pktbuf_release(pkt);
-    }
+    ieee802154_mcps_data_request(&netif->ieee802154_mac, &request, _ieee802154_mcps_data_confirm_cb);
+
     return res;
 }
 /** @} */
