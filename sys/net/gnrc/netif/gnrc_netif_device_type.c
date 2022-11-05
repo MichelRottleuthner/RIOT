@@ -155,9 +155,8 @@ void gnrc_netif_ipv6_init_mtu(gnrc_netif_t *netif)
 #endif
             /* intentionally falls through */
         case NETDEV_TYPE_ESP_NOW:
-            res = dev->driver->get(dev, NETOPT_MAX_PDU_SIZE,
-                                   &tmp, sizeof(tmp));
-            assert(res == sizeof(tmp));
+            //TODO: who doesn't like magic - but let's get rid of this :)
+            tmp = 104;
 #if IS_USED(MODULE_GNRC_NETIF_6LO)
 #if IS_ACTIVE(CONFIG_GNRC_NETIF_NONSTANDARD_6LO_MTU)
             netif->ipv6.mtu = MAX(IPV6_MIN_MTU, tmp);
