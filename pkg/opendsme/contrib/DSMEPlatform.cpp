@@ -234,12 +234,12 @@ void DSMEPlatform::processRxDone()
 
 void DSMEPlatform::offloadCCAEvent()
 {
-    event_post(this->getEventQueue(), &cca_ev);
+    event_post(this->getEventQueue(), &this->cca_ev);
 }
 
 void DSMEPlatform::offloadTXDoneEvent()
 {
-    event_post(this->getEventQueue(), &tx_done_event);
+    event_post(this->getEventQueue(), &this->tx_done_event);
 }
 
 void DSMEPlatform::indicateRxStart()
@@ -249,17 +249,17 @@ void DSMEPlatform::indicateRxStart()
 
 void DSMEPlatform::offloadRXDoneEvent()
 {
-    event_post(this->getEventQueue(), &rx_done_event);
+    event_post(this->getEventQueue(), &this->rx_done_event);
 }
 
 void DSMEPlatform::offloadTimerEvent()
 {
-    event_post(this->getEventQueue(), &timer_event);
+    event_post(this->getEventQueue(), &this->timer_event);
 }
 
 void DSMEPlatform::offloadACKTimer()
 {
-    event_post(this->getEventQueue(), &acktimer_ev);
+    event_post(this->getEventQueue(), &this->acktimer_ev);
 }
 
 static void _timer_cb(void *arg)
@@ -311,6 +311,13 @@ DSMEPlatform::DSMEPlatform() :
 
     this->acktimer.callback = _acktimer_cb;
     this->acktimer.arg = this;
+    this->acktimer_ev.handler = _acktimer_ev_handler;
+    this->cca_ev.handler = _cca_ev_handler;
+    this->timer_event.handler = _timer_ev_handler;
+    this->tx_done_event.handler = _tx_done_handler;
+    this->rx_done_event.handler = _rx_done_handler;
+    this->rx_offload_ev.handler = _handle_rx_offload;
+    this->start_of_cfp_ev.handler = _start_of_cfp_handler;
 }
 
 DSMEPlatform::~DSMEPlatform()
@@ -497,8 +504,8 @@ void DSMEPlatform::handleConfirmFromMCPS(DSMEMessage *msg, DataStatus::Data_Stat
     if (dataStatus == DataStatus::Data_Status::SUCCESS) {
         /* TODO: Add to statistics */
     }
-    IDSMEMessage *m = static_cast<IDSMEMessage *>(msg);
 
+    IDSMEMessage *m = static_cast<IDSMEMessage*>(msg);
     releaseMessage(m);
 }
 
@@ -575,7 +582,7 @@ void DSMEPlatform::startTimer(uint32_t symbolCounterValue)
     }
     ztimer_set(ZTIMER_MSEC_BASE, &timer, lpt_delta);
 #else
-    ztimer_set(ZTIMER_USEC, &timer, (uint32_t)delta);
+    ztimer_set(ZTIMER_USEC, &timer, (uint32_t) delta - 1);
 #endif
 }
 

@@ -102,7 +102,7 @@ constexpr uint8_t PRE_EVENT_SHIFT = const_redefines::macLIFSPeriod * 5 / 2;
 /**
  * @brief Minimum number of CSMA slots
  */
-constexpr uint8_t MIN_CSMA_SLOTS = 0;
+constexpr uint8_t MIN_CSMA_SLOTS = 0; /* 0 for CAP reduction */
 
 /**
  * @brief maximum number of GTS slots
