@@ -95,15 +95,6 @@ static void _pass_on_packet(gnrc_pktsnip_t *pkt)
     }
 }
 
-static void _ieee802154_mlme_poll_confirm_cb(ieee802154_mac_t *mac,
-                                             ieee802154_mlme_poll_confirm_t *confirm)
-{
-    (void)mac;
-    if (confirm->status == MLME_SUCCESS) {
-        printf("_ieee802154_mlme_poll_confirm_cb SUCCESS\n");
-    }
-}
-
 static void _ieee802154_mcps_data_confirm_cb(ieee802154_mac_t *mac,
                                              ieee802154_mcps_data_confirm_t *confirm)
 {
@@ -125,7 +116,6 @@ static void _ieee802154_mcps_data_confirm_cb(ieee802154_mac_t *mac,
 void _custom_event_cb(netdev_t *dev, netdev_event_t event)
 {
     gnrc_netif_t *netif = (gnrc_netif_t *)dev->context;
-    netdev_ieee802154_t *ieee802154netdev = container_of(dev, netdev_ieee802154_t, netdev);
     ieee802154_mac_t *mac = _netif2mac(netif);
     ieee802154_tx_done_info_t info;
 
@@ -234,26 +224,6 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
                 break;
 #  endif  /* IS_USED(MODULE_NETSTATS_L2) || IS_USED(MODULE_GNRC_NETIF_PKTQ) */
 #endif /* IS_USED(MODULE_NETDEV_LEGACY_API) */
-            case NETDEV_EVENT_REQUEST_DATA:
-                {
-                ieee802154_mlme_poll_request_t request;
-                //TODO: move to util function
-                request.coord_addr_mode = IEEE802154_ADDR_MODE_EXTENDED;
-                request.coord_pan_id = byteorder_htols(ieee802154netdev->pan);
-               
-                ieee802154_l2addr_t *coord_addr = ieee802154_mac_get_coordinator_l2addr(mac);
-                memcpy(request.coord_address.l2addr,
-                       &coord_addr->l2addr,
-                       coord_addr->l2addr_len);
-                request.coord_address.l2addr_len = coord_addr->l2addr_len;
-
-                ieee802154_mlme_poll_request(_netif2mac(netif),
-                                             &request,
-                                             &_ieee802154_mlme_poll_confirm_cb);
-                }
-                break;
-            case NETDEV_EVENT_HANDLE_DATA_REQUEST:
-                break;
             default:
                 DEBUG("gnrc_netif: warning: unhandled event %u.\n", event);
         }
