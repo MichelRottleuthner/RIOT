@@ -73,15 +73,16 @@ static const gnrc_netif_ops_t ieee802154_ops = {
 //    netstats_nb_update_rx(&netdev->netif, src, src_len, hdr->rssi, hdr->lqi);
 //}
 
-static void _send_queued_pkt(gnrc_netif_t *netif)
-{
-    (void)netif;
-    gnrc_pktsnip_t *pkt;
-    if ((pkt = gnrc_netif_pktq_get(netif)) != NULL) {
-        _send(netif, pkt);
-        gnrc_netif_pktq_sched_get(netif);
-    }
-}
+//TODO check if we still need to manually invoke this on this layer
+//static void _send_queued_pkt(gnrc_netif_t *netif)
+//{
+//    (void)netif;
+//    gnrc_pktsnip_t *pkt;
+//    if ((pkt = gnrc_netif_pktq_get(netif)) != NULL) {
+//        _send(netif, pkt);
+//        gnrc_netif_pktq_sched_get(netif);
+//    }
+//}
 
 static void _pass_on_packet(gnrc_pktsnip_t *pkt)
 {
