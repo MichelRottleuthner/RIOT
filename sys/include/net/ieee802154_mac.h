@@ -287,12 +287,18 @@ struct ieee802154_mac {
     ieee802154_mcps_data_confirm_cb_t idtx_data_confirm_cb;
     /* for testing purposes a fixed coordinator addr is stored in the mac instance */
     ieee802154_l2addr_t *coordinator_addr;
+    /**
+     * Event used to trigger data requests via event queue and callback.
+     */
+    event_t data_request_event;
+
 };
 
 void ieee802154_mlme_poll_request(ieee802154_mac_t *mac,
                                   ieee802154_mlme_poll_request_t *request,
                                   ieee802154_mlme_poll_confirm_cb_t confirm_cb);
 
+void ieee802154_perform_poll_request(ieee802154_mac_t *mac);
 
 /* @brief issue an MCPS-DATA request to the MAC layer.
  *

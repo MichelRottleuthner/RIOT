@@ -360,24 +360,30 @@ void _control_radio_sleep(netdev_t *dev, bool sleep) {
 extern void _custom_event_cb(netdev_t *dev, netdev_event_t event);
 
 void _trigger_data_request(ieee802154_mac_t *mac) {
-    gnrc_netif_t *netif = container_of(mac, gnrc_netif_t, ieee802154_mac);
-    _custom_event_cb(netif->dev, NETDEV_EVENT_REQUEST_DATA);
+    ieee802154_perform_poll_request(mac);
 }
 
 void _data_request_event_handler(event_t *event) {
-    netdev_ieee802154_t *netdev_ieee802154 = container_of(event, netdev_ieee802154_t, data_request_event);
-    _custom_event_cb(&netdev_ieee802154->netdev, NETDEV_EVENT_REQUEST_DATA);
+    ieee802154_mac_t *mac = container_of(event, ieee802154_mac_t, data_request_event);
+    ieee802154_perform_poll_request(mac);
+}
+
+static void _ieee802154_mlme_poll_confirm_cb(ieee802154_mac_t *mac,
+                                             ieee802154_mlme_poll_confirm_t *confirm)
+{
+    (void)mac;
+    if (confirm->status == MLME_SUCCESS) {
+        printf("_ieee802154_mlme_poll_confirm_cb SUCCESS\n");
+    }
 }
 
 void _enable_periodic_data_request(ieee802154_mac_t *mac, unsigned int poll_ms) {
     gnrc_netif_t *netif = container_of(mac, gnrc_netif_t, ieee802154_mac);
-    netdev_t *netdev = netif->dev;
-    netdev_ieee802154_t *netdev_ieee802154 = (netdev_ieee802154_t*)netdev;
-    netdev_ieee802154->data_request_event.handler = _data_request_event_handler;
+    mac->data_request_event.handler = _data_request_event_handler;
 
     event_periodic_init(&mac->periodic_data_request_event, ZTIMER_MSEC,
                         &netif->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW],
-                        &netdev_ieee802154->data_request_event);
+                        &mac->data_request_event);
     event_periodic_start(&mac->periodic_data_request_event, poll_ms);
 }
 
@@ -540,6 +546,24 @@ void ieee802154_mlme_poll_request(ieee802154_mac_t *mac,
     mac->mlme_mcps_confirm.poll_confirm_cb = confirm_cb;
     //setup timeout for the recive that turns off the radio again
     _send_data_request(netdev_ieee802154, request);
+}
+
+void ieee802154_perform_poll_request(ieee802154_mac_t *mac)
+{
+    ieee802154_mlme_poll_request_t request;
+    //TODO: move to util function
+    request.coord_addr_mode = IEEE802154_ADDR_MODE_EXTENDED;
+    request.coord_pan_id = byteorder_htols(_mac2netdev802154(mac)->pan);
+
+    ieee802154_l2addr_t *coord_addr = ieee802154_mac_get_coordinator_l2addr(mac);
+    memcpy(request.coord_address.l2addr,
+            &coord_addr->l2addr,
+            coord_addr->l2addr_len);
+    request.coord_address.l2addr_len = coord_addr->l2addr_len;
+
+    ieee802154_mlme_poll_request(mac,
+            &request,
+            &_ieee802154_mlme_poll_confirm_cb);
 }
 
 void _print_iolist(iolist_t *iol)
