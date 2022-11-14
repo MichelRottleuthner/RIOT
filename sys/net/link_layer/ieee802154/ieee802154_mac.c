@@ -750,10 +750,38 @@ void ieee802154_mac_tx_done_cb(ieee802154_mac_t *mac, ieee802154_tx_done_info_t 
 
 void _netif_handover_mpdu(gnrc_netif_t *netif, gnrc_pktsnip_t *mpdu, gnrc_pktsnip_t *ieee802154_hdr);
 
+void _handle_mac_cmd(ieee802154_mac_t *mac, gnrc_pktsnip_t *ieee802154_hdr, gnrc_pktsnip_t *mpdu)
+{
+    DEBUG("received a MAC CMD\n");
+    /* check if it is a data request... */
+    if (((uint8_t*)mpdu->data)[0] == IEEE802154_MAC_CMD_DATA_REQUEST) {
+        /* check if there is pending data for that address */
+        DEBUG("got a Data Request!\n");
+        uint8_t srcaddr[IEEE802154_LONG_ADDRESS_LEN];
+        le_uint16_t pan;
+        int srcaddr_len = ieee802154_get_src(ieee802154_hdr->data, srcaddr, &pan);
+        DEBUG("srcaddr_len: %d\n", srcaddr_len);
+        ieee802154_l2addr_t *svdaddr = _save_l2addr_for_idtx(mac, srcaddr, srcaddr_len);
+        DEBUG("saved at %p\n", svdaddr);
+        if (svdaddr) {
+            DEBUG("checking if there is any pending TX for the requester...\n");
+            //_send_indirect_tx_queued_pkt(netif, svdaddr);
+            // TODO: post event to handle IDTX
+            gnrc_pktsnip_t *idtx_pkt = _get_next_indirect_pkt(mac, svdaddr);
+            if (idtx_pkt) {
+                printf("found pkt (@%p) in IDTXQ\n", idtx_pkt);
+                mac->pending_idtx_pkt = idtx_pkt;
+                event_post(&_mac2netif(mac)->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW], &mac->request_offload_event);
+            }
+            //gnrc_pktqueue_t *qe = gnrc_pktqueue_remove(gnrc_pktqueue_t **queue, gnrc_pktqueue_t *node)
+        }
+    }
+}
+
 void ieee802154_mac_rx_done_cb(ieee802154_mac_t *mac)
 {
     (void)mac;
-    printf("ieee802154_mac_rx_done_cb\n");
+    DEBUG("ieee802154_mac_rx_done_cb\n");
 
     netdev_t *dev = _mac2netdev(mac);
     /* received data will be a MAC Protocol Data Unit (MPDU) */
@@ -838,37 +866,16 @@ void ieee802154_mac_rx_done_cb(ieee802154_mac_t *mac)
             return;
         }
 
-        printf("ieee802154_hdr: %d bytes: ", ieee802154_hdr->size);
-        for (unsigned i = 0; i < ieee802154_hdr->size; i++) {
-            printf("%02X ", ((uint8_t*)ieee802154_hdr->data)[i]);
-        }
-        printf("\n");
+        //printf("ieee802154_hdr: %d bytes: ", ieee802154_hdr->size);
+        //for (unsigned i = 0; i < ieee802154_hdr->size; i++) {
+        //    printf("%02X ", ((uint8_t*)ieee802154_hdr->data)[i]);
+        //}
+        //printf("\n");
+
         /* check if the received frame is a MAC comand */
         if ((((uint8_t*)ieee802154_hdr->data)[0] & IEEE802154_FCF_TYPE_MACCMD) == IEEE802154_FCF_TYPE_MACCMD) {
-            printf("received a MAC CMD\n");
-            /* check if it is a data request... */
-            if (((uint8_t*)mpdu->data)[0] == IEEE802154_MAC_CMD_DATA_REQUEST) {
-                /* check if there is pending data for that address */
-                printf("got a Data Request!\n"); 
-                uint8_t srcaddr[IEEE802154_LONG_ADDRESS_LEN];
-                le_uint16_t pan;
-                int srcaddr_len = ieee802154_get_src(ieee802154_hdr->data, srcaddr, &pan);
-                printf("srcaddr_len: %d\n", srcaddr_len);
-                ieee802154_l2addr_t *svdaddr = _save_l2addr_for_idtx(mac, srcaddr, srcaddr_len);
-                printf("saved at %p\n", svdaddr);
-                if (svdaddr) {
-                    printf("checking if there is any pending TX for the requester...\n");
-                    //_send_indirect_tx_queued_pkt(netif, svdaddr);
-                    // TODO: post event to handle IDTX
-                    gnrc_pktsnip_t *idtx_pkt = _get_next_indirect_pkt(mac, svdaddr);
-                    if (idtx_pkt) {
-                        printf("found pkt in IDTXQ\n");
-                        mac->pending_idtx_pkt = idtx_pkt;
-                        event_post(&_mac2netif(mac)->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW], &mac->request_offload_event);
-                    }
-                    //gnrc_pktqueue_t *qe = gnrc_pktqueue_remove(gnrc_pktqueue_t **queue, gnrc_pktqueue_t *node)
-                }
-            }
+            _handle_mac_cmd(mac, ieee802154_hdr, mpdu);
+            gnrc_pktbuf_release(mpdu);
         } else {
             printf("received DATA\n");
             // TODO: rework to indication callback
