@@ -595,8 +595,7 @@ void _build_mcps_data_request(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt,
 
     /* remove netif header as we already retreived all needed data from it */
     gnrc_pktsnip_t *netif_hdr_snip = pkt;
-    pkt = gnrc_pkt_delete(pkt, netif_hdr_snip);
-    //gnrc_pktbuf_release(netif_hdr_snip);
+    pkt = gnrc_pktbuf_remove_snip(pkt, netif_hdr_snip);
     /* set the MSDU to the payload given in the netif pkt */
     request->msdu.pkt = pkt;
 }
