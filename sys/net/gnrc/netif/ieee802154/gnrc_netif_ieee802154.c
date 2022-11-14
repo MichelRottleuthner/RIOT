@@ -157,37 +157,13 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
                 break;
             case NETDEV_EVENT_RX_COMPLETE:
                 printf("NETDEV_EVENT_RX_COMPLETE\n");
-                //pkt = netif->ops->recv(netif);
-                //printf("NETDEV_EVENT_RX_COMPLETE: %u\n", pkt->size);
                 mac->driver->rx_done_cb(mac);
-                    
-                //{
-                //    gnrc_pktsnip_t *p = pkt;
-                //    do {
-                //        printf("pkt %p: %d bytes: ", p, p->size);
-                //        for (unsigned i = 0; i < p->size; i++) {
-                //            printf("%02X ", ((uint8_t*)p->data)[i]);
-                //        }
-                //        printf("\n");
-                //        p = p->next;
-                //    } while (p);
-                //}
-
-                ///* send packet previously queued within netif due to the lower
-                // * layer being busy.
-                // * Further packets will be sent on later TX_COMPLETE */
-                //_send_queued_pkt(netif);
-                //if (pkt) {
-                //    _process_receive_stats(netif, pkt);
-                //    _pass_on_packet(pkt);
-                //}
                 break;
 #if IS_USED(MODULE_NETDEV_LEGACY_API)
 #  if IS_USED(MODULE_NETSTATS_L2) || IS_USED(MODULE_GNRC_NETIF_PKTQ)
             case NETDEV_EVENT_TX_COMPLETE:
                 printf("NETDEV_EVENT_TX_COMPLETE\n");
                 info.recvd_ack = ieee802154_mac_requested_ack(mac);
-                //info.recvd_ack = ieee802154_mac_requested_ack(mac);
                 info.data_pending = false;
                 info.medium_busy = false;
                 mac->driver->tx_done_cb(mac, &info);
@@ -201,11 +177,6 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
                 info.data_pending = true;
                 info.medium_busy = false;
                 mac->driver->tx_done_cb(mac, &info);
-                /* send packet previously queued within netif due to the lower
-                 * layer being busy.
-                 * Further packets will be sent on later TX_COMPLETE or
-                 * TX_MEDIUM_BUSY */
-                _send_queued_pkt(netif);
 #    if IS_USED(MODULE_NETSTATS_L2)
                 /* we are the only ones supposed to touch this variable,
                  * so no acquire necessary */
@@ -254,11 +225,6 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
                     dev->driver->get(dev, NETOPT_TX_RETRIES_NEEDED, &retries, sizeof(retries));
                     netstats_nb_update_tx(&netif->netif, result, retries + 1);
                 }
-                ///* send packet previously queued within netif due to the lower
-                // * layer being busy.
-                // * Further packets will be sent on later TX_COMPLETE or
-                // * TX_MEDIUM_BUSY */
-                //_send_queued_pkt(netif);
 #    if IS_USED(MODULE_NETSTATS_L2)
                 /* we are the only ones supposed to touch this variable,
                  * so no acquire necessary */
@@ -286,10 +252,6 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
                 }
                 break;
             case NETDEV_EVENT_HANDLE_DATA_REQUEST:
-                _send_queued_pkt(netif);
-                //_send_indirect_tx_queued_pkt(gnrc_netif_t *netif,
-                //                             ieee802154_l2addr_t *addr)
-                
                 break;
             default:
                 DEBUG("gnrc_netif: warning: unhandled event %u.\n", event);
