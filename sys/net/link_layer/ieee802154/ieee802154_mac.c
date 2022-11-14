@@ -113,7 +113,7 @@ static void _request_offload_event_handler(event_t *evp)
         gnrc_netif_t *netif = container_of(mac, gnrc_netif_t, ieee802154_mac);
         netdev_t *dev = netif->dev;
         int res = dev->driver->send(dev, (iolist_t*)idtx_pkt);
-        printf("entdev send res: %d\n", res);
+        printf("netdev send res: %d\n", res);
         //TODO: check result
 
         mac->pending_idtx_pkt = NULL;
@@ -124,7 +124,6 @@ static void _request_offload_event_handler(event_t *evp)
 
 void _mlme_poll_timeout(void *arg)
 {
-    printf("MLME-POLL.confirm(NO_DATA.timeout)\n");
     ieee802154_mac_t *mac = (ieee802154_mac_t*)arg;
     netdev_t *netdev = _mac2netdev(mac);
     /* timed out while wainting for data after data pending indication
@@ -372,8 +371,21 @@ static void _ieee802154_mlme_poll_confirm_cb(ieee802154_mac_t *mac,
                                              ieee802154_mlme_poll_confirm_t *confirm)
 {
     (void)mac;
-    if (confirm->status == MLME_SUCCESS) {
-        printf("_ieee802154_mlme_poll_confirm_cb SUCCESS\n");
+    switch (confirm->status) {
+        case MLME_SUCCESS:
+            printf("MLME-POLL.confirm(SUCCESS)\n");
+            break;
+        case MLME_CHANNEL_ACCESS_FAILURE:
+            printf("MLME-POLL.confirm(CHANNEL_ACCESS_FAILURE)\n");
+            break;
+        case MLME_NO_DATA:
+            printf("MLME-POLL.confirm(NO_DATA)\n");
+            break;
+        case MLME_NO_ACK:
+            printf("MLME-POLL.confirm(NO_ACK)\n");
+            break;
+        default:
+            printf("MLME-POLL.confirm(OTHER)");
     }
 }
 
@@ -680,7 +692,6 @@ void ieee802154_mac_tx_done_cb(ieee802154_mac_t *mac, ieee802154_tx_done_info_t 
        //ieee802154_mlme_poll_request_t *r = mac->mlme_mcps_request.poll_request;
        //ieee802154_mlme_poll_confirm_t *c = mac->mlme_mcps_confirm.poll_confirm;
        if (info->data_pending) {
-           //printf("MLME-POLL.confirm(SUCCESS)\n");
            printf("MLME-POLL *pending data*...\n");
            //TODO: only indicate success if actual data was received
            //c->status = MLME_SUCCESS;
@@ -688,19 +699,19 @@ void ieee802154_mac_tx_done_cb(ieee802154_mac_t *mac, ieee802154_tx_done_info_t 
             * -> setup timeout for actually receiving the data. */
            mac->data_request_timeout_timer.callback= _mlme_poll_timeout;
            mac->data_request_timeout_timer.arg = mac; 
-           ztimer_set(ZTIMER_MSEC, &mac->data_request_timeout_timer, 500);
+           ztimer_set(ZTIMER_MSEC, &mac->data_request_timeout_timer,
+                      IEEE802154_MAC_MLME_POLL_PENDING_TIMEOUT_US / US_PER_MS);
        } else {
+           ztimer_remove(ZTIMER_MSEC, &mac->data_request_timeout_timer);
+
            ieee802154_mlme_poll_confirm_t c;
            /* clear request state as MLME request is finished now */
            mac->mlme_req = MLME_UNDEF;
            if (info->medium_busy) {
-               printf("MLME-POLL.confirm(CHANNEL_ACCESS_FAILURE)\n");
                c.status = MLME_CHANNEL_ACCESS_FAILURE;
            } else if (info->recvd_ack) {
-               printf("MLME-POLL.confirm(NO_DATA)\n");
                c.status = MLME_NO_DATA;
            } else {
-               printf("MLME-POLL.confirm(NO_ACK)\n");
                c.status = MLME_NO_ACK;
            }
            /* turn off radio cause no data is expected */ 
