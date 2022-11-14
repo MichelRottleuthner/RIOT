@@ -103,7 +103,7 @@ static void _ieee802154_mcps_data_confirm_cb(ieee802154_mac_t *mac,
         printf("_ieee802154_mcps_data_confirm_cb SUCCESS\n");
         //res = dev->driver->send(dev, &iolist_header);
         if (gnrc_netif_netdev_legacy_api(_mac2netif(mac))) {
-            printf("pktbuf release..\n");
+            printf("pktbuf release pkt@%p\n", confirm->msdu_handle.pkt);
             /* only for legacy drivers we need to release pkt here */
             gnrc_pktbuf_release(confirm->msdu_handle.pkt);
         }
@@ -112,6 +112,9 @@ static void _ieee802154_mcps_data_confirm_cb(ieee802154_mac_t *mac,
         printf("_ieee802154_mcps_data_confirm_cb [OTHER]\n");
     }
 }
+
+//#define DEBUG_NETDEV_EVENT(X) printf(X)
+#define DEBUG_NETDEV_EVENT(X) ({})
 
 void _custom_event_cb(netdev_t *dev, netdev_event_t event)
 {
@@ -147,13 +150,13 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
                 }
                 break;
             case NETDEV_EVENT_RX_COMPLETE:
-                printf("NETDEV_EVENT_RX_COMPLETE\n");
+                DEBUG_NETDEV_EVENT("NETDEV_EVENT_RX_COMPLETE\n");
                 mac->driver->rx_done_cb(mac);
                 break;
 #if IS_USED(MODULE_NETDEV_LEGACY_API)
 #  if IS_USED(MODULE_NETSTATS_L2) || IS_USED(MODULE_GNRC_NETIF_PKTQ)
             case NETDEV_EVENT_TX_COMPLETE:
-                printf("NETDEV_EVENT_TX_COMPLETE\n");
+                DEBUG_NETDEV_EVENT("NETDEV_EVENT_TX_COMPLETE\n");
                 info.recvd_ack = ieee802154_mac_requested_ack(mac);
                 info.data_pending = false;
                 info.medium_busy = false;
@@ -161,7 +164,7 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
                 break;
 
             case NETDEV_EVENT_TX_COMPLETE_DATA_PENDING:
-                printf("NETDEV_EVENT_TX_COMPLETE_DATA_PENDING\n");
+                DEBUG_NETDEV_EVENT("NETDEV_EVENT_TX_COMPLETE_DATA_PENDING\n");
                 /* pending data after TX may only be indicated by an ack,
                  * so ack reveiced state is always true in this case. */ 
                 info.recvd_ack = true;
@@ -183,7 +186,7 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
 #  if IS_USED(MODULE_NETSTATS_L2) || IS_USED(MODULE_GNRC_NETIF_PKTQ) || \
       IS_USED(MODULE_NETSTATS_NEIGHBOR)
             case NETDEV_EVENT_TX_MEDIUM_BUSY:
-                printf("NETDEV_EVENT_TX_MEDIUM_BUSY\n");
+                DEBUG_NETDEV_EVENT("NETDEV_EVENT_TX_MEDIUM_BUSY\n");
                 info.recvd_ack = false;
                 info.data_pending = false;
                 info.medium_busy = true;
@@ -203,7 +206,7 @@ void _custom_event_cb(netdev_t *dev, netdev_event_t event)
                 break;
                 
             case NETDEV_EVENT_TX_NOACK:
-                printf("NETDEV_EVENT_TX_NOACK\n");
+                DEBUG_NETDEV_EVENT("NETDEV_EVENT_TX_NOACK\n");
                 info.recvd_ack = false;
                 info.data_pending = false;
                 info.medium_busy = false;
