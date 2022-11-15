@@ -163,6 +163,10 @@ CFLAGS += -DAT86RF2XX_PARAM_RESET=GPIO_PIN\(1,4\)
 CFLAGS += -DRADIO_SUPPLY_SWITCH_PIN=GPIO_PIN\(0,4\)
 CFLAGS += -DUNUSED_SPI_SC_PIN=GPIO_PIN\(1,13\)
 
+# enable custom spi workaround for pin reinitialization which
+# configures the pins with pull-resistors when unused by spi
+CFLAGS += -DSPI_ACQUIRE_RELEASE_CONFIG_PINS_PUSH_PULL
+
 # These pins are used to bitbang a command to the debug interface that switches it
 # from JTAG to SWD mode (needed for SWO output of DWT events, that signal profiling counter overflows (LSU/CPI etc.))
 # Since the ST-Link can also drive these pins it is best to connect the pins through appropriately sized resistors
