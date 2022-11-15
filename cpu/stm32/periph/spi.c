@@ -244,6 +244,18 @@ void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
     /* block STOP mode */
     pm_block(STM32_PM_STOP);
 #endif
+
+#ifdef SPI_ACQUIRE_RELEASE_CONFIG_PINS_PUSH_PULL
+    /* Initialize pins back to spi mode after configuring them to
+     * inputs with pull resistors on release. This is needed to
+     * avoid floating on devices that do not have hardwired pull resistors. */
+    gpio_init(spi_config[bus].mosi_pin, GPIO_OUT);
+    gpio_init_af(spi_config[bus].mosi_pin, spi_config[bus].mosi_af);
+
+    gpio_init(spi_config[bus].sclk_pin, GPIO_OUT);
+    gpio_init_af(spi_config[bus].sclk_pin, spi_config[bus].sclk_af);
+#endif
+
     /* enable SPI device clock */
     periph_clk_en(spi_config[bus].apbbus, spi_config[bus].rccmask);
     /* enable device */
@@ -305,6 +317,15 @@ void spi_release(spi_t bus)
         dma_release(spi_config[bus].rx_dma);
     }
 #endif
+
+#ifdef SPI_ACQUIRE_RELEASE_CONFIG_PINS_PUSH_PULL
+    /* Initialize pins to inputs with pull resistors.
+     * This is needed to avoid floating on devices that
+     * do not have hardwired pull resistors. */
+    gpio_init(spi_config[bus].mosi_pin, GPIO_IN_PD);
+    gpio_init(spi_config[bus].sclk_pin, GPIO_IN_PD);
+#endif
+
     /* disable device and release lock */
     dev(bus)->CR1 = 0;
     dev(bus)->CR2 = SPI_CR2_SETTINGS; /* Clear the DMA and SSOE flags */
