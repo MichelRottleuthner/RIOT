@@ -297,9 +297,11 @@ static void _pinger(_ping_data_t *data)
          * otherwise ping waits for two max RTTs. */
         data->sched_msg.type = _PING_FINISH;
         timer = data->timeout;
-        if (data->num_recv) {
-            /* approx. 2*tmax, in seconds (2 RTT) */
-            timer = (data->tmax / (512UL * 1024UL)) * US_PER_SEC;
+        /* only calculate timer value based on previous RTTs
+         * if an RTT could actually be measured. */
+        if (data->num_recv && data->tmax) {
+            /* set timeout to 2 times max RTT */
+            timer = data->tmax * 2;
             if (timer == 0) {
                 timer = 1U * US_PER_SEC;
             }
