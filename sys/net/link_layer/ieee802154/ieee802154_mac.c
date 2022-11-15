@@ -127,12 +127,18 @@ void _mlme_poll_timeout(void *arg)
 {
     ieee802154_mac_t *mac = (ieee802154_mac_t*)arg;
     netdev_t *netdev = _mac2netdev(mac);
-    /* timed out while wainting for data after data pending indication
-     * -> put radio back to sleep */
-    _control_radio_sleep(netdev, true);
-    mac->mlme_req = MLME_UNDEF;
-    ieee802154_mlme_poll_confirm_t c = { .status = MLME_NO_DATA };
-    mac->mlme_mcps_confirm.poll_confirm_cb(mac, &c);
+    /* check if the poll request is still active.
+     * If data was received before this callback was fired, this timeout
+     * is obsolete. */
+    if (mac->mlme_req == MLME_POLL) {
+        /* timed out while wainting for data after data pending indication
+         * -> put radio back to sleep */
+        _control_radio_sleep(netdev, true);
+        mac->mlme_req = MLME_UNDEF;
+        ieee802154_mlme_poll_confirm_t c = { .status = MLME_NO_DATA };
+        printf("calling poll_confirm_cb (timeout)\n");
+        mac->mlme_mcps_confirm.poll_confirm_cb(mac, &c);
+    }
 }
 
 void _init_mac_data(ieee802154_mac_t *mac)
