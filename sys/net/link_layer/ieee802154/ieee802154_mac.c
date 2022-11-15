@@ -113,9 +113,10 @@ static void _request_offload_event_handler(event_t *evp)
         gnrc_netif_t *netif = container_of(mac, gnrc_netif_t, ieee802154_mac);
         netdev_t *dev = netif->dev;
         int res = dev->driver->send(dev, (iolist_t*)idtx_pkt);
-        printf("netdev send res: %d\n", res);
-        //TODO: check result
-
+        assert(gnrc_netif_netdev_legacy_api(_mac2netif(mac)));
+        if (res < 0 || ((unsigned)res) != gnrc_pkt_len(idtx_pkt)) {
+            printf("_request_offload_event_handler: netdev send indicated error (%d)\n", res);
+        }
         mac->pending_idtx_pkt = NULL;
     } else {
         printf("_request_offload_event_handler: NO pending packet IDTX\n");
