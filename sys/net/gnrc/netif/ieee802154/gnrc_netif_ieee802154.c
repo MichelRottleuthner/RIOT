@@ -95,21 +95,31 @@ static void _pass_on_packet(gnrc_pktsnip_t *pkt)
     }
 }
 
+
 static void _ieee802154_mcps_data_confirm_cb(ieee802154_mac_t *mac,
                                              ieee802154_mcps_data_confirm_t *confirm)
 {
     (void)mac;
-    if (confirm->status == MCPS_SUCCESS) {
-        printf("_ieee802154_mcps_data_confirm_cb SUCCESS\n");
-        //res = dev->driver->send(dev, &iolist_header);
-        if (gnrc_netif_netdev_legacy_api(_mac2netif(mac))) {
-            printf("pktbuf release pkt@%p\n", confirm->msdu_handle.pkt);
-            /* only for legacy drivers we need to release pkt here */
-            gnrc_pktbuf_release(confirm->msdu_handle.pkt);
-        }
 
-    } else {
-        printf("_ieee802154_mcps_data_confirm_cb [OTHER]\n");
+    switch (confirm->status) {
+        case MCPS_CHANNEL_ACCESS_FAILURE:
+           printf("MCPS-DATA.confirm(MCPS_CHANNEL_ACCESS_FAILURE)\n");
+           break;
+        case MCPS_SUCCESS:
+           printf("MCPS-DATA.confirm(SUCCESS)\n");
+           break;
+        case MCPS_NO_ACK:
+           printf("MCPS-DATA.confirm(MCPS_NO_ACK)\n");
+           break;
+        default:
+           printf("_ieee802154_mcps_data_confirm_cb [OTHER]\n");
+           break;
+
+    }
+    if (gnrc_netif_netdev_legacy_api(_mac2netif(mac))) {
+        printf("pktbuf release pkt@%p\n", confirm->msdu_handle.pkt);
+        /* only for legacy drivers we need to release pkt here */
+        gnrc_pktbuf_release(confirm->msdu_handle.pkt);
     }
 }
 
@@ -544,6 +554,14 @@ void _print_pktsnip(gnrc_pktsnip_t *p, const char* prefix_str) {
     }
 }
 
+void _print_pktsnip_metadata(gnrc_pktsnip_t *snip)
+{
+    while (snip) {
+        printf("size: %u users: %u\n", snip->size, snip->users);
+        snip = snip->next;
+    }
+}
+
 void _build_mcps_data_request(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt,
                               ieee802154_mcps_data_request_t *request)
 {
@@ -555,7 +573,7 @@ void _build_mcps_data_request(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt,
     gnrc_netif_hdr_t *netif_hdr = pkt->data;
  
     request->ack_tx = netdev_ieee802154->flags & NETDEV_IEEE802154_ACK_REQ;
-    printf("REQ ACK: %s\n", request->ack_tx ? "true" : "false");
+    DEBUG("REQ ACK: %s\n", request->ack_tx ? "true" : "false");
     // TODO: dst pan might be different from device pan
     request->dst_pan_id = byteorder_htols(netdev_ieee802154->pan);
     request->src_addr_mode = (netdev_ieee802154->flags & NETDEV_IEEE802154_SRC_MODE_LONG) ?
