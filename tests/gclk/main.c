@@ -498,9 +498,6 @@ int main(void)
     gpio_init(OSZI_DEBUG_PIN, GPIO_OUT);
     gpio_set(OSZI_DEBUG_PIN);
 
-    gpio_init(RADIO_SUPPLY_SWITCH_PIN, GPIO_OUT);
-    gpio_set(RADIO_SUPPLY_SWITCH_PIN);
-    
     //gpio_init(LED0_PIN, GPIO_OUT);
     //gpio_clear(LED0_PIN);
 
