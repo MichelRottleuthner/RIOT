@@ -171,12 +171,12 @@ ieee802154_idtxq_t *_alloc_idtx_pktq(ieee802154_mac_t *mac, ieee802154_l2addr_t 
     
     for (int i = 0; i < IEEE802154_MAC_IDTX_QUEUES_NUMOF; i++) {
         if (!pool[i].addr_data) {
-            printf("queue[%d] is free, allocate it for %p!\n", i, addr);
+            DEBUG("queue[%d] is free, allocate it for %p!\n", i, addr);
             pool[i].addr_data = addr;
             list_add(&mac->idtx_queues_list, &pool[i].node);
             return &pool[i];
         }
-        printf("queue[%d] is already allocated!\n", i);
+        DEBUG("queue[%d] is already allocated!\n", i);
     }
     return NULL;
 }
@@ -203,17 +203,17 @@ gnrc_pktqueue_t **_get_idtxq(ieee802154_mac_t *mac,
     list_node_t *list = &mac->idtx_queues_list;
     //ieee802154_idtxq_t *free_idtxq = NULL;
     
-    printf("get queue for addr @%p\n", addr);
+    DEBUG("get queue for addr @%p\n", addr);
     while (list->next) {
         ieee802154_idtxq_t *txq = container_of(list->next, ieee802154_idtxq_t, node);
         //if (!txq->addr_data) {
         //    free_idtxq = txq;
         //} else 
         if (txq->addr_data == addr) {
-            printf("found queue @%p\n", txq);
+            DEBUG("found queue @%p\n", txq);
             return &txq->queue;
         } else {
-            printf("queue @%p is for dst %p not %p\n", txq, txq->addr_data, addr);
+            DEBUG("queue @%p is for dst %p not %p\n", txq, txq->addr_data, addr);
         }
         list = list->next;
     }
@@ -277,7 +277,7 @@ gnrc_pktsnip_t *_get_next_indirect_pkt(ieee802154_mac_t *mac,
     gnrc_pktqueue_t **idtxq = _get_idtxq(mac, addr);
 
     if (idtxq) {
-        printf("there is a queue at %p for the requesting node\n", idtxq);
+        DEBUG("there is a queue at %p for the requesting node\n", idtxq);
         gnrc_pktqueue_t *entry = gnrc_pktqueue_remove_head(idtxq);
 
         if (entry != NULL) {
@@ -555,6 +555,7 @@ void ieee802154_mlme_poll_request(ieee802154_mac_t *mac,
                                   ieee802154_mlme_poll_request_t *request,
                                   ieee802154_mlme_poll_confirm_cb_t confirm_cb)
 {
+    DEBUG("ieee802154_mlme_poll_request\n");
     gnrc_netif_t *netif = container_of(mac, gnrc_netif_t, ieee802154_mac);
     netdev_t *dev = netif->dev;
     //turn on radio first
@@ -603,10 +604,10 @@ bool ieee802154_dst_addr_uses_idtx(const ieee802154_mac_t *mac, const ieee802154
     const ieee802154_l2addr_t *l2addrs = mac->idtx_l2addrs;
     //bool queued_idtx = false;
 
-    printf("check if node uses IDTX\n");
+    DEBUG("check if node uses IDTX\n");
     for (int i = 0; i < IEEE802154_MAC_IDTX_QUEUES_NUMOF; i++) {
         if (l2addrs[i].l2addr_len &&  _l2addr_equals(&l2addrs[i], dst)) {
-            printf("target addr uses IDTX\n");
+            DEBUG("target addr uses IDTX\n");
             return true;
         }
     }
@@ -628,42 +629,42 @@ int ieee802154_mcps_data_request(ieee802154_mac_t *mac,
 
     //_print_pktsnip(frame, "ieee802154_mcps_data_request:");
      
-    printf("ieee802154_build_mac_data_frame res = %d\n", res);
+    DEBUG("ieee802154_build_mac_data_frame res = %d\n", res);
     if (res > 0) {
         //_print_iolist(&out_frame_iolist);
         
         if (request->indirect_tx) {
-            printf("ieee802154_mcps_data_request : IDTX!\n");
+            DEBUG("ieee802154_mcps_data_request : IDTX!\n");
             //TODO save all relevant data from the request (as its only valid for the call)
             ieee802154_l2addr_t *l2addrs = mac->idtx_l2addrs;
            
             for (int i = 0; i < IEEE802154_MAC_IDTX_QUEUES_NUMOF; i++) {
                 if (l2addrs[i].l2addr_len &&  _l2addr_equals(&l2addrs[i], &request->dst_address)) {
-                    printf("target addr uses IDTX\n");
+                    DEBUG("target addr uses IDTX\n");
                     
                     gnrc_pktqueue_t *pktqe = _alloc_idtx_pktq_entry(mac, frame);
                     if (pktqe) {
                         gnrc_pktqueue_t **queue = _get_idtxq(mac, &l2addrs[i]);
 
                         if (!queue) {
-                            printf("no queue set up for the destination addr. alloc one..\n");
+                            DEBUG("no queue set up for the destination addr. alloc one..\n");
                             ieee802154_idtxq_t *idtxd = _alloc_idtx_pktq(mac, &l2addrs[i]);
                             if (idtxd) {
                                 queue = &idtxd->queue;
-                                printf("allocated a queue @%p for the IDTX destination @%p\n", queue, &l2addrs[i]);
+                                DEBUG("allocated a queue @%p for the IDTX destination @%p\n", queue, &l2addrs[i]);
                             }
                         } else {
-                            printf("there is already a queue\n");
+                            DEBUG("there is already a queue\n");
                         }
                         if (queue) {
                             gnrc_pktqueue_add(queue, pktqe);
-                            printf("pushed pkt to IDTX queue\n"); 
+                            DEBUG("pushed pkt to IDTX queue\n");
                             mac->idtx_data_confirm_cb = confirm_cb;
                         } else {
-                            printf("no queue for dstaddr available\n");
+                            DEBUG("no queue for dstaddr available\n");
                         }
                     } else {
-                        printf("could not allocate packet queue element\n");
+                        DEBUG("could not allocate packet queue element\n");
                     }
                 }
             }
@@ -696,10 +697,11 @@ void ieee802154_mac_tx_done_cb(ieee802154_mac_t *mac, ieee802154_tx_done_info_t 
    netdev_t *dev = _mac2netdev(mac);
 
    if (mac->mlme_req == MLME_POLL) {
+       DEBUG("ieee802154_mac_tx_done_cb: MLME_POLL\n");
        //ieee802154_mlme_poll_request_t *r = mac->mlme_mcps_request.poll_request;
        //ieee802154_mlme_poll_confirm_t *c = mac->mlme_mcps_confirm.poll_confirm;
        if (info->data_pending) {
-           printf("MLME-POLL *pending data*...\n");
+           DEBUG("MLME-POLL *pending data*...\n");
            //TODO: only indicate success if actual data was received
            //c->status = MLME_SUCCESS;
            /* received a reply that indicated more data.
@@ -723,34 +725,35 @@ void ieee802154_mac_tx_done_cb(ieee802154_mac_t *mac, ieee802154_tx_done_info_t 
            }
            /* turn off radio cause no data is expected */ 
            _control_radio_sleep(dev, true);
+           DEBUG("calling poll confirm_cb\n");
            mac->mlme_mcps_confirm.poll_confirm_cb(mac, &c);
        }
    } else if (mac->mcps_state.mcps_req == MCPS_DATA) {
+       DEBUG("ieee802154_mac_tx_done_cb: MCPS_DATA\n");
        ieee802154_mcps_data_confirm_t c;
        ieee802154_mcps_data_request_t *r = mac->mlme_mcps_request.data_request;
        //TODO populate
-       //c->msdu_handle = 
        //c->timestamp =
        int8_t retries = -1;
        dev->driver->get(dev, NETOPT_TX_RETRIES_NEEDED, &retries, sizeof(retries));
        c.num_backoffs = retries > 0 ? retries : 0;
 
        if (info->medium_busy) {
-           printf("MCPS-DATA.confirm(MCPS_CHANNEL_ACCESS_FAILURE)\n");
+           DEBUG("MCPS-DATA.confirm(MCPS_CHANNEL_ACCESS_FAILURE)\n");
            c.status = MCPS_CHANNEL_ACCESS_FAILURE;
        } else if (info->recvd_ack || !r->ack_tx) {
-           printf("MCPS-DATA.confirm(SUCCESS) (GOT%sACK,%sACKREQ)\n",
+           DEBUG("MCPS-DATA.confirm(SUCCESS) (GOT%sACK,%sACKREQ)\n",
                   (info->recvd_ack ? " " : " NO "),
                   (r->ack_tx ? " " : " NO "));
            //TODO use info->data_pending info
            c.status = MCPS_SUCCESS;
        } else {
-           printf("MCPS-DATA.confirm(MCPS_NO_ACK)\n");
+           DEBUG("MCPS-DATA.confirm(MCPS_NO_ACK)\n");
            c.status = MCPS_NO_ACK;
        }
        c.msdu_handle = mac->mcps_state.data.msdu_handle;
        mac->mcps_state.mcps_req = MCPS_UNDEF;
-       printf("calling confirm_cb\n");
+       DEBUG("calling data confirm_cb\n");
        mac->mlme_mcps_confirm.data_confirm_cb(mac, &c);
    }
 }
@@ -884,7 +887,7 @@ void ieee802154_mac_rx_done_cb(ieee802154_mac_t *mac)
             _handle_mac_cmd(mac, ieee802154_hdr, mpdu);
             gnrc_pktbuf_release(mpdu);
         } else {
-            printf("received DATA\n");
+            DEBUG("received DATA\n");
             // TODO: rework to indication callback
             _netif_handover_mpdu(_mac2netif(mac), mpdu, ieee802154_hdr);
         }
