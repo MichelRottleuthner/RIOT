@@ -86,6 +86,7 @@ FEATURES_REQUIRED = periph_adc
 
 USEMODULE += shell
 USEMODULE += shell_cmds_default
+USEMODULE += shell_cmd_gnrc_pktbuf
 
 # RTT is used for idle_timer so we must avoid that it is also used by ztimer
 USEMODULE += ztimer_no_periph_rtt
