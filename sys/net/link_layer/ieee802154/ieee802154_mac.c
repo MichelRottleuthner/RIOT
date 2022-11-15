@@ -889,6 +889,20 @@ void ieee802154_mac_rx_done_cb(ieee802154_mac_t *mac)
             gnrc_pktbuf_release(mpdu);
         } else {
             DEBUG("received DATA\n");
+            /* in case data was received as a response to a poll request,
+             * properly handle the poll confirmation before indicating the data */
+            if (mac->mlme_req == MLME_POLL) {
+                //TODO: check if the received data acutally matches the poll(?)
+                /* cancel the poll timeout */
+                ztimer_remove(ZTIMER_MSEC, &mac->data_request_timeout_timer);
+
+                ieee802154_mlme_poll_confirm_t c = { .status = MLME_SUCCESS };
+                /* clear request state as MLME request is finished now */
+                mac->mlme_req = MLME_UNDEF;
+                /* turn off radio cause no data is expected */
+                _control_radio_sleep(dev, true);
+                mac->mlme_mcps_confirm.poll_confirm_cb(mac, &c);
+            }
             // TODO: rework to indication callback
             _netif_handover_mpdu(_mac2netif(mac), mpdu, ieee802154_hdr);
         }
