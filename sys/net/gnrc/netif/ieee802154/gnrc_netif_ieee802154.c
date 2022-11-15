@@ -302,7 +302,7 @@ void _netif_handover_mpdu(gnrc_netif_t *netif, gnrc_pktsnip_t *mpdu, gnrc_pktsni
         dev->driver->get(dev, NETOPT_PROTO, &mpdu->type, sizeof(mpdu->type));
         
         /* drop 802.15.4 header.. (mpdu contains raw MSDU afterwards) */ 
-        gnrc_pktbuf_remove_snip(mpdu, ieee802154_hdr);
+        mpdu = gnrc_pktbuf_remove_snip(mpdu, ieee802154_hdr);
         /* ..and append netif header instead. */ 
         mpdu = gnrc_pkt_append(mpdu, netif_hdr);
         /* pass on packet with netif header. */ 
