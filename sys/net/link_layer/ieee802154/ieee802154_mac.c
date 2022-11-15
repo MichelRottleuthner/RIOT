@@ -774,16 +774,17 @@ void _handle_mac_cmd(ieee802154_mac_t *mac, gnrc_pktsnip_t *ieee802154_hdr, gnrc
         ieee802154_l2addr_t *svdaddr = _save_l2addr_for_idtx(mac, srcaddr, srcaddr_len);
         DEBUG("saved at %p\n", svdaddr);
         if (svdaddr) {
-            DEBUG("checking if there is any pending TX for the requester...\n");
-            //_send_indirect_tx_queued_pkt(netif, svdaddr);
-            // TODO: post event to handle IDTX
-            gnrc_pktsnip_t *idtx_pkt = _get_next_indirect_pkt(mac, svdaddr);
-            if (idtx_pkt) {
-                printf("found pkt (@%p) in IDTXQ\n", idtx_pkt);
-                mac->pending_idtx_pkt = idtx_pkt;
-                event_post(&_mac2netif(mac)->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW], &mac->request_offload_event);
+            /* only serve mac command if not already busy with serving another one */
+            if (!mac->pending_idtx_pkt) {
+                DEBUG("checking if there is any pending TX for the requester...\n");
+                gnrc_pktsnip_t *idtx_pkt = _get_next_indirect_pkt(mac, svdaddr);
+                if (idtx_pkt) {
+                    DEBUG("found pkt (@%p) in IDTXQ\n", idtx_pkt);
+                    mac->pending_idtx_pkt = idtx_pkt;
+                    /* post event to handle IDTX */
+                    event_post(&_mac2netif(mac)->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW], &mac->request_offload_event);
+                }
             }
-            //gnrc_pktqueue_t *qe = gnrc_pktqueue_remove(gnrc_pktqueue_t **queue, gnrc_pktqueue_t *node)
         }
     }
 }
