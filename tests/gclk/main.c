@@ -531,8 +531,9 @@ int main(void)
 #endif
 
     /* init idle timer but turn it off as it is not used initially */
-    idle_timer_init();
-    idle_timer_disable();
+    /* NOTE: disabled for now TODO: rework idle_timer to use ztimer */
+    //idle_timer_init();
+    //idle_timer_disable();
 
     netopt_enable_t enable = NETOPT_ENABLE;
     gnrc_netif_t *netif = gnrc_netif_iter(NULL);
