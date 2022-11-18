@@ -103,21 +103,21 @@ static void _ieee802154_mcps_data_confirm_cb(ieee802154_mac_t *mac,
 
     switch (confirm->status) {
         case MCPS_CHANNEL_ACCESS_FAILURE:
-           printf("MCPS-DATA.confirm(MCPS_CHANNEL_ACCESS_FAILURE)\n");
+           DEBUG("MCPS-DATA.confirm(MCPS_CHANNEL_ACCESS_FAILURE)\n");
            break;
         case MCPS_SUCCESS:
-           printf("MCPS-DATA.confirm(SUCCESS)\n");
+           DEBUG("MCPS-DATA.confirm(SUCCESS)\n");
            break;
         case MCPS_NO_ACK:
-           printf("MCPS-DATA.confirm(MCPS_NO_ACK)\n");
+           DEBUG("MCPS-DATA.confirm(MCPS_NO_ACK)\n");
            break;
         default:
-           printf("_ieee802154_mcps_data_confirm_cb [OTHER]\n");
+           DEBUG("_ieee802154_mcps_data_confirm_cb [OTHER]\n");
            break;
 
     }
     if (gnrc_netif_netdev_legacy_api(_mac2netif(mac))) {
-        printf("pktbuf release pkt@%p\n", confirm->msdu_handle.pkt);
+        DEBUG("_ieee802154_mcps_data_confirm_cb: pktbuf release pkt@%p\n", confirm->msdu_handle.pkt);
         /* only for legacy drivers we need to release pkt here */
         gnrc_pktbuf_release(confirm->msdu_handle.pkt);
     }
