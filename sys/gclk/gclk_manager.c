@@ -3205,6 +3205,7 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
 
     switch (s->approach) {
         case SCALE_DIRECT:
+            //TODO: change to factor update instead (avoid iteration for factor determination)
             new_freq = gclk_set_freq(s->scale_clk, freq);
             break;
         case SCALE_UPTREE_RELATIVE:
