@@ -489,6 +489,15 @@ static void _low_power_sleep_wakeup_init(void)
 #endif
 }
 
+//static void pincb(void *arg)
+//{
+//    (void)arg;
+//    gpio_set(OSZI_DEBUG_PIN);
+//    stdio_init();
+//    printf("INT: external interrupt on button\n");
+//}
+
+
 int main(void)
 {
     /* set to high so LA can see the falling flank on either interrupt or main_trampoline
@@ -497,6 +506,8 @@ int main(void)
 
     gpio_init(OSZI_DEBUG_PIN, GPIO_OUT);
     gpio_set(OSZI_DEBUG_PIN);
+
+    //gpio_init_int(BTN0_PIN, BTN0_MODE, GPIO_FALLING, pincb, (void *)BTN0_PIN);
 
     //gpio_init(LED0_PIN, GPIO_OUT);
     //gpio_clear(LED0_PIN);
