@@ -52,7 +52,7 @@
  * pending bit in the ACK responding to a data request MAC command), the radio
  * will continue to listen for this time. If no data is received the readio will
  * stop listening again. */
-#define IEEE802154_MAC_MLME_POLL_PENDING_TIMEOUT_US (50000)
+#define IEEE802154_MAC_MLME_POLL_PENDING_TIMEOUT_US (4000)
 
 typedef struct {
     uint8_t l2addr[IEEE802154_LONG_ADDRESS_LEN];
