@@ -37,6 +37,7 @@
 
 #include "ztimer.h"
 #include "ztimer64.h"
+#include "periph/pm.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,7 +134,9 @@ static inline void xtimer_msleep(uint32_t milliseconds)
 
 static inline void xtimer_usleep(uint32_t microseconds)
 {
+    pm_block(1);
     ztimer_sleep(ZTIMER_USEC, microseconds);
+    pm_unblock(1);
 }
 
 static inline void xtimer_nanosleep(uint32_t nanoseconds)
