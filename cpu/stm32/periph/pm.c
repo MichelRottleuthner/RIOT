@@ -31,6 +31,11 @@
 #include "periph/pm.h"
 #include "periph/cpu_pm.h"
 #include "stmclk.h"
+#include "periph/gpio.h"
+#if IS_USED(MODULE_GCLK)
+#include "gclk.h"
+#include "gclk_manager.h"
+#endif
 
 #define ENABLE_DEBUG 0
 #include "debug.h"
@@ -111,14 +116,9 @@
 #define PWR_WUP_REG    PWR->CSR
 #endif
 
-#include "periph/gpio.h"
 void pm_set(unsigned mode)
 {
     int deep;
-
-    
-    //printf("pm_set\n");
-    //gpio_clear(DBG_GPIO_WFI);
 
     switch (mode) {
 #if !defined(CPU_FAM_STM32MP1)
@@ -157,18 +157,56 @@ void pm_set(unsigned mode)
             break;
     }
 
+#if IS_USED(MODULE_GCLK)
+    const gclk_t *core_clk = gclk_manager_get_core_clock_handle();
+    const gclk_t *pre_sleep_core_src;
+   
+    if (deep) {
+        pre_sleep_core_src = gclk_get_current_parent(core_clk);
+        gclk_manager_pre_pm_sleep_hook();
+    }
+#endif
+
     cortexm_sleep(deep);
 
 #if defined(DBG_GPIO_WFI)
     gpio_clear(DBG_GPIO_WFI);
 #endif
 
+    /* Re-init clock after STOP */
+#if IS_USED(MODULE_GCLK)
     if (deep) {
-        /* Re-init clock after STOP */
-#if !defined(CPU_FAM_STM32MP1) || IS_USED(MODULE_STM32MP1_ENG_MODE)
-        stmclk_init_sysclk();
-#endif
+        /* workaround condition to check if sleep was actually entered.
+         * WFI wont actually enter sleep if an interrupt is pending when
+         * executing it. In that case, we do not need to restore the clock
+         * configuration.
+         * TODO: for standby there is a seperte flag to check if sleep was
+         * entered sucessfully.
+         * NOTE: a more generic way could be to backup the "whole" state
+         *       (with platform specfic optimizations based on which
+         *        state is volatile under given conditions).
+         * NOTE: potentially this API could look like
+         *       clock_conf_state_t _pre_state = gclk_manager_backup_state();
+         *       (... some sleep code ...)
+         *       if (gclk_manager_state_changed(_pre_state)) {
+         *          gclk_manager_restore(_pre_state);
+         *       }
+         *
+         *       The state may be encoded as config ID, or just individual clock
+         *       states, depending on what is reasonable for the particular platform.
+         *       A platform may also use out-of-band knowledge to determine if
+         *       a HW-induced config change happened (status flags that indicate if
+         *       sleep was entered etc.).  */
+        if (gclk_get_current_parent(core_clk) !=  pre_sleep_core_src) {
+            gclk_manager_post_pm_sleep_hook();
+        }
     }
+#else
+#if !defined(CPU_FAM_STM32MP1) || IS_USED(MODULE_STM32MP1_ENG_MODE)
+    stmclk_init_sysclk()
+#endif
+#endif
+
 }
 
 /**
