@@ -11,8 +11,12 @@ MODULES_ZTIMER_ON_RTT_CONFLICT = rtt_rtc gnrc_lwmac gnrc_gomach
 # will have a capable backend.
 ifneq (,$(filter ztimer_periph_rtt,$(USEMODULE)))
   ifneq (,$(filter stm32 nrf5% sam% kinetis efm32 fe310,$(CPU)))
-    RTT_FREQUENCY ?= RTT_MAX_FREQUENCY
-    CFLAGS += -DRTT_FREQUENCY=$(RTT_FREQUENCY)
+		# only configure RTT frequency if not specified before
+		# to allow overwriting via app makefile
+    ifeq (,$(filter -DRTT_FREQUENCY=%,$(CFLAGS)))
+      RTT_FREQUENCY ?= RTT_MAX_FREQUENCY
+      CFLAGS += -DRTT_FREQUENCY=$(RTT_FREQUENCY)
+    endif
   endif
 
   MODULES_ZTIMER_ON_RTT_CONFLICTING = $(filter $(MODULES_ZTIMER_ON_RTT_CONFLICT),$(USEMODULE))
