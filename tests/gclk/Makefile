@@ -231,7 +231,7 @@ CFLAGS += -DTEST_ENVIRONMENT_IEEE802154_ADDR2=\{0xAA,0x58,0xEC,0xB5,0xF6,0xB4,0x
 # power modes during idle
 #CFLAGS+=DEVAL_FORCE_STDIO_DISABLE
 # Only block the lowest power mode initially
-#CFLAGS+=-DPM_BLOCKER_INITIAL=\{1,0,0\}
+CFLAGS+=-DPM_BLOCKER_INITIAL=\{1,0,0\}
 
 FEATURES_REQUIRED += periph_gpio_irq
 
