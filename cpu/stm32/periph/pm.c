@@ -49,7 +49,7 @@
 #define PM_STOP_CONFIG  (PWR_CR_LPSDSR | PWR_CR_ULP | PWR_CR_CWUF)
 #elif defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32G4) || \
       defined(CPU_FAM_STM32L5)
-#define PM_STOP_CONFIG  (PWR_CR1_LPMS_STOP1)
+#define PM_STOP_CONFIG  (PWR_CR1_LPMS_STOP2)
 #elif defined(CPU_FAM_STM32WB) || defined(CPU_FAM_STM32G0) || \
       defined(CPU_FAM_STM32WL)
 #define PM_STOP_CONFIG  (PWR_CR1_LPMS_0)
