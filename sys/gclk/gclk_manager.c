@@ -320,6 +320,21 @@ typedef struct {
      * NOTE: As of now the manager should only be used by a single controller entity.
      *       Multiple simultaneous operators are not tested. */
     mutex_t clock_conf_mutex;
+
+    /**
+     * @brief Sequence to restore clock config after low-power sleep.
+     */
+    gclk_manager_sequence_step_t wakeup_seq[20];
+
+    /**
+     * @brief Size of the wakeup clock config restoration sequence.
+     */
+    int wakeup_seq_size;
+
+    /**
+     * @brief Core voltage that was active before going to sleep.
+     */
+    int pre_sleep_vcore_idx;
 } gclk_manager_ctx_t;
 
 /** @brief Global clock manager context. */
@@ -1639,6 +1654,8 @@ int gclk_manager_init(void) {
     _mgr_ctx.registered_clk_change_cb_cnt = 0;
     _mgr_ctx.pre_dfs_enable_freq = 0;
     _mgr_ctx.freq_change_cb = _freq_change_scale_auto;
+    _mgr_ctx.wakeup_seq_size = 0;
+
     mutex_init(&_mgr_ctx.clock_conf_mutex);
 
 
@@ -3502,4 +3519,51 @@ int gclk_manager_derive_sequence(const clk_topology_entry_t *src_topo, uint32_t 
     }
 
     return out_seq_idx;
+}
+
+void gclk_manager_pre_pm_sleep_hook(void)
+{
+    //TODO: instead of reading the full config here,
+    //      just ensure to update the current state on all rescale operations
+    const gclk_t *clk = gclk_manager_get_core_clock_handle();
+    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(clk);
+    gclk_get_current_topology_config(clk, _mgr_ctx.current_core_topology,
+                                     _mgr_ctx.current_core_topolen);
+
+    _mgr_ctx.pre_sleep_vcore_idx = core_voltage_get();
+}
+
+void gclk_manager_post_pm_sleep_hook(void)
+{
+    unsigned state = irq_disable();
+    if (_mgr_ctx.pre_sleep_vcore_idx > core_voltage_get()) {
+        core_voltage_set(_mgr_ctx.pre_sleep_vcore_idx);
+    }
+    _mgr_ctx.pre_sleep_vcore_idx = core_voltage_get();
+
+    /* if no wakeup sequence was derived yet */
+    if (!_mgr_ctx.wakeup_seq_size) {
+        const gclk_t *clk = gclk_manager_get_core_clock_handle();
+        unsigned int wakeup_topolen = gclk_get_current_topology_len(clk);
+        clk_topology_entry_t wakeup_topo[wakeup_topolen];
+
+        gclk_get_current_topology_config(clk, wakeup_topo, wakeup_topolen);
+
+        _mgr_ctx.wakeup_seq_size = gclk_manager_derive_sequence(wakeup_topo, wakeup_topolen,
+                                         _mgr_ctx.current_core_topology,
+                                         _mgr_ctx.current_core_topolen,
+                                         _mgr_ctx.wakeup_seq, ARRAY_SIZE(_mgr_ctx.wakeup_seq));
+        if (_mgr_ctx.wakeup_seq_size <= 0) {
+            printf("gclk_manager_post_pm_sleep_hook: no sequence could be derived!\n");
+            assert(false);
+        }
+    }
+
+    gclk_manager_run_sequence(_mgr_ctx.wakeup_seq, _mgr_ctx.wakeup_seq_size);
+
+    if (_mgr_ctx.pre_sleep_vcore_idx < core_voltage_get()) {
+        core_voltage_set(_mgr_ctx.pre_sleep_vcore_idx);
+    }
+
+    irq_restore(state);
 }

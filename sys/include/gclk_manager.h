@@ -1158,6 +1158,28 @@ void gclk_manager_default_stdio_reinit_cb(const gclk_t* altered_clk, const gclk_
  */
 void gclk_manager_default_timer_reinit_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change);
 
+/**
+ * @brief Hook to call before entering low power mode.
+ *
+ * This function must be called before entering a low power
+ * mode that potentially alters the clock configuration in
+ * order to save state required for later restoration
+ * of the same clock configuration by calling
+ * @ref gclk_manager_post_pm_sleep_hook().
+ */
+void gclk_manager_pre_pm_sleep_hook(void);
+
+/**
+ * @brief Hook to call after exiting low power mode.
+ *
+ * This function must be called after returning from
+ * low power mode that altered the clock configuration.
+ * This function will restore the state of the clock
+ * subsystem that was configured when calling
+ * @ref gclk_manager_pre_pm_sleep_hook().
+ */
+void gclk_manager_post_pm_sleep_hook(void);
+
 #ifdef __cplusplus
 }
 #endif
