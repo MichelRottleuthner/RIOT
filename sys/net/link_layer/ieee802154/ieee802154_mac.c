@@ -123,17 +123,25 @@ static void _request_offload_event_handler(event_t *evp)
     }
 }
 
+void _radio_off_event_handler(event_t *event) {
+    ieee802154_mac_t *mac = container_of(event, ieee802154_mac_t, radio_off_event);
+    netdev_t *netdev = _mac2netdev(mac);
+    _control_radio_sleep(netdev, true);
+}
+
 void _mlme_poll_timeout(void *arg)
 {
     ieee802154_mac_t *mac = (ieee802154_mac_t*)arg;
-    netdev_t *netdev = _mac2netdev(mac);
+
     /* check if the poll request is still active.
      * If data was received before this callback was fired, this timeout
      * is obsolete. */
     if (mac->mlme_req == MLME_POLL) {
         /* timed out while wainting for data after data pending indication
          * -> put radio back to sleep */
-        _control_radio_sleep(netdev, true);
+        mac->radio_off_event.handler = _radio_off_event_handler;
+        /* async turn off request for the radio (calling this from ISR will break things) */
+        event_post(&_mac2netif(mac)->evq[GNRC_NETIF_EVQ_INDEX_PRIO_LOW], &mac->radio_off_event);
         mac->mlme_req = MLME_UNDEF;
         ieee802154_mlme_poll_confirm_t c = { .status = MLME_NO_DATA };
         DEBUG("calling poll_confirm_cb (timeout)\n");

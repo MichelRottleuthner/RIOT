@@ -297,7 +297,7 @@ struct ieee802154_mac {
      * Event used to trigger data requests via event queue and callback.
      */
     event_t data_request_event;
-
+    event_t radio_off_event;
 };
 
 void ieee802154_mlme_poll_request(ieee802154_mac_t *mac,
