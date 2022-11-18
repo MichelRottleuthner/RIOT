@@ -100,7 +100,7 @@ static void _request_offload_event_handler(event_t *evp)
     
     gnrc_pktsnip_t *idtx_pkt = mac->pending_idtx_pkt;
 
-    printf("_request_offload_event_handler (idtx_pkt@%p)\n", idtx_pkt);
+    DEBUG("_request_offload_event_handler (idtx_pkt@%p)\n", idtx_pkt);
 
     if (idtx_pkt) {
         //TODO: replace request with "phy_send_thingy"
@@ -136,7 +136,7 @@ void _mlme_poll_timeout(void *arg)
         _control_radio_sleep(netdev, true);
         mac->mlme_req = MLME_UNDEF;
         ieee802154_mlme_poll_confirm_t c = { .status = MLME_NO_DATA };
-        printf("calling poll_confirm_cb (timeout)\n");
+        DEBUG("calling poll_confirm_cb (timeout)\n");
         mac->mlme_mcps_confirm.poll_confirm_cb(mac, &c);
     }
 }
@@ -380,19 +380,19 @@ static void _ieee802154_mlme_poll_confirm_cb(ieee802154_mac_t *mac,
     (void)mac;
     switch (confirm->status) {
         case MLME_SUCCESS:
-            printf("MLME-POLL.confirm(SUCCESS)\n");
+            DEBUG("MLME-POLL.confirm(SUCCESS)\n");
             break;
         case MLME_CHANNEL_ACCESS_FAILURE:
-            printf("MLME-POLL.confirm(CHANNEL_ACCESS_FAILURE)\n");
+            DEBUG("MLME-POLL.confirm(CHANNEL_ACCESS_FAILURE)\n");
             break;
         case MLME_NO_DATA:
-            printf("MLME-POLL.confirm(NO_DATA)\n");
+            DEBUG("MLME-POLL.confirm(NO_DATA)\n");
             break;
         case MLME_NO_ACK:
-            printf("MLME-POLL.confirm(NO_ACK)\n");
+            DEBUG("MLME-POLL.confirm(NO_ACK)\n");
             break;
         default:
-            printf("MLME-POLL.confirm(OTHER)");
+            DEBUG("MLME-POLL.confirm(OTHER)");
     }
 }
 
@@ -618,7 +618,7 @@ int ieee802154_mcps_data_request(ieee802154_mac_t *mac,
                                  ieee802154_mcps_data_request_t *request,
                                  ieee802154_mcps_data_confirm_cb_t confirm_cb)
 {
-    printf("ieee802154_mcps_data_request\n");
+    DEBUG("ieee802154_mcps_data_request\n");
 
     //_print_data_request(request);
     /* Frame to be sent via the radio (MPDU without FCS) */
@@ -669,7 +669,7 @@ int ieee802154_mcps_data_request(ieee802154_mac_t *mac,
                 }
             }
         } else {
-            printf("ieee802154_mcps_data_request : send direct!\n");
+            DEBUG("ieee802154_mcps_data_request : send direct!\n");
             /* send directly */
             mac->mcps_state.mcps_req = MCPS_DATA;
             mac->mcps_state.data.msdu_handle.pkt = frame;
