@@ -88,10 +88,10 @@ USEMODULE += shell
 USEMODULE += shell_cmds_default
 USEMODULE += shell_cmd_gnrc_pktbuf
 
-# RTT is used for idle_timer so we must avoid that it is also used by ztimer
-USEMODULE += ztimer_no_periph_rtt
-USEMODULE += ztimer64_xtimer_compat
-USEMODULE += xtimer
+# NOTE: currently RTT is used for idle_timer
+# so for idle_timer use it must be ensured that
+# it is also used by ztimer
+#USEMODULE += ztimer_no_periph_rtt
 
 USEMODULE += ps
 USEMODULE += schedstatistics
