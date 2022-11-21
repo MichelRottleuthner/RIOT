@@ -333,6 +333,14 @@ typedef struct {
 
     /**
      * @brief Marks if the the current clock conf cache is up to date.
+     *
+     * TODO: the conf cache handling should be reworked to use
+     * a pointer indirection, so that scale settings that save one full
+     * topo config per frequency anyway can be handled more elegantly.
+     * When scaling frequency between a couple of predetermined frequencies
+     * the cache pointer may then just be updated to the currently active
+     * config. That way fast switching between (predetermined) configs
+     * does not incur additional overhead for updating the cache.
      */
     int current_topo_state_dirty;
 
@@ -875,6 +883,8 @@ static int _populate_dfs_freqs_bf(const gclk_scale_setting_t *scs, const uint32_
         match_freq_cnt = matched;
     }
 
+    /* all cachedstate was updated above, so we can safely use the cache for now */
+    _mgr_ctx.current_topo_state_dirty = false;
     return match_freq_cnt;
 }
 
@@ -2573,7 +2583,9 @@ void gclk_manager_run_sequence_with_notify(gclk_manager_sequence_step_t *seq, si
     gclk_manager_notify_diff_changes(current_tree_conf, target_tree_conf, tree_size, false, print_only);
     if (!print_only) {
         gclk_manager_run_sequence(seq, seq_len);
+        _mgr_ctx.current_topo_state_dirty = true;
     }
+
     gclk_manager_notify_diff_changes(current_tree_conf, target_tree_conf, tree_size, true, print_only);
 
     if (print_only) {
@@ -3279,6 +3291,8 @@ bool gclk_manager_scale_core_freq(uint32_t freq) {
     if (new_freq != freq) {
         LOG_DEBUG("most appliccable frequency was %lu Hz\n", new_freq);
     }
+
+    _mgr_ctx.current_topo_state_dirty = true;
 
     if (new_freq == f_old) {
         return false;
