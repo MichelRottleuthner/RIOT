@@ -345,8 +345,8 @@ const gclk_manager_sequence_step_t sysclk_1_6[] = {
     { .op = CLK_SET_FACTOR,    .clk = &gclk_stm32_ahb_scaler.base, .num_arg = 2 },
     { .op = CLK_ENABLE,        .clk = &gclk_stm32_pll_vco_scaler.base },
     { .op = CLK_SET_PARENT,    .clk = &gclk_stm32_sysclk_mux.base,   .clk_arg = &gclk_stm32_pll_r_scaler.base },
-    /* wait ~1 us before switching back to full speed */
-    { .op = BUSY_SPIN,         .num_arg = 80000000 / 1000000 },
+    /* wait >1 us before switching back to full speed */
+    { .op = BUSY_SPIN,         .num_arg = (80000000 / 8) / 1000000 },
     /* this is only sane when ahb scaler value is not otherwise changed,
      * a cleaner way would be to have a wildcard value for *restore to old value* */
     { .op = CLK_SET_FACTOR,    .clk = &gclk_stm32_ahb_scaler.base, .num_arg = 1 },
