@@ -332,6 +332,11 @@ typedef struct {
     int wakeup_seq_size;
 
     /**
+     * @brief Marks if the the current clock conf cache is up to date.
+     */
+    int current_topo_state_dirty;
+
+    /**
      * @brief Core voltage that was active before going to sleep.
      */
     int pre_sleep_vcore_idx;
@@ -1655,6 +1660,7 @@ int gclk_manager_init(void) {
     _mgr_ctx.pre_dfs_enable_freq = 0;
     _mgr_ctx.freq_change_cb = _freq_change_scale_auto;
     _mgr_ctx.wakeup_seq_size = 0;
+    _mgr_ctx.current_topo_state_dirty = true;
 
     mutex_init(&_mgr_ctx.clock_conf_mutex);
 
@@ -3526,12 +3532,16 @@ void gclk_manager_pre_pm_sleep_hook(void)
 {
     //TODO: instead of reading the full config here,
     //      just ensure to update the current state on all rescale operations
-    const gclk_t *clk = gclk_manager_get_core_clock_handle();
-    _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(clk);
-    gclk_get_current_topology_config(clk, _mgr_ctx.current_core_topology,
-                                     _mgr_ctx.current_core_topolen);
+    //TODO: ensure updating the dirty state helper flag on all relevant changes
+    if (_mgr_ctx.current_topo_state_dirty) {
+        _mgr_ctx.current_topo_state_dirty = false;
+        const gclk_t *clk = gclk_manager_get_core_clock_handle();
+        _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(clk);
+        gclk_get_current_topology_config(clk, _mgr_ctx.current_core_topology,
+                _mgr_ctx.current_core_topolen);
 
-    _mgr_ctx.pre_sleep_vcore_idx = core_voltage_get();
+        _mgr_ctx.pre_sleep_vcore_idx = core_voltage_get();
+    }
 }
 
 void gclk_manager_post_pm_sleep_hook(void)
