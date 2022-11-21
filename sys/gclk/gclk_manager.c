@@ -3534,13 +3534,13 @@ void gclk_manager_pre_pm_sleep_hook(void)
     //      just ensure to update the current state on all rescale operations
     //TODO: ensure updating the dirty state helper flag on all relevant changes
     if (_mgr_ctx.current_topo_state_dirty) {
-        _mgr_ctx.current_topo_state_dirty = false;
         const gclk_t *clk = gclk_manager_get_core_clock_handle();
         _mgr_ctx.current_core_topolen = gclk_get_current_topology_len(clk);
         gclk_get_current_topology_config(clk, _mgr_ctx.current_core_topology,
                 _mgr_ctx.current_core_topolen);
 
         _mgr_ctx.pre_sleep_vcore_idx = core_voltage_get();
+        _mgr_ctx.current_topo_state_dirty = false;
     }
 }
 
