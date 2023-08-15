@@ -372,6 +372,9 @@ void DSMEPlatform::initialize(bool pan_coord)
 
     ieee802154_radio_request_on(this->radio);
     while (ieee802154_radio_confirm_on(this->radio) == -EAGAIN) {}
+
+    this->radio_on = true;
+
     /* Disable Auto CSMA-CA */
     ieee802154_radio_set_csma_params(this->radio, NULL, -1);
 
@@ -778,19 +781,29 @@ bool DSMEPlatform::startCCA()
 
 void DSMEPlatform::turnTransceiverOn()
 {
-    int res = ieee802154_radio_request_on(this->radio);
+    if (!this->radio_on) {
+        int res = ieee802154_radio_request_on(this->radio);
 
-    DSME_ASSERT(res == 0);
-    res = ieee802154_radio_confirm_on(this->radio);
-    DSME_ASSERT(res == 0);
-    ieee802154_radio_set_cca_threshold(this->radio, CONFIG_IEEE802154_CCA_THRESH_DEFAULT);
+        DSME_ASSERT(res == 0);
+
+        do {
+            res = ieee802154_radio_confirm_on(this->radio);
+        } while (res == -EAGAIN);
+
+        DSME_ASSERT(res == 0);
+        ieee802154_radio_set_cca_threshold(this->radio, CONFIG_IEEE802154_CCA_THRESH_DEFAULT);
+        this->radio_on = true;
+    }
 }
 
 void DSMEPlatform::turnTransceiverOff()
 {
-    int res = ieee802154_radio_off(this->radio);
+    if (this->radio_on) {
+        int res = ieee802154_radio_off(this->radio);
 
-    DSME_ASSERT(res == 0);
+        DSME_ASSERT(res == 0);
+        this->radio_on = false;
+    }
 }
 
 bool DSMEPlatform::isRxEnabledOnCap()

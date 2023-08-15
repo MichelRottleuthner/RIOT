@@ -531,6 +531,11 @@ protected:
     bool pending_tx;
 
     /**
+     * @brief whether the radio is currently on
+     */
+    bool radio_on;
+
+    /**
      * @brief pointer to the IEEE 802.15.4 HAL descriptor
      */
     ieee802154_dev_t *radio;
