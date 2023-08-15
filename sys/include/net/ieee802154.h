@@ -333,7 +333,7 @@ extern const uint8_t ieee802154_addr_bcast[IEEE802154_ADDR_BCAST_LEN];
  * @note    For the moment, this is only valid for @ref pkg_opendsme
  */
 #ifndef CONFIG_IEEE802154_DSME_CAP_REDUCTION
-#define CONFIG_IEEE802154_DSME_CAP_REDUCTION             0
+#define CONFIG_IEEE802154_DSME_CAP_REDUCTION             1
 #endif
 
 /**
