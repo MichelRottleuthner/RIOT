@@ -34,6 +34,45 @@ extern "C" {
  */
 #define DSME_MAX_LOST_BEACONS CONFIG_OPENDSME_MAX_LOST_BEACONS
 
+/**
+ * @brief controls whether also irrelevant slot events are scheduled.
+ *
+ * This controls a custom extension that skips slot events if
+ * no GTS is allocated to reduce system wakeups compared to the
+ * default (strictly tick based) implementation.
+ */
+#ifndef DSME_MINIMIZE_CFP_SLOT_EVENTS
+#define DSME_MINIMIZE_CFP_SLOT_EVENTS (0)
+#endif
+
+/**
+ * @brief Set to 1 to use a low power compatible timer for DSME.
+ *
+ * This is EXPERIMENTAL and WILL not work as expected on all platforms.
+ * Currently It assumes that ZTIMER_MSEC_BASE (the timer backend that usually
+ * feeds ZTIMER_MSEC) is available (explicitly pulled in) and configured to
+ * use the RTT at a fast enough frequency of at least 32kHz.
+ * If this is the case you may be lucky and it might work as is.
+ * Using ZTIMER_MSEC is *way* to coarse for DSME timing, and ZTIMER_USEC
+ * prevents low-power modes.
+ * As some backends have pretty high overhead for accessing the timer hardware
+ * you may need to add compensation for the slow timer set operation
+ * in DSME code and the PRE_EVENT_SHIFT value in below DSME settings.
+ */
+#ifndef DSME_USE_LOW_POWER_TIMER
+#define DSME_USE_LOW_POWER_TIMER (0)
+#endif
+
+/**
+ * @brief Compensation value for the low power timer.
+ *
+ * All timer values to be set smaller than this will map to zero.
+ * Greater timer values will be reduced by this number.
+ */
+#ifndef DSME_LOW_POWER_TIMER_COMPENSATION_TICKS
+#define DSME_LOW_POWER_TIMER_COMPENSATION_TICKS (3)
+#endif
+
 namespace dsme {
 
 namespace const_redefines {
