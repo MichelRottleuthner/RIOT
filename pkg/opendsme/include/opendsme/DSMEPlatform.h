@@ -505,6 +505,30 @@ protected:
      */
     GTSScheduling* scheduling = nullptr;
 
+    /* Event used for CCA Done */
+    event_t cca_ev;
+
+    /* Event used for ACK Timeout */
+    event_t acktimer_ev;
+
+    /* Event used for timer events */
+    event_t timer_event;
+
+    /* Event used for TX Done */
+    event_t tx_done_event;
+
+    /* Event used for RX Done */
+    event_t rx_done_event;
+
+    /* Event used for GTS request */
+    event_t request_slot_ev;
+
+    /* Event used for offloading the receive procedure */
+    event_t rx_offload_ev;
+
+    /* Event used for offloading the start of a CFP */
+    event_t start_of_cfp_ev;
+
     /**
      * @brief timestamp (in number of symbols) of the last received preamble
      */
