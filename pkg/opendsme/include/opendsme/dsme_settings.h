@@ -93,8 +93,11 @@ constexpr uint8_t macLIFSPeriod = 40;
 
 /**
  * @brief guard time before a DSME event
+ *
+ * 2.5 * LIFS == 100 symbols == 1.6 ms
+ * NOTE: may safely be set to just macLIFSPeriod for non-SPI radios.
  */
-constexpr uint8_t PRE_EVENT_SHIFT = const_redefines::macLIFSPeriod;
+constexpr uint8_t PRE_EVENT_SHIFT = const_redefines::macLIFSPeriod * 5 / 2;
 
 /**
  * @brief Minimum number of CSMA slots
