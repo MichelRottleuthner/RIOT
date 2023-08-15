@@ -226,19 +226,17 @@ static int _request_on(ieee802154_dev_t *hal)
     DEBUG("at86rf2xx_rf_ops: request_on\n");
     at86rf2xx_t *dev = hal->priv;
     mutex_lock(&dev->lock);
-#if !AT86RF2XX_IS_PERIPH
-    gpio_irq_enable(dev->params.int_pin);
-#endif
-    /* enable interrupts */
-    at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK,
-                        AT86RF2XX_IRQ_STATUS_MASK__TRX_END | AT86RF2XX_IRQ_STATUS_MASK__RX_START);
 
 #if AT86RF2XX_IS_PERIPH
     /* Setting SLPTR bit in TRXPR to 0 returns the radio transceiver
      * to the TRX_OFF state */
     *AT86RF2XX_REG__TRXPR &= ~(AT86RF2XX_TRXPR_SLPTR);
 #else
+    gpio_irq_enable(dev->params.int_pin);
     gpio_clear(dev->params.sleep_pin);
+    /* enable interrupts */
+    at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK,
+                        AT86RF2XX_IRQ_STATUS_MASK__TRX_END | AT86RF2XX_IRQ_STATUS_MASK__RX_START);
 #endif
 
     mutex_unlock(&dev->lock);
@@ -252,8 +250,7 @@ static int _confirm_on(ieee802154_dev_t *hal)
     mutex_lock(&dev->lock);
     int status = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
                & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS;
-
-     if (status != AT86RF2XX_TRX_STATUS__TRX_OFF) {
+     if (status == AT86RF2XX_TRX_STATUS__P_ON) {
          mutex_unlock(&dev->lock);
          return -EAGAIN;
      }
