@@ -144,7 +144,6 @@ void at86rf2xx_assert_awake(at86rf2xx_t *dev)
 
 void at86rf2xx_hardware_reset(at86rf2xx_t *dev)
 {
-    uint8_t state;
     /* trigger hardware reset */
 #if AT86RF2XX_IS_PERIPH
     /* set reset Bit */
@@ -156,14 +155,14 @@ void at86rf2xx_hardware_reset(at86rf2xx_t *dev)
 #endif
     ztimer_sleep(ZTIMER_USEC, AT86RF2XX_RESET_DELAY);
 
-    /* update state: if the radio state was P_ON (initialization phase),
-     * it remains P_ON. Otherwise, it should go to TRX_OFF
-     */
-    do {
-        state = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
-                     & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS;
-    } while ((state != AT86RF2XX_STATE_TRX_OFF)
-             && (state != AT86RF2XX_STATE_P_ON));
+    /* enforce that this function is left in a well defined state (TRX_OFF).
+     * Checking for P_ON *or* TRX_OFF is not enough, as in P_ON the device
+     * may still respond with incorrect data, which makes a subsequent
+     * check for the partnumber fail in some cases. */
+    at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_STATE,
+                        AT86RF2XX_STATE_TRX_OFF);
+
+    while (at86rf2xx_get_status(dev) != AT86RF2XX_STATE_TRX_OFF) {}
 }
 
 #if AT86RF2XX_RANDOM_NUMBER_GENERATOR
