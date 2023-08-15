@@ -419,6 +419,9 @@ static int _confirm_cca(at86rf2xx_t *dev)
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK,
                         AT86RF2XX_IRQ_STATUS_MASK__TRX_END | AT86RF2XX_IRQ_STATUS_MASK__RX_START);
     at86rf2xx_set_state(dev, AT86RF2XX_PHY_STATE_RX);
+
+    /* return 1 if channel is idle/clear
+     * return 0 if channel is busy */
     return !!(reg & AT86RF2XX_TRX_STATUS_MASK__CCA_STATUS);
 }
 
@@ -437,6 +440,8 @@ static int _confirm_op(ieee802154_dev_t *hal, ieee802154_hal_op_t op, void *ctx)
         break;
     case IEEE802154_HAL_OP_CCA:
         res = _confirm_cca(dev);
+        *((bool*) ctx) = res;
+        res = 0;
         break;
     default:
         assert(false);
