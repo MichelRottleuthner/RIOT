@@ -137,7 +137,8 @@ void DSMEMessage::dispatchMessage()
 
     uint16_t dst_addr = getHeader().getDestAddr().getShortAddress();
 
-    uint8_t _dst_addr[IEEE802154_SHORT_ADDRESS_LEN] = {dst_addr >> 8, dst_addr & 0xFF};
+    uint8_t _dst_addr[IEEE802154_SHORT_ADDRESS_LEN] = { (uint8_t)(dst_addr >> 8),
+                                                        (uint8_t)(dst_addr & 0xFF)};
     gnrc_pktsnip_t *netif_hdr = gnrc_netif_hdr_build((uint8_t*) _addr,
                                                      IEEE802154_SHORT_ADDRESS_LEN,
                                                      (uint8_t*) _dst_addr,
