@@ -539,20 +539,50 @@ void DSMEPlatform::releaseMessage(IDSMEMessage *msg)
     m->releaseMessage();
 }
 
+static uint32_t _lptticks_to_usecs(uint32_t ticks)
+{
+    return (uint32_t)((uint64_t)ticks * 1000000 / RTT_FREQUENCY);
+}
+
+static uint32_t _usecs_to_lptticks(uint32_t usecs)
+{
+    return (uint32_t)((uint64_t)usecs * RTT_FREQUENCY / 1000000);
+}
+
 void DSMEPlatform::startTimer(uint32_t symbolCounterValue)
 {
+#if DSME_USE_LOW_POWER_TIMER == 1
+    uint32_t now = _lptticks_to_usecs(ztimer_now(ZTIMER_MSEC_BASE));
+#else
     uint32_t now = ztimer_now(ZTIMER_USEC);
+#endif
+
     uint32_t offset = now & OPENDSME_TIMER_MASK;
     /* This works even if there's an overflow */
     int32_t delta = ((symbolCounterValue - getSymbolCounter()) << OPENDSME_TIMER_OFFSET)
                     - offset;
 
+#if DSME_USE_LOW_POWER_TIMER == 1
+    uint32_t lpt_delta = (uint32_t)_usecs_to_lptticks(delta);
+    /* compensate for offloading overhead by setting smaller delay */
+    if (lpt_delta >= DSME_LOW_POWER_TIMER_COMPENSATION_TICKS) {
+        lpt_delta -= DSME_LOW_POWER_TIMER_COMPENSATION_TICKS;
+    } else {
+        lpt_delta = 0;
+    }
+    ztimer_set(ZTIMER_MSEC_BASE, &timer, lpt_delta);
+#else
     ztimer_set(ZTIMER_USEC, &timer, (uint32_t)delta);
+#endif
 }
 
 uint32_t DSMEPlatform::getSymbolCounter()
 {
+#if DSME_USE_LOW_POWER_TIMER == 1
+    return _lptticks_to_usecs(ztimer_now(ZTIMER_MSEC_BASE)) >> OPENDSME_TIMER_OFFSET;
+#else
     return ztimer_now(ZTIMER_USEC) >> OPENDSME_TIMER_OFFSET;
+#endif
 }
 
 void DSMEPlatform::scheduleStartOfCFP()
@@ -714,9 +744,20 @@ bool DSMEPlatform::sendDelayedAck(IDSMEMessage *ackMsg, IDSMEMessage *receivedMs
                               - 2 * 1;  /* SFD */
     uint32_t ackTime = endOfReception + aTurnaroundTime;
     uint32_t now = getSymbolCounter();
-    uint32_t diff = ackTime - now;
+    int32_t diff = ackTime - now;
+    if (diff <= 0) {
+        /* negative diff means the ack should have happened already.
+         * -> trigger transmission of the ACK *now* */
+        dsme::DSMEPlatform::instance->offloadACKTimer();
+    } else {
+#if DSME_USE_LOW_POWER_TIMER == 1
+        ztimer_set(ZTIMER_MSEC_BASE, &this->acktimer,
+                   _usecs_to_lptticks(diff * aSymbolDuration));
+#else
+        ztimer_set(ZTIMER_USEC, &this->acktimer, diff * aSymbolDuration);
+#endif
+    }
 
-    ztimer_set(ZTIMER_USEC, &this->acktimer, diff * aSymbolDuration);
     return true;
 }
 
