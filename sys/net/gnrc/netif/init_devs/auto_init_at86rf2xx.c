@@ -26,6 +26,9 @@
 #ifdef MODULE_GNRC_GOMACH
 #include "net/gnrc/gomach/gomach.h"
 #endif
+#if IS_USED(MODULE_OPENDSME)
+#include "opendsme/opendsme.h"
+#endif
 #include "net/gnrc.h"
 #include "include/init_devs.h"
 
@@ -55,11 +58,20 @@ void auto_init_at86rf2xx(void)
 {
     for (unsigned i = 0; i < AT86RF2XX_NUM; i++) {
         LOG_DEBUG("[auto_init_netif] initializing at86rf2xx #%u\n", i);
-
-        at86rf2xx_init_event(&at86rf2xx_bhp[i], &at86rf2xx_params[i], &at86rf2xx_netdev[i].submac.dev, EVENT_PRIO_HIGHEST);
-        netdev_register(&at86rf2xx_netdev[i].dev.netdev, NETDEV_AT86RF2XX, i);
-        netdev_ieee802154_submac_init(&at86rf2xx_netdev[i]);
-#if defined(MODULE_GNRC_GOMACH)
+#if IS_USED(MODULE_OPENDSME)
+        /* NOTE: The high-prio event thread may better be changed to a separate thread to avoid nasty
+         * race-conditions and timing issues when the thread is also responsible for processing other
+         * things (especially the MAC). */
+        int res = at86rf2xx_init_event(&at86rf2xx_bhp[i], &at86rf2xx_params[i], &at86rf2xx_netdev[i].submac.dev, EVENT_PRIO_HIGHEST);
+        assert(res == 0);
+        /* NOTE: This casts a Radio HAL descriptor to a netdev and should be
+         * addressed as soon as the GNRC<->netdev dependency is removed.
+         */
+        gnrc_netif_opendsme_create(&_netif[i], _at86rf2xx_stacks[i],
+                                 AT86RF2XX_MAC_STACKSIZE,
+                                 AT86RF2XX_MAC_PRIO, "at86rf2xx-dsme",
+                                 (netdev_t*)&at86rf2xx_netdev[i].submac.dev);
+#elif defined(MODULE_GNRC_GOMACH)
         gnrc_netif_gomach_create(&_netif[i], _at86rf2xx_stacks[i],
                                  AT86RF2XX_MAC_STACKSIZE,
                                  AT86RF2XX_MAC_PRIO, "at86rf2xx-gomach",
@@ -68,8 +80,11 @@ void auto_init_at86rf2xx(void)
         gnrc_netif_lwmac_create(&_netif[i], _at86rf2xx_stacks[i],
                                 AT86RF2XX_MAC_STACKSIZE,
                                 AT86RF2XX_MAC_PRIO, "at86rf2xx-lwmac",
-                                &at86rf2xx_netdev[i].dev.netdev);
+    /                            &at86rf2xx_netdev[i].dev.netdev);
 #else
+        at86rf2xx_init_event(&at86rf2xx_bhp[i], &at86rf2xx_params[i], &at86rf2xx_netdev[i].submac.dev, EVENT_PRIO_HIGHEST);
+        netdev_register(&at86rf2xx_netdev[i].dev.netdev, NETDEV_AT86RF2XX, i);
+        netdev_ieee802154_submac_init(&at86rf2xx_netdev[i]);
         gnrc_netif_ieee802154_create(&_netif[i], _at86rf2xx_stacks[i],
                                      AT86RF2XX_MAC_STACKSIZE,
                                      AT86RF2XX_MAC_PRIO, "at86rf2xx",
