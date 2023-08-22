@@ -650,16 +650,12 @@ bool DSMEPlatform::setChannelNumber(uint8_t channel)
     };
     int res;
 
-    res = ieee802154_radio_set_idle(this->radio, true);
-    DSME_ASSERT(res == 0);
     res = ieee802154_radio_config_phy(this->radio, &conf);
     DSME_ASSERT(res == 0);
 
     /* TODO: Find a better solution */
     ieee802154_radio_config_addr_filter(this->radio, IEEE802154_AF_PANID, &this->mac_pib.macPANId);
 
-    res = ieee802154_radio_set_rx(this->radio);
-    DSME_ASSERT(res == 0);
     return true;
 }
 
