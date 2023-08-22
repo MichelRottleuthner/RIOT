@@ -690,10 +690,7 @@ bool DSMEPlatform::prepareSendingCopy(IDSMEMessage *msg, Delegate<void(bool)> tx
         this->wait_for_ack = false;
     }
 
-    int res = ieee802154_radio_set_idle(this->radio, true);
-
-    DSME_ASSERT(res == 0);
-    res = ieee802154_radio_write(this->radio, &iol);
+    int res = ieee802154_radio_write(this->radio, &iol);
     DSME_ASSERT(res == 0);
 
     return true;
