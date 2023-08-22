@@ -94,10 +94,10 @@ constexpr uint8_t macLIFSPeriod = 40;
 /**
  * @brief guard time before a DSME event
  *
- * 2.5 * LIFS == 100 symbols == 1.6 ms
+ * 2.25 * LIFS == 2.25 * 40 symbols == 1.76 ms
  * NOTE: may safely be set to just macLIFSPeriod for non-SPI radios.
  */
-constexpr uint8_t PRE_EVENT_SHIFT = const_redefines::macLIFSPeriod * 5 / 2;
+constexpr uint8_t PRE_EVENT_SHIFT = (const_redefines::macLIFSPeriod * 11) / 4;
 
 /**
  * @brief Minimum number of CSMA slots
@@ -197,7 +197,7 @@ constexpr uint16_t DSME_BROADCAST_PAN_ID = 0xffff;
 /**
  * @brief Additional time to wait for an ACK
  */
-constexpr uint8_t ADDITIONAL_ACK_WAIT_DURATION = 63;
+constexpr uint8_t ADDITIONAL_ACK_WAIT_DURATION = 20;
 }
 
 #ifdef __cplusplus
