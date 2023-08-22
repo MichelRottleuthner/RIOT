@@ -157,12 +157,8 @@ void DSMEPlatform::processCCAEvent()
 void DSMEPlatform::processTXDoneEvent()
 {
     int res = ieee802154_radio_confirm_transmit(this->radio, NULL);
-
     this->pending_tx = false;
     DSME_ASSERT(res >= 0);
-
-    res = ieee802154_radio_set_rx(this->radio);
-    DSME_ASSERT(res == 0);
 
     if (this->wait_for_ack) {
         this->wait_for_ack = false;
@@ -171,8 +167,8 @@ void DSMEPlatform::processTXDoneEvent()
     else {
         ieee802154_radio_set_frame_filter_mode(this->radio, IEEE802154_FILTER_ACCEPT);
     }
-    this->txEndCallback(true);
     this->setPlatformState(DSMEPlatform::STATE_READY);
+    this->txEndCallback(true);
 }
 
 void DSMEPlatform::processRxDone()
