@@ -796,6 +796,17 @@ void DSMEPlatform::turnTransceiverOn()
         this->radio_on = true;
     }
 }
+void DSMEPlatform::turnTransceiverToIdle()
+{
+    int res = ieee802154_radio_set_idle(this->radio, true);
+    DSME_ASSERT(res == 0);
+}
+
+void DSMEPlatform::turnTransceiverToRX()
+{
+    int res = ieee802154_radio_set_rx(this->radio);
+    DSME_ASSERT(res == 0);
+}
 
 void DSMEPlatform::turnTransceiverOff()
 {
