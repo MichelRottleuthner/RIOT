@@ -736,10 +736,7 @@ bool DSMEPlatform::sendDelayedAck(IDSMEMessage *ackMsg, IDSMEMessage *receivedMs
         .iol_len = mhr_len,
     };
 
-    int res = ieee802154_radio_set_idle(this->radio, true);
-
-    DSME_ASSERT(res == 0);
-    res = ieee802154_radio_write(this->radio, &iol);
+    int res = ieee802154_radio_write(this->radio, &iol);
     DSME_ASSERT(res == 0);
 
     /* Hardcoded to O-QPSK
