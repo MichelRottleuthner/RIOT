@@ -567,18 +567,26 @@ void DSMEPlatform::startTimer(uint32_t symbolCounterValue)
     /* This works even if there's an overflow */
     int32_t delta = ((symbolCounterValue - getSymbolCounter()) << OPENDSME_TIMER_OFFSET)
                     - offset;
-
+    /* scheduling a timer in the past is not possible, so ensure the minimum delay is 0 */
+    if (delta < 0) {
+        delta = 0;
+    }
 #if DSME_USE_LOW_POWER_TIMER == 1
-    uint32_t lpt_delta = (uint32_t)_usecs_to_lptticks(delta);
+    uint32_t lpt_delta = _usecs_to_lptticks(delta);
     /* compensate for offloading overhead by setting smaller delay */
-    if (lpt_delta >= DSME_LOW_POWER_TIMER_COMPENSATION_TICKS) {
+    if (lpt_delta > DSME_LOW_POWER_TIMER_COMPENSATION_TICKS) {
         lpt_delta -= DSME_LOW_POWER_TIMER_COMPENSATION_TICKS;
     } else {
         lpt_delta = 0;
     }
+
+    //TODO: using the USEC instance for very short timeouts could improve accuracy.
+    //      This is especially relevant in case the minimum delay of the low-power
+    //      timer is relatively long as that would artificially increase the delay
+    //      of very short timeouts.
     ztimer_set(ZTIMER_MSEC_BASE, &timer, lpt_delta);
 #else
-    ztimer_set(ZTIMER_USEC, &timer, (uint32_t) delta - 1);
+    ztimer_set(ZTIMER_USEC, &timer, (uint32_t) delta);
 #endif
 }
 
