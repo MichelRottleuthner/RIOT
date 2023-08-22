@@ -320,11 +320,39 @@ public:
 
     /**
      * @brief turn on transceiver
+     *
+     * This wakes up the transceiver from low-power sleep mode.
+     * I.e., it controls the state of the transceiver in terms of power.
+     * It does explicitly *NOT* put the transceiver to RX mode.
+     * Must be called before changing transceiver settings (e.g., channel number).
      */
     void turnTransceiverOn() override;
 
     /**
+     * @brief turn transceiver to idle mode
+     *
+     * Use this to disable RX without putting the radio to sleep.
+     * Switching back to RX or starting TX may happen faster from this mode
+     * than from low-power (off) mode.
+     */
+    void turnTransceiverToIdle() override;
+
+    /**
+     * @brief turn transceiver to RX mode
+     *
+     * This puts the transceiver into a mode where it can recevie packets.
+     * The radio must be enabled when calling this function
+     * (turnTransceiverOn must have ben called before).
+     */
+    void turnTransceiverToRX() override;
+
+    /**
      * @brief turn off transceiver
+     *
+     * This puts the transceiver into low-power sleep mode.
+     * I.e., it controls the state of the transceiver in terms of power.
+     * After calling this it will in most cases not be possible to interact with
+     * the transceiver before turnTransceiverOn is called again.
      */
     void turnTransceiverOff() override;
 
