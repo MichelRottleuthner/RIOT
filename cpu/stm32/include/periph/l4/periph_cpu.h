@@ -45,6 +45,13 @@ extern "C" {
  * @brief   ADC voltage regulator start-up time [us]
  */
 #define ADC_T_ADCVREG_STUP_US (20)
+
+/**
+ * @brief    Real time counter configuration
+ *
+ * determined by tests/periph/rtt_min (+1)
+ */
+#define RTT_MIN_OFFSET      (5U)
 #endif
 
 #ifndef DOXYGEN
