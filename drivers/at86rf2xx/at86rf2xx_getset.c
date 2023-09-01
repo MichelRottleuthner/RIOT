@@ -223,7 +223,7 @@ int8_t at86rf2xx_get_rxsensitivity(const at86rf2xx_t *dev)
     return rxsens > 0 ? RSSI_BASE_VAL + ((rxsens - 1) * 3) : MIN_RX_SENSITIVITY;
 }
 
-void at86rf2xx_set_rxsensitivity(const at86rf2xx_t *dev, int8_t rxsens)
+void at86rf2xx_set_rxsensitivity(at86rf2xx_t *dev, int8_t rxsens)
 {
     uint8_t hwval;
     /* From datasheet, rxsens = @ref RSSI_BASE_VAL + (3 * (RX_PDT_LEVEL-1)).
@@ -242,7 +242,8 @@ void at86rf2xx_set_rxsensitivity(const at86rf2xx_t *dev, int8_t rxsens)
 
     uint8_t tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__RX_SYN);
     tmp &= ~(AT86RF2XX_RX_SYN__RX_PDT_LEVEL);
-    tmp |= (hwval & AT86RF2XX_RX_SYN__RX_PDT_LEVEL);
+    dev->pdt_lvl_rv = hwval & AT86RF2XX_RX_SYN__RX_PDT_LEVEL;
+    tmp |= dev->pdt_lvl_rv;
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__RX_SYN, tmp);
 }
 
