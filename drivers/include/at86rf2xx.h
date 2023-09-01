@@ -291,7 +291,20 @@ typedef struct {
     /* Only radios with the XAH_CTRL_2 register support frame retry reporting */
     int8_t tx_retries;                  /**< Number of NOACK retransmissions */
 #endif
+    uint8_t channel;                    /**< previously configured channel */
+    uint8_t pdt_lvl_rv;                 /**< previously configured PDT level reg val */
+    /* Used for debugging/assertions. saves the request currenly active request on
+     * the request call. Is only reset on the confirm call.
+     * TODO: is probably better moved to the HAL itself. */
+    uint8_t request_in_progress;        /**< Used for debugging/assertions. saves the request currenly active request. */
     bool sleep;                         /**< whether the device is sleeping or not */
+    /* whether the device is busy with TX. This is used to differenciate between
+     * RX/TX interrupt without relying on a state register read.
+     * For this to work, the driver has to set this flag to true if and only if
+     * the radio is instructed to do a TX. In that case, on interrupt, it is
+     * certain the IRQ originated from a TX.
+     * TODO: merge this with the above request_in_progress flag. */
+    bool tx_in_progress;
     mutex_t lock;                       /**< device lock */
 } at86rf2xx_t;
 
@@ -378,11 +391,13 @@ int8_t at86rf2xx_get_rxsensitivity(const at86rf2xx_t *dev);
  * as close as possible to the given value. If the given value is larger or
  * lower then the maximal or minimal possible value, the min or max value is
  * set, respectively.
+ * The value value is cached to speed up write operations to the same register
+ * which are not related to the level, by saving a register read.
  *
  * @param[in] dev           device to write to
  * @param[in] rxsens        rx sensitivity in dBm
  */
-void at86rf2xx_set_rxsensitivity(const at86rf2xx_t *dev, int8_t rxsens);
+void at86rf2xx_set_rxsensitivity(at86rf2xx_t *dev, int8_t rxsens);
 
 /**
  * @brief   Get the maximum number of retransmissions

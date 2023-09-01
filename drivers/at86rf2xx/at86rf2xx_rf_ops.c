@@ -223,9 +223,16 @@ static int _read(ieee802154_dev_t *hal, void *buf, size_t size, ieee802154_rx_in
 
 static int _request_on(ieee802154_dev_t *hal)
 {
-    DEBUG("at86rf2xx_rf_ops: request_on\n");
     at86rf2xx_t *dev = hal->priv;
     mutex_lock(&dev->lock);
+
+    if (dev->request_in_progress) {
+        printf("RF ON %02x\n", dev->request_in_progress);
+        assert(false);
+    }
+    dev->request_in_progress = 0xff;
+
+    DEBUG("at86rf2xx_rf_ops: request_on\n");
 
 #if AT86RF2XX_IS_PERIPH
     /* Setting SLPTR bit in TRXPR to 0 returns the radio transceiver
@@ -256,6 +263,7 @@ static int _confirm_on(ieee802154_dev_t *hal)
      }
     at86rf2xx_reg_read(dev, AT86RF2XX_REG__IRQ_STATUS);
     mutex_unlock(&dev->lock);
+    dev->request_in_progress = 0;
     return 0;
 }
 
@@ -309,31 +317,69 @@ static int _request_set_tx(at86rf2xx_t *dev, bool force)
     return 0;
 }
 
+static inline void _lock_bus(const at86rf2xx_t *dev)
+{
+    spi_acquire(dev->params.spi, dev->params.cs_pin,
+                SPI_MODE_0, dev->params.spi_clk);
+}
+
+static inline void _reg_write_no_lock(const at86rf2xx_t *dev, uint8_t addr, uint8_t value)
+{
+    uint8_t reg = (AT86RF2XX_ACCESS_REG | AT86RF2XX_ACCESS_WRITE | addr);
+    spi_transfer_reg(dev->params.spi, dev->params.cs_pin, reg, value);
+}
+
+static inline uint8_t _reg_read_no_lock(const at86rf2xx_t *dev, uint8_t addr)
+{
+    uint8_t reg = (AT86RF2XX_ACCESS_REG | AT86RF2XX_ACCESS_READ | addr);
+    return spi_transfer_reg(dev->params.spi, dev->params.cs_pin, reg, 0);
+}
+
 static int _request_cca(at86rf2xx_t *dev)
 {
     DEBUG("at86rf2xx_rf_ops: request_cca\n");
-    uint8_t reg;
-    at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_STATE, AT86RF2XX_TRX_STATE__FORCE_PLL_ON);
-    at86rf2xx_set_state(dev, AT86RF2XX_STATE_RX_ON);
+    /* lock the bus only once for all reads/writes below */
+    _lock_bus(dev);
 
-    reg = at86rf2xx_reg_read(dev, AT86RF2XX_REG__IRQ_MASK);
-    reg |= AT86RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE;
-    at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK, reg);
-    /* Perform CCA */
-    reg = at86rf2xx_reg_read(dev, AT86RF2XX_REG__PHY_CC_CCA);
-    reg |= AT86RF2XX_PHY_CC_CCA_MASK__CCA_REQUEST;
-    at86rf2xx_reg_write(dev, AT86RF2XX_REG__PHY_CC_CCA, reg);
+    _reg_write_no_lock(dev, AT86RF2XX_REG__TRX_STATE,
+                       AT86RF2XX_TRX_STATE__FORCE_PLL_ON);
+
+    /* disable RX path (preamble detection), use the cached level value to save
+     * an additional register read. */
+    _reg_write_no_lock(dev, AT86RF2XX_REG__RX_SYN,
+                       dev->pdt_lvl_rv | AT86RF2XX_RX_SYN__RX_PDT_DIS);
+
+    /* radio must be in RX to be able to do CCA */
+    _reg_write_no_lock(dev, AT86RF2XX_REG__TRX_STATE, AT86RF2XX_STATE_RX_ON);
+
+    /* enable only ED interrupt */
+    _reg_write_no_lock(dev, AT86RF2XX_REG__IRQ_MASK,
+                       AT86RF2XX_IRQ_STATUS_MASK__CCA_ED_DONE);
+
+    /* trigger start of CCA, use the cached channel value */
+    uint8_t phy_cc_cca = AT86RF2XX_PHY_CC_CCA_MASK__CCA_REQUEST |
+                         (dev->channel & AT86RF2XX_PHY_CC_CCA_MASK__CHANNEL);
+    _reg_write_no_lock(dev, AT86RF2XX_REG__PHY_CC_CCA, phy_cc_cca);
+    spi_release(dev->params.spi);
     return 0;
 }
 
 static int _request_op(ieee802154_dev_t *hal, ieee802154_hal_op_t op, void *ctx)
 {
     at86rf2xx_t *dev = hal->priv;
+    mutex_lock(&dev->lock);
+
+    if (dev->request_in_progress) {
+        printf("RF OP %02x -> %02x\n", dev->request_in_progress, op);
+        assert(false);
+    }
+    dev->request_in_progress = 1 << op;
 
     int res = -ENOTSUP;
-    mutex_lock(&dev->lock);
+
     switch (op) {
     case IEEE802154_HAL_OP_TRANSMIT:
+        dev->tx_in_progress = true;
 #if AT86RF2XX_HAVE_RETRIES && AT86RF2XX_IS_PERIPH
         dev->tx_retries = -1;
 #endif
@@ -366,6 +412,8 @@ static int _confirm_transmit(at86rf2xx_t *dev, ieee802154_tx_info_t *info)
     if (status == AT86RF2XX_STATE_BUSY_TX_ARET || status == AT86RF2XX_STATE_BUSY_TX) {
         return -EAGAIN;
     }
+
+    dev->tx_in_progress = false;
 
     if (info) {
         uint8_t trac_status = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATE)
@@ -409,18 +457,23 @@ static int _confirm_set_trx_state(at86rf2xx_t *dev)
 static int _confirm_cca(at86rf2xx_t *dev)
 {
     DEBUG("at86rf2xx_rf_ops: confirm_cca\n");
+    _lock_bus(dev);
     uint8_t reg;
-    reg = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS);
+    reg = _reg_read_no_lock(dev, AT86RF2XX_REG__TRX_STATUS);
     if ((reg & AT86RF2XX_TRX_STATUS_MASK__CCA_DONE) == 0) {
+        spi_release(dev->params.spi);
         return -EAGAIN;
     }
 
-    /* Restore to default IRQs */
-    at86rf2xx_reg_write(dev, AT86RF2XX_REG__IRQ_MASK,
-                        AT86RF2XX_IRQ_STATUS_MASK__TRX_END | AT86RF2XX_IRQ_STATUS_MASK__RX_START);
-    at86rf2xx_set_state(dev, AT86RF2XX_PHY_STATE_RX);
+    _reg_write_no_lock(dev, AT86RF2XX_REG__RX_SYN, dev->pdt_lvl_rv & ~AT86RF2XX_RX_SYN__RX_PDT_DIS);
 
-    /* return 1 if channel is idle/clear
+    /* Restore to default IRQs */
+    _reg_write_no_lock(dev, AT86RF2XX_REG__IRQ_MASK,
+                        AT86RF2XX_IRQ_STATUS_MASK__TRX_END | AT86RF2XX_IRQ_STATUS_MASK__RX_START);
+
+    spi_release(dev->params.spi);
+
+    /* eturn 1 if channel is idle/clear
      * return 0 if channel is busy */
     return !!(reg & AT86RF2XX_TRX_STATUS_MASK__CCA_STATUS);
 }
@@ -448,6 +501,7 @@ static int _confirm_op(ieee802154_dev_t *hal, ieee802154_hal_op_t op, void *ctx)
         break;
     }
     mutex_unlock(&dev->lock);
+    dev->request_in_progress = 0;
     return res;
 }
 
@@ -479,6 +533,7 @@ static int _config_phy(ieee802154_dev_t *hal, const ieee802154_phy_conf_t *conf)
         return -EINVAL;
     }
     mutex_lock(&dev->lock);
+    dev->channel = conf->channel;
     at86rf2xx_configure_phy(dev, conf->channel, conf->page, conf->pow);
     mutex_unlock(&dev->lock);
     return 0;
@@ -732,15 +787,11 @@ void at86rf2xx_irq_handler(ieee802154_dev_t *hal)
     }
 
     if (irq_mask & AT86RF2XX_IRQ_STATUS_MASK__TRX_END) {
-        if ((state == AT86RF2XX_PHY_STATE_RX)
-            || (state == AT86RF2XX_PHY_STATE_RX_BUSY)) {
-            DEBUG("[at86rf2xx] EVT - RX_END\n");
-
-            _isr_recv_complete(hal);
-
-        }
-        else if (state == AT86RF2XX_PHY_STATE_TX) {
+        /* if TX was treiggered before, this must be a TXDONE */
+        if (dev->tx_in_progress) {
             _dispatch_event(hal, IEEE802154_RADIO_CONFIRM_TX_DONE);
+        } else {
+            _isr_recv_complete(hal);
         }
     }
 
