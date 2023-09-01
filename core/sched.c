@@ -31,6 +31,7 @@
 #include "sched.h"
 #include "thread.h"
 #include "panic.h"
+#include "periph/gpio.h"
 
 #ifdef MODULE_MPU_STACK_GUARD
 #include "mpu.h"
@@ -144,6 +145,23 @@ static void _unschedule(thread_t *active_thread)
 #endif
 }
 
+static inline bool _is_thread_to_mark(kernel_pid_t pid) {
+    /* mark all threads for now to see the utilization. */
+    return true;
+    if (
+        /* NOTE: keep in sync with the application or find a proper way to obtain this.
+         * (this is only valid for a particular configuration of gnrc networking) */
+        (pid == 1) || // main
+        (pid == 5) || // 6lo
+        (pid == 6) || // ipv6
+        (pid == 7) || // udp
+        (pid == 9) // RPL
+       ) {
+        return true;
+    } else {
+        return false;
+    }
+}
 thread_t *__attribute__((used)) sched_run(void)
 {
     thread_t *active_thread = thread_get_active();
@@ -156,6 +174,7 @@ thread_t *__attribute__((used)) sched_run(void)
         }
 
         do {
+            DBG_PIN_CLEAR(LA_PIN_COORD_SCHED);
             sched_arch_idle();
         } while (!runqueue_bitcache);
     }
@@ -178,6 +197,14 @@ thread_t *__attribute__((used)) sched_run(void)
         next_thread->pid);
 
     next_thread->status = STATUS_RUNNING;
+
+    /* crude way to indicate the pid via number of pulses */
+    DBG_PIN_CLEAR(LA_PIN_COORD_SCHED);
+    for (int i = 0; i < next_thread->pid; i++) {
+        DBG_PIN_SET(LA_PIN_COORD_SCHED);
+        DBG_PIN_CLEAR(LA_PIN_COORD_SCHED);
+    }
+    DBG_PIN_SET(LA_PIN_COORD_SCHED);
 
     if (previous_thread == next_thread) {
 #ifdef MODULE_SCHED_CB
