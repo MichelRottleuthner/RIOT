@@ -29,6 +29,49 @@ USEMODULE += netstats_l2
 USEMODULE += netstats_ipv6
 USEMODULE += netstats_rpl
 
+
+
+
+
+USEMODULE += ps
+USEMODULE += shell
+USEMODULE += shell_commands
+
+USEPKG += opendsme
+USEMODULE += auto_init_gnrc_netif
+USEMODULE += gnrc_pktbuf_malloc
+USEMODULE += l2util
+USEMODULE += gnrc_pktdump
+USEMODULE += gnrc_txtsnd
+USEMODULE += netopt
+USEMODULE += event_thread_lowest
+
+USEMODULE += netdev_default
+USEMODULE += gnrc_pktbuf_cmd
+USEMODULE += iolist
+
+# For numeric values, Elk uses float string formatting...
+USEMODULE += printf_float
+#CFLAGS += -DCONFIG_IEEE802154_DSME_SUPERFRAME_ORDER=10
+#CFLAGS += -DCONFIG_IEEE802154_DSME_MULTISUPERFRAME_ORDER=10
+#CFLAGS += -DCONFIG_IEEE802154_DSME_BEACON_ORDER=10
+#CFLAGS += -DCONFIG_IEEE802154_DEFAULT_CSMA_CA_MIN_BE=3
+#CFLAGS += -DCONFIG_IEEE802154_DEFAULT_CSMA_CA_MAX_BE=5
+#CFLAGS += -DCONFIG_IEEE802154_CCA_THRESH_DEFAULT=-40
+CFLAGS += -DCONFIG_IEEE802154_DSME_GTS_EXPIRATION=100 # roughly 10 seconds in 3-3-3 BE config
+#export PKG_SOURCE_LOCAL_OPENDSME=/home/jialamos/Development/opendsme
+#CFLAGS += -DSTATISTICS_MONITOR_LATENESS
+
+# RIOT Configs
+CFLAGS += -DDEBUG_ASSERT_VERBOSE
+
+#CFLAGS += -DISR_STACKSIZE=1024
+
+
+
+
+
+
 # Optionally include DNS support. This includes resolution of names at an
 # upstream DNS server and the handling of RDNSS options in Router Advertisements
 # to auto-configure that upstream DNS server.
