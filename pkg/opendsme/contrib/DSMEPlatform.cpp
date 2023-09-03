@@ -147,6 +147,13 @@ static void _hal_radio_cb(ieee802154_dev_t *dev, ieee802154_trx_ev_t status)
         dsme::DSMEPlatform::instance->indicateRxStart();
         break;
     case IEEE802154_RADIO_INDICATION_CRC_ERROR:
+        if(dsme::DSMEPlatform::instance->getDSME().getMAC_PIB().macIsPANCoord) {
+            DBG_PIN_CLEAR(LA_PIN_COORD_SET_RX_RXD);
+            DBG_PIN_SET(LA_PIN_COORD_SET_RX_RXD);
+        } else {
+            DBG_PIN_CLEAR(LA_PIN_RFD_SET_RX_RXD);
+            DBG_PIN_SET(LA_PIN_RFD_SET_RX_RXD);
+        }
         break;
     case IEEE802154_RADIO_INDICATION_TX_START:
         break;
@@ -296,6 +303,12 @@ void DSMEPlatform::offloadCCAEvent()
 
 void DSMEPlatform::offloadTXDoneEvent()
 {
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_CLEAR(LA_PIN_COORD_TXNOW_TXD);
+    } else {
+        DBG_PIN_CLEAR(LA_PIN_RFD_TXNOW_TXD);
+    }
+
     if (this->state == DSMEPlatform::STATE_TX_ACK) {
         mutex_unlock(&this->sda_lock);
     }
@@ -310,6 +323,11 @@ void DSMEPlatform::indicateRxStart()
 
 void DSMEPlatform::offloadRXDoneEvent()
 {
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_CLEAR(LA_PIN_COORD_SET_RX_RXD);
+    } else {
+        DBG_PIN_CLEAR(LA_PIN_RFD_SET_RX_RXD);
+    }
     this->rxd_offload_pending = true;
     event_post(this->getEventQueue(), &this->rx_done_event);
 }
@@ -804,6 +822,14 @@ bool DSMEPlatform::prepareSendingCopy(IDSMEMessage *msg, Delegate<void(bool)> tx
 
     this->frame_preloaded = true;
 
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_SET(LA_PIN_COORD_TXNOW_TXD);
+        DBG_PIN_CLEAR(LA_PIN_COORD_TXNOW_TXD);
+    } else {
+        DBG_PIN_SET(LA_PIN_RFD_TXNOW_TXD);
+        DBG_PIN_CLEAR(LA_PIN_RFD_TXNOW_TXD);
+    }
+
     DSMEMessage *m = (DSMEMessage *)msg;
 
     this->state = DSMEPlatform::STATE_SEND;
@@ -938,7 +964,21 @@ bool DSMEPlatform::startCCA()
     if (this->pending_tx) {
         return false;
     }
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_SET(LA_PIN_COORD_CCA);
+        DBG_PIN_CLEAR(LA_PIN_COORD_SET_RX_RXD);
+    } else {
+        DBG_PIN_SET(LA_PIN_RFD_CCA);
+        DBG_PIN_CLEAR(LA_PIN_RFD_SET_RX_RXD);
+    }
     ieee802154_radio_request_cca(this->radio);
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_CLEAR(LA_PIN_COORD_CCA);
+        DBG_PIN_SET(LA_PIN_COORD_CCA);
+    } else {
+        DBG_PIN_CLEAR(LA_PIN_RFD_CCA);
+        DBG_PIN_SET(LA_PIN_RFD_CCA);
+    }
     this->state = DSMEPlatform::STATE_CCA_WAIT;
     return true;
 }
@@ -946,6 +986,11 @@ bool DSMEPlatform::startCCA()
 void DSMEPlatform::turnTransceiverOn()
 {
     if (!this->radio_on) {
+        if(this->dsme.getMAC_PIB().macIsPANCoord) {
+            DBG_PIN_SET(LA_PIN_COORD_ON_IDLE);
+        } else {
+            DBG_PIN_SET(LA_PIN_RFD_ON_IDLE);
+        }
         int res = ieee802154_radio_request_on(this->radio);
 
         DSME_ASSERT(res == 0);
@@ -961,12 +1006,24 @@ void DSMEPlatform::turnTransceiverOn()
 }
 void DSMEPlatform::turnTransceiverToIdle()
 {
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_CLEAR(LA_PIN_COORD_SET_RX_RXD);
+        DBG_PIN_CLEAR(LA_PIN_COORD_TXNOW_TXD);
+    } else {
+        DBG_PIN_CLEAR(LA_PIN_RFD_SET_RX_RXD);
+        DBG_PIN_CLEAR(LA_PIN_RFD_TXNOW_TXD);
+    }
     int res = ieee802154_radio_set_idle(this->radio, true);
     DSME_ASSERT(res == 0);
 }
 
 void DSMEPlatform::turnTransceiverToRX()
 {
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_SET(LA_PIN_COORD_SET_RX_RXD);
+    } else {
+        DBG_PIN_SET(LA_PIN_RFD_SET_RX_RXD);
+    }
     int res = ieee802154_radio_set_rx(this->radio);
     DSME_ASSERT(res == 0);
 }
@@ -974,6 +1031,15 @@ void DSMEPlatform::turnTransceiverToRX()
 void DSMEPlatform::turnTransceiverOff()
 {
     if (this->radio_on) {
+        if(this->dsme.getMAC_PIB().macIsPANCoord) {
+            DBG_PIN_CLEAR(LA_PIN_COORD_SET_RX_RXD);
+            DBG_PIN_CLEAR(LA_PIN_COORD_ON_IDLE);
+            DBG_PIN_CLEAR(LA_PIN_COORD_TXNOW_TXD);
+        } else {
+            DBG_PIN_CLEAR(LA_PIN_RFD_SET_RX_RXD);
+            DBG_PIN_CLEAR(LA_PIN_RFD_ON_IDLE);
+            DBG_PIN_CLEAR(LA_PIN_RFD_TXNOW_TXD);
+        }
         int res = ieee802154_radio_off(this->radio);
 
         DSME_ASSERT(res == 0);
