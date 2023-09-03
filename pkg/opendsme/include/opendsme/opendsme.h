@@ -231,7 +231,7 @@
  * GTS transmissions, small values are preferred to reduce memory requirements.
  */
 #ifndef CONFIG_OPENDSME_CAP_QUEUE_SIZE
-#define CONFIG_OPENDSME_CAP_QUEUE_SIZE    (8U)
+#define CONFIG_OPENDSME_CAP_QUEUE_SIZE    (16U)
 #endif
 
 /**
@@ -243,7 +243,7 @@
  * more capacity than the CAP queue (@ref CONFIG_OPENDSME_CAP_QUEUE_SIZE)
  */
 #ifndef CONFIG_OPENDSME_CFP_QUEUE_SIZE
-#define CONFIG_OPENDSME_CFP_QUEUE_SIZE    (22U)
+#define CONFIG_OPENDSME_CFP_QUEUE_SIZE    (44U)
 #endif
 
 #ifdef __cplusplus
