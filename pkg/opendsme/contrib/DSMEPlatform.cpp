@@ -109,6 +109,8 @@ static void _tx_done_handler(event_t *ev)
 
 static void _rx_done_handler(event_t *ev)
 {
+    /* offloading done, remove busy flag */
+    dsme::DSMEPlatform::instance->rxd_offload_pending = false;
     dsme::DSMEPlatform::instance->processRxDone();
 }
 
@@ -156,26 +158,61 @@ void DSMEPlatform::processCCAEvent()
 
 void DSMEPlatform::processTXDoneEvent()
 {
-    int res = ieee802154_radio_confirm_transmit(this->radio, NULL);
+    int res;
+    int cnt = 0;
+    /* TODO: remove the loop and assert again, once the fix for the wrong
+     * radio state transition is resolved/confirmed */
+    do {
+        res = ieee802154_radio_confirm_transmit(this->radio, NULL);
+        if (res == -EAGAIN) {
+            puts("RBS");
+        }
+        cnt++;
+    } while (res == -EAGAIN);
+
+    if (cnt > 1) {
+        printf("EA %d\n", cnt);
+    }
     this->pending_tx = false;
     DSME_ASSERT(res >= 0);
 
-    if (this->wait_for_ack) {
-        this->wait_for_ack = false;
-        ieee802154_radio_set_frame_filter_mode(this->radio, IEEE802154_FILTER_ACK_ONLY);
+    if (this->state != DSMEPlatform::STATE_TX_ACK) {
+        if (this->wait_for_ack) {
+            this->wait_for_ack = false;
+            ieee802154_radio_set_frame_filter_mode(this->radio, IEEE802154_FILTER_ACK_ONLY);
+        }
+        else {
+            ieee802154_radio_set_frame_filter_mode(this->radio, IEEE802154_FILTER_ACCEPT);
+        }
     }
-    else {
-        ieee802154_radio_set_frame_filter_mode(this->radio, IEEE802154_FILTER_ACCEPT);
-    }
+
+    this->frame_preloaded = false;
     this->setPlatformState(DSMEPlatform::STATE_READY);
     this->txEndCallback(true);
 }
 
 void DSMEPlatform::processRxDone()
 {
-    if (this->state != STATE_READY) {
-        assert(false);
+    /* From the standard '6.2.5.1 CSMA-CA algorithm':
+     * "Although the receiver of the device is enabled during the CCA analysis portion of this algorithm,
+     * the device may discard any frames received during this time." */
+    if (this->state == STATE_CCA_WAIT) {
         return;
+    }
+    if (this->state != STATE_READY) {
+        /* in case the radio is currently doing something other than waiting for an RX,
+         * ignore this event.
+         * This may be triggered if the code path to send a frame does the following:
+         * prepare_next_tx() {
+         *   // <- RX_DONE Interrupt happens here and gets offloaded
+         *   prepareSendingCopy();
+         *   copy_frame_to_radio();
+         * }
+         * */
+        //TODO: check if the assert can be enabled again. The aboce CCA case should be the only
+        //      remaining case werhe this is expected
+        return;
+        assert(false);
     }
 
     DSMEMessage *message = getEmptyMessage();
@@ -215,15 +252,16 @@ void DSMEPlatform::processRxDone()
 
     if (!success) {
         message->releaseMessage();
-        res = ieee802154_radio_set_rx(this->radio);
+        //TODO: enable again?
+        // This should not interfere with the explicit radio control
+        // in upper layers, as the state without an indication is still expected
+        // to be RX.
+        //res = ieee802154_radio_set_rx(this->radio);
         DSME_ASSERT(res == 0);
         return;
     }
 
     message->dropHdr(message->getHeader().getSerializationLength());
-
-    res = ieee802154_radio_set_rx(this->radio);
-    DSME_ASSERT(res == 0);
 
     getDSME().getAckLayer().receive(message);
 }
@@ -235,16 +273,21 @@ void DSMEPlatform::offloadCCAEvent()
 
 void DSMEPlatform::offloadTXDoneEvent()
 {
+    if (this->state == DSMEPlatform::STATE_TX_ACK) {
+        mutex_unlock(&this->sda_lock);
+    }
     event_post(this->getEventQueue(), &this->tx_done_event);
 }
 
 void DSMEPlatform::indicateRxStart()
 {
-    this->rx_sfd = this->getSymbolCounter();
+    //TODO: add calibration routine to determine the correct offset
+    this->rx_sfd = this->getSymbolCounter() - 11;
 }
 
 void DSMEPlatform::offloadRXDoneEvent()
 {
+    this->rxd_offload_pending = true;
     event_post(this->getEventQueue(), &this->rx_done_event);
 }
 
@@ -314,6 +357,8 @@ DSMEPlatform::DSMEPlatform() :
     this->rx_done_event.handler = _rx_done_handler;
     this->rx_offload_ev.handler = _handle_rx_offload;
     this->start_of_cfp_ev.handler = _start_of_cfp_handler;
+    mutex_init(&this->sda_lock);
+    mutex_lock(&this->sda_lock);
 }
 
 DSMEPlatform::~DSMEPlatform()
