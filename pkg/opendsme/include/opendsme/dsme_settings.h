@@ -70,7 +70,11 @@ extern "C" {
  * Greater timer values will be reduced by this number.
  */
 #ifndef DSME_LOW_POWER_TIMER_COMPENSATION_TICKS
+#if DSME_USE_LOW_POWER_TIMER == 1
 #define DSME_LOW_POWER_TIMER_COMPENSATION_TICKS (3)
+#else
+#define DSME_LOW_POWER_TIMER_COMPENSATION_TICKS (0)
+#endif
 #endif
 
 namespace dsme {
