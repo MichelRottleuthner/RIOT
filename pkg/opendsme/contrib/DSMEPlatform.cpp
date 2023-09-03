@@ -713,6 +713,15 @@ uint8_t DSMEPlatform::getChannelNumber()
 
 bool DSMEPlatform::prepareSendingCopy(IDSMEMessage *msg, Delegate<void(bool)> txEndCallback)
 {
+    if(this->rxd_offload_pending) {
+        this->rxd_offload_pending = false;
+        event_cancel(this->getEventQueue(), &this->rx_done_event);
+        puts("busy");
+        return false;
+    }
+
+    this->frame_preloaded = true;
+
     DSMEMessage *m = (DSMEMessage *)msg;
 
     this->state = DSMEPlatform::STATE_SEND;
@@ -743,15 +752,31 @@ bool DSMEPlatform::prepareSendingCopy(IDSMEMessage *msg, Delegate<void(bool)> tx
 
 bool DSMEPlatform::sendNow()
 {
-    int res = ieee802154_radio_request_transmit(this->radio);
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_SET(LA_PIN_COORD_TXNOW_TXD);
+    } else {
+        DBG_PIN_SET(LA_PIN_RFD_TXNOW_TXD);
+    }
 
+    int res = ieee802154_radio_request_transmit(this->radio);
     DSME_ASSERT(res == 0);
     this->pending_tx = true;
+    if(this->dsme.getMAC_PIB().macIsPANCoord) {
+        DBG_PIN_CLEAR(LA_PIN_COORD_TXNOW_TXD);
+        DBG_PIN_SET(LA_PIN_COORD_TXNOW_TXD);
+    } else {
+        DBG_PIN_CLEAR(LA_PIN_RFD_TXNOW_TXD);
+        DBG_PIN_SET(LA_PIN_RFD_TXNOW_TXD);
+    }
     return true;
 }
 
 void DSMEPlatform::abortPreparedTransmission()
 {
+    puts("A");
+
+    /* clear the preloaded state here as the transmission was explicitly aborted */
+    this->frame_preloaded = false;
     /* Nothing to do here, since the Radio HAL will drop the frame if
      * the write function is called again */
     this->setPlatformState(DSMEPlatform::STATE_READY);
@@ -760,8 +785,20 @@ void DSMEPlatform::abortPreparedTransmission()
 bool DSMEPlatform::sendDelayedAck(IDSMEMessage *ackMsg, IDSMEMessage *receivedMsg,
                                   Delegate<void(bool)> txEndCallback)
 {
+    /* if the radio received data, and already offloaded the event,
+     * it is canceled here and the layer indicates busy to avoid inconsistent radio state.
+     * TODO: check if this is still needed now that the radio properly separates TX/RX IRQs*/
+    if(this->rxd_offload_pending) {
+        this->rxd_offload_pending = false;
+        event_cancel(this->getEventQueue(), &this->rx_done_event);
+        puts("SDAbusy");
+        return false;
+    }
+
+    this->state = DSMEPlatform::STATE_TX_ACK;
     DSMEMessage *m = (DSMEMessage *)ackMsg;
 
+    this->frame_preloaded = true;
     DSME_ASSERT(m != nullptr);
 
     uint8_t ack[IEEE802154_ACK_FRAME_LEN - IEEE802154_FCS_LEN];
