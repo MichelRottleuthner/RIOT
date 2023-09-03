@@ -1032,6 +1032,10 @@ void DSMEPlatform::turnTransceiverToRX()
 void DSMEPlatform::turnTransceiverOff()
 {
     if (this->radio_on) {
+        /* the transceiver shall not be turned off before
+         * the preloaded frame is explicitly discarded by aborting the prepared
+         * transmission. */
+        assert(!this->frame_preloaded);
         if(this->dsme.getMAC_PIB().macIsPANCoord) {
             DBG_PIN_CLEAR(LA_PIN_COORD_SET_RX_RXD);
             DBG_PIN_CLEAR(LA_PIN_COORD_ON_IDLE);
