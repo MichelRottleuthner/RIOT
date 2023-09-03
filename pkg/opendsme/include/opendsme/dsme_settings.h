@@ -191,7 +191,7 @@ constexpr uint16_t TOTAL_GTS_QUEUE_SIZE = CONFIG_OPENDSME_CFP_QUEUE_SIZE;
 /**
  * @brief Size of the CAP queue
  */
-constexpr uint16_t UPPER_LAYER_QUEUE_SIZE = 4;
+constexpr uint16_t UPPER_LAYER_QUEUE_SIZE = 16;
 
 /**
  * @brief Broadcast PAN ID
