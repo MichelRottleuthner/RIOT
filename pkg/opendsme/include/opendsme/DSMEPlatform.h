@@ -193,7 +193,7 @@ public:
      * @brief state of the Platform layer
      */
     enum {
-        STATE_READY = 0, STATE_CCA_WAIT = 1, STATE_SEND = 2,
+        STATE_READY = 0, STATE_CCA_WAIT = 1, STATE_SEND = 2, STATE_TX_ACK = 3,
     };
 
     /*********** IDSMEPlatform implementation ***********/
@@ -396,6 +396,11 @@ public:
      */
     bool isRxEnabledOnCap() override;
 
+    /**
+     * @brief whether there is an RX event waiting for offloaded processing
+     */
+    bool rxd_offload_pending;
+
 protected:
     /**
      * @brief Copy constructor is not allowed.
@@ -556,6 +561,16 @@ protected:
 
     /* Event used for offloading the start of a CFP */
     event_t start_of_cfp_ev;
+
+    mutex_t sda_lock;
+
+    /**
+     * @brief whether a frame was preloaded and not sent yet.
+     *
+     * Used to detect invalid operations that would lead to inconsistent
+     * radio state.
+     */
+    bool frame_preloaded = false;
 
     /**
      * @brief timestamp (in number of symbols) of the last received preamble
