@@ -767,7 +767,8 @@ void at86rf2xx_irq_handler(ieee802154_dev_t *hal)
     at86rf2xx_t *dev = hal->priv;
     uint8_t irq_mask;
     uint8_t state;
-
+    DBG_PIN_SET(LA_PIN_COORD_RADIO_IRQ);
+    DBG_PIN_CLEAR(LA_PIN_COORD_RADIO_IRQ);
     /* If transceiver is sleeping register access is impossible and frames are
      * lost anyway, so return immediately.
      */
