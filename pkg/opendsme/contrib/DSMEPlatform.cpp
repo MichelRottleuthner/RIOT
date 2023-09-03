@@ -30,11 +30,34 @@
 /* Use default openDSME value for TPS scheduler alpha */
 #define OPENDSME_TPS_ALPHA (0.1f)
 
-/* Used for symbol counter calculation. Hardcoded to O-QPSK */
-#define OPENDSME_TIMER_MASK   (0xF)
-#define OPENDSME_TIMER_OFFSET (4U)
+/* one symbol is 16 µs so the effective frequency is 62.5 kHz */
+#define SYMBOL_TIMER_FREQUENCY (62500)
+
+/* The low power timer integration uses ztimer which
+ * handles extension to 32 bits. */
+#define HW_COUNTER_MAX (0xFFFFFFFF)
+
+#if DSME_USE_LOW_POWER_TIMER == 1
+/* The low power timer integration uses the RTT via ztimer. */
+#define HWTIMER_FREQUENCY RTT_FREQUENCY
+#define ZTIMER_INSTANCE   ZTIMER_MSEC_BASE
+#else
+#define HWTIMER_FREQUENCY (1000000)
+#define ZTIMER_INSTANCE   ZTIMER_USEC
+#endif
 
 namespace dsme {
+
+uint32_t _hw_counter_base = 0x0;
+uint32_t _rescaled_symbol_counter_offs = 0x0;
+
+/* The 64 bit timer extension uses this value to maintain its state
+ * and gracefully handle overflows. */
+uint64_t extended64_bit_timer_base = 0;
+uint64_t _counter_read_hw_ticks_64(void);
+
+static uint32_t _symbols_to_hw_ticks(uint32_t symbols);
+uint32_t _hw_counter_read(void);
 
 /* The one and only openDSME instance */
 DSMEPlatform *DSMEPlatform::instance = nullptr;
@@ -385,6 +408,9 @@ void DSMEPlatform::initialize(bool pan_coord)
     this->dsme.setMCPS(&(this->mcps_sap));
     this->dsme.setMLME(&(this->mlme_sap));
 
+    /* init wrapping counter base value */
+    _hw_counter_base = _hw_counter_read();
+
     /* Use all channels of the channel page 0 (O-QPSK) */
     constexpr uint8_t MAX_CHANNELS = 16;
     uint8_t channels[MAX_CHANNELS];
@@ -590,58 +616,114 @@ void DSMEPlatform::releaseMessage(IDSMEMessage *msg)
     m->releaseMessage();
 }
 
-static uint32_t _lptticks_to_usecs(uint32_t ticks)
+uint32_t _hw_counter_mask(uint32_t val) {
+    return val & HW_COUNTER_MAX;
+}
+
+uint32_t _hw_counter_read(void) {
+    return ztimer_now(ZTIMER_INSTANCE);
+}
+
+/* This behaves like a continuously running 32-bit wraparound counter with
+ * one symbol (16 µs) resolution.  Instead of a timer backend that actually
+ * runs on 1/16 MHz it uses a slower low power timer.
+ * Returned values are therefore subject to quantization. Even though the
+ * required resolution of 16 µs can not be guaranteed with a typical 32 kHz
+ * timer, the jitter related to that is still well within an acceptable range.
+ * NOTE: this function *MUST* be called at least once within each period of
+ * the below timer to guarantee correct behavior. For normal DSME configurations
+ * this is guaranteed by slot / (multi-)superframe events. For very slow DSME
+ * configurations, as well as for very fast or very short timers this may need
+ * explicit handling (e.g., performing additional reads between events). */
+uint32_t symbol_counter_read32(void) {
+    uint32_t timer_cnt = _hw_counter_read();
+
+    /* use the difference since the last wrap around of the arbitrary frequency timer as base counter value */
+    uint32_t offset_timer_cnt = timer_cnt - _hw_counter_base;
+
+    /* rescale to symbol counter frequency */
+    uint64_t scaled = ((uint64_t)offset_timer_cnt * SYMBOL_TIMER_FREQUENCY + (HWTIMER_FREQUENCY >> 1))
+                      / HWTIMER_FREQUENCY + _rescaled_symbol_counter_offs;
+    uint32_t res;
+
+    if (scaled > UINT32_MAX) {
+        /* how much the counter overflowed into the next cycle. */
+        uint64_t diff = scaled - UINT32_MAX;
+
+        /* save the hardware counter as new base value.
+         * The base value is later used to calculate how many ticks the
+         * hw counter advanced. since the last marker. */
+        _hw_counter_base = timer_cnt;
+
+        /* use 32 bit arithmetic to wraparound the symbol counter */
+        res = (scaled & 0xFFFFFFFF);
+        res += diff;
+        /* offset that will be applied to wraparound the 32 bit value */
+        _rescaled_symbol_counter_offs = diff;
+    } else {
+        res = (uint32_t)(scaled & 0xFFFFFFFF);
+    }
+    return res;
+}
+
+/* Returns 64 bit timestamps as a continuous counter to extend shorter timer.
+ * Must be called at least once in each period of lower layer timer.
+ * Currently only used for testing where long absolute timestamps are helpful. */
+uint64_t _counter_read_hw_ticks_64(void) {
+    uint32_t timer_cnt = _hw_counter_read();
+    uint32_t ll_base = (extended64_bit_timer_base & HW_COUNTER_MAX);
+
+    if (ll_base > timer_cnt) {
+        uint32_t elapsed = _hw_counter_mask(timer_cnt - _hw_counter_mask((uint32_t)extended64_bit_timer_base));
+        extended64_bit_timer_base += elapsed;
+    } else {
+        extended64_bit_timer_base = (extended64_bit_timer_base - ll_base) + timer_cnt;
+    }
+    return extended64_bit_timer_base;
+}
+
+static uint32_t _symbols_to_hw_ticks(uint32_t symbols)
 {
-    return (uint32_t)((uint64_t)ticks * 1000000 / RTT_FREQUENCY);
+    return (uint32_t)((uint64_t)symbols * HWTIMER_FREQUENCY / SYMBOL_TIMER_FREQUENCY);
 }
 
 static uint32_t _usecs_to_lptticks(uint32_t usecs)
 {
-    return (uint32_t)((uint64_t)usecs * RTT_FREQUENCY / 1000000);
+    return (uint32_t)((uint64_t)usecs * HWTIMER_FREQUENCY / 1000000);
 }
 
 void DSMEPlatform::startTimer(uint32_t symbolCounterValue)
 {
-#if DSME_USE_LOW_POWER_TIMER == 1
-    uint32_t now = _lptticks_to_usecs(ztimer_now(ZTIMER_MSEC_BASE));
-#else
-    uint32_t now = ztimer_now(ZTIMER_USEC);
-#endif
+    uint32_t now = symbol_counter_read32();
 
-    uint32_t offset = now & OPENDSME_TIMER_MASK;
-    /* This works even if there's an overflow */
-    int32_t delta = ((symbolCounterValue - getSymbolCounter()) << OPENDSME_TIMER_OFFSET)
-                    - offset;
+    int32_t delta = symbolCounterValue - now;
     /* scheduling a timer in the past is not possible, so ensure the minimum delay is 0 */
     if (delta < 0) {
         delta = 0;
     }
-#if DSME_USE_LOW_POWER_TIMER == 1
-    uint32_t lpt_delta = _usecs_to_lptticks(delta);
+
+    uint32_t hw_delta = _symbols_to_hw_ticks(delta);
+
     /* compensate for offloading overhead by setting smaller delay */
-    if (lpt_delta > DSME_LOW_POWER_TIMER_COMPENSATION_TICKS) {
-        lpt_delta -= DSME_LOW_POWER_TIMER_COMPENSATION_TICKS;
+    if (hw_delta > DSME_LOW_POWER_TIMER_COMPENSATION_TICKS) {
+        hw_delta -= DSME_LOW_POWER_TIMER_COMPENSATION_TICKS;
     } else {
-        lpt_delta = 0;
+        hw_delta = 0;
     }
 
-    //TODO: using the USEC instance for very short timeouts could improve accuracy.
-    //      This is especially relevant in case the minimum delay of the low-power
-    //      timer is relatively long as that would artificially increase the delay
-    //      of very short timeouts.
-    ztimer_set(ZTIMER_MSEC_BASE, &timer, lpt_delta);
-#else
-    ztimer_set(ZTIMER_USEC, &timer, (uint32_t) delta);
-#endif
+    /* TODO: when using a low speed timer, additionally using the USEC instance for
+     *       very short timeouts or even the otherwise rounded remainder of longer
+     *       timeouts could improve accuracy.
+     *       This is especially relevant in case the minimum delay of the low-power
+     *       timer is relatively long as that would artificially increase the delay
+     *       of very short timeouts.
+     */
+    ztimer_set(ZTIMER_INSTANCE, &timer, hw_delta);
 }
 
 uint32_t DSMEPlatform::getSymbolCounter()
 {
-#if DSME_USE_LOW_POWER_TIMER == 1
-    return _lptticks_to_usecs(ztimer_now(ZTIMER_MSEC_BASE)) >> OPENDSME_TIMER_OFFSET;
-#else
-    return ztimer_now(ZTIMER_USEC) >> OPENDSME_TIMER_OFFSET;
-#endif
+    return symbol_counter_read32();
 }
 
 void DSMEPlatform::scheduleStartOfCFP()
@@ -831,18 +913,17 @@ bool DSMEPlatform::sendDelayedAck(IDSMEMessage *ackMsg, IDSMEMessage *receivedMs
     uint32_t ackTime = endOfReception + aTurnaroundTime;
     uint32_t now = getSymbolCounter();
     int32_t diff = ackTime - now;
-    if (diff <= 0) {
-        /* negative diff means the ack should have happened already.
-         * -> trigger transmission of the ACK *now* */
-        dsme::DSMEPlatform::instance->offloadACKTimer();
-    } else {
-#if DSME_USE_LOW_POWER_TIMER == 1
-        ztimer_set(ZTIMER_MSEC_BASE, &this->acktimer,
-                   _usecs_to_lptticks(diff * aSymbolDuration));
-#else
-        ztimer_set(ZTIMER_USEC, &this->acktimer, diff * aSymbolDuration);
-#endif
+
+    /* blocking wait for remaining time before sending the ACK.
+     * This must be done because upper layers expect the ACK transmission to be finished
+     * when this function returns. */
+    if (diff > 0) {
+        ztimer_sleep(ZTIMER_INSTANCE, _symbols_to_hw_ticks(diff));
     }
+
+    this->sendNow();
+
+    mutex_lock(&this->sda_lock);
 
     return true;
 }
