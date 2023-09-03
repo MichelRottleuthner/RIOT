@@ -962,6 +962,7 @@ void DSMEPlatform::setReceiveDelegate(receive_delegate_t receiveDelegate)
 bool DSMEPlatform::startCCA()
 {
     if (this->pending_tx) {
+        puts("*");
         return false;
     }
     if(this->dsme.getMAC_PIB().macIsPANCoord) {
