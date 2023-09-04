@@ -145,6 +145,8 @@ static void _unschedule(thread_t *active_thread)
 #endif
 }
 
+bool _is_coordinator = false;
+
 static inline bool _is_thread_to_mark(kernel_pid_t pid) {
     /* mark all threads for now to see the utilization. */
     return true;
@@ -174,7 +176,9 @@ thread_t *__attribute__((used)) sched_run(void)
         }
 
         do {
-            DBG_PIN_CLEAR(LA_PIN_COORD_SCHED);
+            if (_is_coordinator) {
+                DBG_PIN_CLEAR(LA_PIN_COORD_SCHED);
+            }
             sched_arch_idle();
         } while (!runqueue_bitcache);
     }
@@ -198,13 +202,15 @@ thread_t *__attribute__((used)) sched_run(void)
 
     next_thread->status = STATUS_RUNNING;
 
-    /* crude way to indicate the pid via number of pulses */
-    DBG_PIN_CLEAR(LA_PIN_COORD_SCHED);
-    for (int i = 0; i < next_thread->pid; i++) {
-        DBG_PIN_SET(LA_PIN_COORD_SCHED);
+    if (_is_coordinator) {
+        /* crude way to indicate the pid via number of pulses */
         DBG_PIN_CLEAR(LA_PIN_COORD_SCHED);
+        for (int i = 0; i < next_thread->pid; i++) {
+            DBG_PIN_SET(LA_PIN_COORD_SCHED);
+            DBG_PIN_CLEAR(LA_PIN_COORD_SCHED);
+        }
+        DBG_PIN_SET(LA_PIN_COORD_SCHED);
     }
-    DBG_PIN_SET(LA_PIN_COORD_SCHED);
 
     if (previous_thread == next_thread) {
 #ifdef MODULE_SCHED_CB
