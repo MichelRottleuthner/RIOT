@@ -30,6 +30,9 @@
 #define MAIN_QUEUE_SIZE     (8)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
+/* defined in sched.c */
+extern bool _is_coordinator;
+
 int main(void)
 {
 #ifdef LA_PIN2
@@ -106,11 +109,11 @@ int main(void)
     for (unsigned i = 0; i < CPUID_LEN; i++) {
         printf("%02x", cpuid[i]);
     }
-    bool is_coord = memcmp(coord_cpuid, cpuid, CPUID_LEN) == 0;
-    printf("%s\n", is_coord ? "--> COORD" : "--> RFD");
+    _is_coordinator = memcmp(coord_cpuid, cpuid, CPUID_LEN) == 0;
+    printf("%s\n", _is_coordinator ? "--> COORD" : "--> RFD");
 
     netopt_enable_t pan_coord_en = NETOPT_ENABLE;
-    if (is_coord) {
+    if (_is_coordinator) {
         res = gnrc_netapi_set(netif->pid, NETOPT_PAN_COORD, 0, &pan_coord_en, sizeof(netopt_enable_t));
         if (res != sizeof(netopt_enable_t)) {
             printf("could not set PAN_COORD: %d\n", res);
