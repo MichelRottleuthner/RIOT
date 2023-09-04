@@ -503,6 +503,15 @@ void DSMEPlatform::initialize(bool pan_coord)
     this->mac_pib.macMaxFrameRetries = CONFIG_IEEE802154_DEFAULT_MAX_FRAME_RETRANS;
 
     this->mac_pib.macDSMEGTSExpirationTime = CONFIG_IEEE802154_DSME_GTS_EXPIRATION;
+
+    /* hacky way to let the coord wait a bit longer than an RFD before triggering the expiration.
+     * This is dine to prevent triggering at exactly the same time which gives higher likelyhood
+     * of collisions during CAP. */
+    if (pan_coord) {
+        this->mac_pib.macDSMEGTSExpirationTime = CONFIG_IEEE802154_DSME_GTS_EXPIRATION
+                                               + CONFIG_IEEE802154_DSME_GTS_EXPIRATION / 10;
+    }
+
     this->mac_pib.macResponseWaitTime = CONFIG_IEEE802154_DSME_MAC_RESPONSE_WAIT_TIME;
     this->mac_pib.macChannelDiversityMode = Channel_Diversity_Mode::CHANNEL_HOPPING;
 
