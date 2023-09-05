@@ -81,6 +81,11 @@ public:
     void initialize(bool pan_coord);
 
     /**
+     * @brief initialize MAC with a role (PAN coordinator, child) and SF orders
+     */
+    void initialize(bool pan_coord, uint8_t sfo, uint8_t msfo, uint8_t bo);
+
+    /**
      * @brief to be called by the upper layer in order to send a frame
      */
     void sendFrame(uint16_t addr, iolist_t *pkt);
@@ -400,13 +405,6 @@ public:
      * @brief whether there is an RX event waiting for offloaded processing
      */
     bool rxd_offload_pending;
-
-#if IS_ACTIVE(CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC)
-    /**
-     * @brief Superframe spec for runtime setting
-     */
-    ieee802154_dsme_superframe_spec_t sfspec;
-#endif
 
 protected:
     /**

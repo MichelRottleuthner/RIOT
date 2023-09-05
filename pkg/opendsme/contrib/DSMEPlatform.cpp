@@ -418,7 +418,7 @@ void DSMEPlatform::translateMacAddress(uint16_t& from, IEEE802154MacAddress& to)
     }
 }
 
-void DSMEPlatform::initialize(bool pan_coord)
+void DSMEPlatform::initialize(bool pan_coord, uint8_t sfo, uint8_t msfo, uint8_t bo)
 {
     this->instance = this;
     this->dsme.setPHY_PIB(&(this->phy_pib));
@@ -493,9 +493,10 @@ void DSMEPlatform::initialize(bool pan_coord)
     this->mac_pib.macCapReduction = CONFIG_IEEE802154_DSME_CAP_REDUCTION;
 
     this->mac_pib.macAssociatedPANCoord = this->mac_pib.macIsPANCoord;
-    this->mac_pib.macSuperframeOrder = CONFIG_IEEE802154_DSME_SUPERFRAME_ORDER;
-    this->mac_pib.macMultiSuperframeOrder = CONFIG_IEEE802154_DSME_MULTISUPERFRAME_ORDER;
-    this->mac_pib.macBeaconOrder = CONFIG_IEEE802154_DSME_BEACON_ORDER;
+
+    this->mac_pib.macSuperframeOrder = sfo;
+    this->mac_pib.macMultiSuperframeOrder = msfo;
+    this->mac_pib.macBeaconOrder = bo;
 
     this->mac_pib.macMinBE = CONFIG_IEEE802154_DEFAULT_CSMA_CA_MIN_BE;
     this->mac_pib.macMaxBE = CONFIG_IEEE802154_DEFAULT_CSMA_CA_MAX_BE;
@@ -543,6 +544,14 @@ void DSMEPlatform::initialize(bool pan_coord)
     this->dsmeAdaptionLayer.initialize(scanChannels, CONFIG_IEEE802154_DSME_SCAN_DURATION,
                                        scheduling);
     this->initialized = true;
+
+}
+
+void DSMEPlatform::initialize(bool pan_coord)
+{
+    initialize(pan_coord, CONFIG_IEEE802154_DSME_SUPERFRAME_ORDER,
+                          CONFIG_IEEE802154_DSME_MULTISUPERFRAME_ORDER,
+                          CONFIG_IEEE802154_DSME_BEACON_ORDER);
 }
 
 #if IS_ACTIVE(CONFIG_IEEE802154_DSME_STATIC_GTS)
