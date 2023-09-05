@@ -120,11 +120,11 @@ int main(void)
         }
     }
 
-    netopt_enable_t link_en = NETOPT_ENABLE;
-    res = gnrc_netapi_set(netif->pid, NETOPT_LINK, 0, &link_en, sizeof(netopt_enable_t));
-    if (res != sizeof(netopt_enable_t)) {
-        printf("could not set LINK: %d\n", res);
-    }
+    //netopt_enable_t link_en = NETOPT_ENABLE;
+    //res = gnrc_netapi_set(netif->pid, NETOPT_LINK, 0, &link_en, sizeof(netopt_enable_t));
+    //if (res != sizeof(netopt_enable_t)) {
+    //    printf("could not set LINK: %d\n", res);
+    //}
 
     /* start shell */
     puts("All up, running the shell now");
