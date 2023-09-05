@@ -1,6 +1,6 @@
 PKG_NAME=opendsme
 PKG_URL=https://github.com/inetrg/openDSME.git
-PKG_VERSION=7cf47c77d26b0a2258e108c745e4d25cf7bf6fd2
+PKG_VERSION=29ac3ae00cd5064072577ad45e927fb8d1be064e
 PKG_LICENSE=GPL
 
 include $(RIOTBASE)/pkg/pkg.mk
