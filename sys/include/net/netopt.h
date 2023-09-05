@@ -860,6 +860,15 @@ typedef enum {
     NETOPT_GTS_TX,
 
     /**
+     * @brief (ieee802154_dsme_superframe_spec_t) Superrame structure params
+     *
+     * Configures the superframe structure. must be called before starting
+     * DSME.
+     *
+     */
+    NETOPT_DSME_SUPERFRAME_SPEC,
+
+    /**
      * @brief   maximum number of options defined here.
      *
      * @note    Interfaces are not meant to respond to this option
