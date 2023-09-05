@@ -401,6 +401,13 @@ public:
      */
     bool rxd_offload_pending;
 
+#if IS_ACTIVE(CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC)
+    /**
+     * @brief Superframe spec for runtime setting
+     */
+    ieee802154_dsme_superframe_spec_t sfspec;
+#endif
+
 protected:
     /**
      * @brief Copy constructor is not allowed.
