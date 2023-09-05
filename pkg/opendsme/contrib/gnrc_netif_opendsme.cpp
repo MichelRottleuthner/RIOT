@@ -28,6 +28,14 @@ dsme::DSMEPlatform m_dsme;
 
 extern "C" {
 static bool _pan_coord;
+#if IS_ACTIVE(CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC)
+    /**
+     * @brief Superframe spec for runtime setting
+     */
+static ieee802154_dsme_superframe_spec_t _sfspec;
+static bool _use_rt_fspec;
+#endif
+
 extern void heap_stats(void);
 static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
 {
@@ -142,7 +150,16 @@ static int _set(gnrc_netif_t *netif, const gnrc_netapi_opt_t *opt)
     }
     switch (opt->opt) {
     case NETOPT_LINK:
+#if IS_ACTIVE(CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC)
+        if (_use_rt_fspec) {
+            m_dsme.initialize(_pan_coord, _sfspec.sfo,
+                             _sfspec.msfo, _sfspec.bo);
+        } else {
+            m_dsme.initialize(_pan_coord);
+        }
+#else
         m_dsme.initialize(_pan_coord);
+#endif
         m_dsme.start();
         assert(*(netopt_enable_t *)opt->data == NETOPT_ENABLE);
         netif->flags |= GNRC_NETIF_FLAGS_HAS_L2ADDR;
@@ -173,6 +190,19 @@ static int _set(gnrc_netif_t *netif, const gnrc_netapi_opt_t *opt)
         uint16_t _addr = byteorder_ntohs(alloc->addr);
         m_dsme.allocateGTS(alloc->superframe_id, alloc->slot_id, alloc->channel_id, alloc->tx ? dsme::Direction::TX : dsme::Direction::RX, _addr);
         res = sizeof(ieee802154_dsme_alloc_t);
+        }
+        break;
+#endif
+#if IS_ACTIVE(CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC)
+    case NETOPT_DSME_SUPERFRAME_SPEC: {
+        ieee802154_dsme_superframe_spec_t *s = (ieee802154_dsme_superframe_spec_t*) opt->data;
+        if (!(s->sfo <= s->msfo && s->msfo <= s->bo) ||
+            (s->sfo < dsme::MIN_SO || s->msfo > dsme:: MAX_MO || s->bo > dsme::MAX_BO)) {
+            return -EINVAL;
+        }
+        memcpy(&_sfspec, s, sizeof(ieee802154_dsme_superframe_spec_t));
+        _use_rt_fspec = true;
+        res = sizeof(ieee802154_dsme_superframe_spec_t);
         }
         break;
 #endif
