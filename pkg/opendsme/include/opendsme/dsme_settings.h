@@ -141,17 +141,17 @@ constexpr uint16_t MAC_DEFAULT_NWK_ID = CONFIG_IEEE802154_DEFAULT_PANID;
 /**
  * @brief Minimum superframe order
  */
-constexpr uint8_t MIN_SO = CONFIG_IEEE802154_DSME_SUPERFRAME_ORDER;
+constexpr uint8_t MIN_SO = 3;
 
 /**
  * @brief Maximum beacon order
  */
-constexpr uint8_t MAX_BO = CONFIG_IEEE802154_DSME_BEACON_ORDER;
+constexpr uint8_t MAX_BO = 10;
 
 /**
  * @brief Maximum multi-superframe order
  */
-constexpr uint8_t MAX_MO = CONFIG_IEEE802154_DSME_MULTISUPERFRAME_ORDER;
+constexpr uint8_t MAX_MO = 10;
 
 /**
  * @brief Maximum number of slots per superframe
