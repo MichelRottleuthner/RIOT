@@ -262,6 +262,15 @@ typedef struct {
 } ieee802154_dsme_alloc_t;
 
 /**
+ * @brief DSME Superframe spec descriptor
+ */
+typedef struct {
+    uint8_t sfo;       /**< superframe order */
+    uint8_t msfo;      /**< multisuperframe order */
+    uint8_t bo;        /**< beacon order */
+} ieee802154_dsme_superframe_spec_t;
+
+/**
  * @brief   Creates an openDSME network interface
  *
  * @param[out] netif    The interface. May not be `NULL`.
