@@ -417,6 +417,19 @@ extern const uint8_t ieee802154_addr_bcast[IEEE802154_ADDR_BCAST_LEN];
 #endif
 
 /**
+ * @brief   Allow runtime setting of superframe structure
+ *
+ * When set, the MAC uses the runtime configured values for superframe order,
+ * Multisuperframeorder and Beaconorder. Those values may be updated via the
+ * corresponding netopot NETOPT_DSME_SUPERFRAME_SPEC.
+ *
+ * @note    For the moment, this is only valid for @ref pkg_opendsme
+ */
+#ifdef DOXYGEN
+#define CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC            0
+#endif
+
+/**
  * @brief   Set expiration time of DSME GTS slot
  *
  * Sets the expiration time of DSME GTS slot (in number of idle slots). If DSME
