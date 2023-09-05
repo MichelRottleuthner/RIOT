@@ -262,8 +262,8 @@ static int _confirm_on(ieee802154_dev_t *hal)
          return -EAGAIN;
      }
     at86rf2xx_reg_read(dev, AT86RF2XX_REG__IRQ_STATUS);
-    mutex_unlock(&dev->lock);
     dev->request_in_progress = 0;
+    mutex_unlock(&dev->lock);
     return 0;
 }
 
@@ -500,8 +500,9 @@ static int _confirm_op(ieee802154_dev_t *hal, ieee802154_hal_op_t op, void *ctx)
         assert(false);
         break;
     }
-    mutex_unlock(&dev->lock);
+
     dev->request_in_progress = 0;
+    mutex_unlock(&dev->lock);
     return res;
 }
 
