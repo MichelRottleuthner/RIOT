@@ -65,8 +65,42 @@ static int _opendsme_gts_cmd(int argc, char **argv)
 
     return 0;
 }
-
 SHELL_COMMAND(gts, "Allocate a static GTS with a neighbour device", _opendsme_gts_cmd);
-#else
+#endif
+
+#if IS_ACTIVE(CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC)
+static int _opendsme_sf_conf_cmd(int argc, char **argv)
+{
+    (void) argc;
+    ieee802154_dsme_superframe_spec_t sfspec;
+    if (argc < 5) {
+        printf("Usage: %s <iface> <sfo> <msfo> <bo>\n",argv[0]);
+        return 1;
+    }
+    memset(&sfspec, 0, sizeof(sfspec));
+    kernel_pid_t iface = scn_u32_dec(argv[1],1);
+
+    /* superframe order */
+    sfspec.sfo = scn_u32_dec(argv[2],2);
+
+    /* multisuperframe order */
+    sfspec.msfo = scn_u32_dec(argv[3],2);
+
+    /* beacon order */
+    sfspec.bo = scn_u32_dec(argv[4],2);
+
+    int res = gnrc_netapi_set(iface, NETOPT_DSME_SUPERFRAME_SPEC, 0, &sfspec, sizeof(sfspec));
+    if (res < 0) {
+        puts("invalid superframe parameters");
+        /* SF_MIN, MAX_MO, MAX_BO are compile configurations in dsme_settings.h */;
+        puts(" must be SF_MIN <= sfo <= msfo <= MAX_MO <= bo <= MAX_BO");
+    }
+    return res;
+}
+SHELL_COMMAND(sfconf, "Configure the DSME superframe structure", _opendsme_sf_conf_cmd);
+#endif
+
+#if IS_ACTIVE(CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC) || \
+    IS_ACTIVE(CONFIG_IEEE802154_DSME_STATIC_GTS)
 typedef int dont_be_pedantic;
 #endif
