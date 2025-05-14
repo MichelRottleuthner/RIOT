@@ -29,6 +29,7 @@
 #include "net/loramac.h"
 #include "net/gnrc/lorawan/region.h"
 #include "net/gnrc/netreg.h"
+#include "net/netdev/lora.h"
 
 #define ENABLE_DEBUG 0
 #include "debug.h"
@@ -181,7 +182,7 @@ static void _rx_done(gnrc_lorawan_t *mac)
     netdev_t *dev = gnrc_lorawan_get_netdev(mac);
     int bytes_expected = dev->driver->recv(dev, NULL, 0, 0);
     int nread;
-    struct netdev_radio_rx_info rx_info;
+    netdev_lora_rx_info_t rx_info;
     gnrc_pktsnip_t *pkt = gnrc_pktbuf_add(NULL, NULL, bytes_expected,
                                           GNRC_NETTYPE_UNDEF);
 
