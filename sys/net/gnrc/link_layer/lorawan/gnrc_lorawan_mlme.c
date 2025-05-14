@@ -359,6 +359,39 @@ static void _mlme_rekey_check_conf(gnrc_lorawan_t *mac, uint8_t *p)
     }
 }
 
+static int _fopts_build_dev_status_ans(gnrc_lorawan_t *mac, lorawan_buffer_t *buf)
+{
+    if (buf) {
+        assert(buf->index + GNRC_LORAWAN_FOPT_DEV_STATUS_ANS_SIZE <= buf->size);
+        /* this FOpt is a DevStatusAns command */
+        buf->data[buf->index++] = GNRC_LORAWAN_CID_DEV_STATUS;
+
+        /* indicate no battery measurement. Could be replaced with
+         * a callback to a battery monitor in the future. */
+        buf->data[buf->index++] = GNRC_LORAWAN_DEV_STATUS_ANS_BAT_NO_MEASURE;
+
+        /* [7:6] == RFU: reserved for future use, defaults to zero.
+         * [5:0] == margin: the signal-to-noise ratio in dB rounded to the
+         * nearest integer value for the last successfully received
+         * DevStatusReq. As 6 bit signed int (-32 to 31).*/
+        buf->data[buf->index++] = mac->mlme.last_dsr_snr & 0x3F;
+
+        /* clear the marker. DevStatusAns is not pending anymore. */
+        mac->mlme.pending_mlme_opts &= ~GNRC_LORAWAN_MLME_OPTS_DEV_STATUS_ANS;
+    }
+
+    return GNRC_LORAWAN_FOPT_DEV_STATUS_ANS_SIZE;
+}
+
+static void _mlme_dev_status_req(gnrc_lorawan_t *mac, uint8_t *p)
+{
+    (void)p; /* DevStatusReq has no payload. */
+
+    /* remember SNR and mark DevStatusAns as pending for the next uplink. */
+    mac->mlme.last_dsr_snr = mac->mlme.last_rx_snr;
+    mac->mlme.pending_mlme_opts |= GNRC_LORAWAN_MLME_OPTS_DEV_STATUS_ANS;
+}
+
 void gnrc_lorawan_process_fopts(gnrc_lorawan_t *mac, uint8_t *fopts,
                                 size_t size)
 {
@@ -375,6 +408,10 @@ void gnrc_lorawan_process_fopts(gnrc_lorawan_t *mac, uint8_t *fopts,
         case GNRC_LORAWAN_CID_LINK_CHECK_ANS:
             ret += GNRC_LORAWAN_FOPT_LINK_CHECK_ANS_SIZE;
             cb = _mlme_link_check_ans;
+            break;
+        case GNRC_LORAWAN_CID_DEV_STATUS:
+            ret += GNRC_LORAWAN_CID_SIZE;
+            cb = _mlme_dev_status_req;
             break;
         case GNCR_LORAWAN_CID_REKEY_CONF:
             ret += GNRC_LORAWAN_FOPT_REKEY_CONF_SIZE;
@@ -398,6 +435,10 @@ uint8_t gnrc_lorawan_build_options(gnrc_lorawan_t *mac, lorawan_buffer_t *buf)
 
     if (mac->mlme.pending_mlme_opts & GNRC_LORAWAN_MLME_OPTS_LINK_CHECK_REQ) {
         size += _fopts_mlme_link_check_req(buf);
+    }
+
+    if (mac->mlme.pending_mlme_opts & GNRC_LORAWAN_MLME_OPTS_DEV_STATUS_ANS) {
+        size += _fopts_build_dev_status_ans(mac, buf);
     }
 
     if (mac->mlme.pending_mlme_opts & GNRC_LORAWAN_MLME_OPTS_REKEY_IND_REQ) {

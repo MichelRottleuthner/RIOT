@@ -71,15 +71,21 @@ extern "C" {
 
 #define GNRC_LORAWAN_MLME_OPTS_LINK_CHECK_REQ  (1 << 0) /**< Internal Link Check request flag */
 #define GNRC_LORAWAN_MLME_OPTS_REKEY_IND_REQ   (1 << 1) /**< Internal Rekey Indication flag */
+#define GNRC_LORAWAN_MLME_OPTS_DEV_STATUS_ANS  (1 << 2) /**< Internal flag to mark DevStatusAns as pending */
 
 #define GNRC_LORAWAN_CID_SIZE (1U)                      /**< size of Command ID in FOps */
 #define GNRC_LORAWAN_CID_LINK_CHECK_ANS (0x02)          /**< Link Check CID */
+#define GNRC_LORAWAN_CID_DEV_STATUS     (0x06)          /**< DevStatusReq / DevStatusAns CID */
+
+#define GNRC_LORAWAN_DEV_STATUS_ANS_BAT_EXT_POWER  (0x0)  /**< DevStatusAns battery status externally powered */
+#define GNRC_LORAWAN_DEV_STATUS_ANS_BAT_NO_MEASURE (0xFF) /**< DevStatusAns battery status not able to measure */
 
 #define GNCR_LORAWAN_REKEY_IND_SIZE (1U)                /**< RekeyInd MAC command size */
 #define GNCR_LORAWAN_CID_REKEY_CONF (0x0B)              /**< Reykey Confirmation CID */
 
 #define GNRC_LORAWAN_FOPT_LINK_CHECK_ANS_SIZE (3U)      /**< size of Link check answer */
 #define GNRC_LORAWAN_FOPT_REKEY_CONF_SIZE (2U)          /**< size of Rekey confirmation */
+#define GNRC_LORAWAN_FOPT_DEV_STATUS_ANS_SIZE (3U)      /**< size of DevStatusAns (including CID) */
 
 #define GNRC_LORAWAN_JOIN_DELAY_U32_MASK (0x1FFFFF)     /**< mask for detecting overflow in frame counter */
 
