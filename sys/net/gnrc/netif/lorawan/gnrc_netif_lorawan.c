@@ -200,6 +200,7 @@ static void _rx_done(gnrc_lorawan_t *mac)
         return;
     }
 
+    mac->mlme.last_rx_snr = rx_info.snr;
     gnrc_lorawan_radio_rx_done_cb(mac, pkt->data, pkt->size);
     gnrc_pktbuf_release(pkt);
 }

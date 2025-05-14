@@ -199,6 +199,8 @@ typedef struct {
     int32_t backoff_budget; /**< remaining Time On Air budget */
     uint8_t dev_nonce[2];   /**< Device Nonce */
     uint8_t backoff_state;  /**< state in the backoff state machine */
+    int8_t last_rx_snr;     /**< SNR of the last reception */
+    int8_t last_dsr_snr;    /**< SNR of last DevStatusReq reception */
 } gnrc_lorawan_mlme_t;
 
 /**
