@@ -131,6 +131,7 @@ FEATURES_EXISTING := \
     esp_wifi_ap \
     esp_wifi_enterprise \
     feather_shield \
+    gclk \
     gecko_sdk_librail_fpu \
     gecko_sdk_librail_nonfpu \
     highlevel_stdio \
@@ -149,6 +150,7 @@ FEATURES_EXISTING := \
     periph_cipher_aes_128_cbc \
     periph_cipher_chacha20 \
     periph_clic \
+    periph_core_voltage \
     periph_coretimer \
     periph_cpuid \
     periph_cryptocell_310 \
@@ -159,6 +161,7 @@ FEATURES_EXISTING := \
     periph_ecc_p256r1 \
     periph_eeprom \
     periph_eth \
+    periph_flash_opt \
     periph_flashpage \
     periph_flashpage_aux \
     periph_flashpage_in_address_space \
