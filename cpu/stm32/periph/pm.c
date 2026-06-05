@@ -1,10 +1,13 @@
 /*
- * SPDX-FileCopyrightText: 2016 Kaspar Schleiser <kaspar@schleiser.de>
- * SPDX-FileCopyrightText: 2015 Freie Universität Berlin
- * SPDX-FileCopyrightText: 2015 Engineering-Spirit
- * SPDX-FileCopyrightText: 2017-2019 OTA keys S.A.
- * SPDX-FileCopyrightText: 2019 Inria
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2016 Kaspar Schleiser <kaspar@schleiser.de>
+ *               2015 Freie Universität Berlin
+ *               2015 Engineering-Spirit
+ *               2017-2019 OTA keys S.A.
+ *               2019 Inria
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
  */
 
 /**
@@ -28,6 +31,11 @@
 #include "periph/pm.h"
 #include "periph/cpu_pm.h"
 #include "stmclk.h"
+#include "periph/gpio.h"
+#if IS_USED(MODULE_GCLK)
+#include "gclk.h"
+#include "gclk_manager.h"
+#endif
 
 #define ENABLE_DEBUG 0
 #include "debug.h"
@@ -46,9 +54,9 @@
 #define PM_STOP_CONFIG  (PWR_CR_LPSDSR | PWR_CR_ULP | PWR_CR_CWUF)
 #elif defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32G4) || \
       defined(CPU_FAM_STM32L5)
-#define PM_STOP_CONFIG  (PWR_CR1_LPMS_STOP1)
+#define PM_STOP_CONFIG  (PWR_CR1_LPMS_STOP2)
 #elif defined(CPU_FAM_STM32WB) || defined(CPU_FAM_STM32G0) || \
-      defined(CPU_FAM_STM32WL) || defined(CPU_FAM_STM32C0)
+      defined(CPU_FAM_STM32WL)
 #define PM_STOP_CONFIG  (PWR_CR1_LPMS_0)
 #elif defined(CPU_FAM_STM32F7)
 #define PM_STOP_CONFIG  (PWR_CR1_LPDS | PWR_CR1_FPDS | PWR_CR1_LPUDS)
@@ -56,9 +64,6 @@
 #define PM_STOP_CONFIG  (0)
 #elif defined(CPU_FAM_STM32U5)
 #define PM_STOP_CONFIG  (0)
-#elif defined(CPU_FAM_STM32H7)
-/* Low power deep sleep with SVOS5 Scale 5 and flash in low power mode if in DSTOP */
-#define PM_STOP_CONFIG  (PWR_CR1_LPDS | PWR_CR1_FLPS | PWR_CR1_SVOS_0)
 #else
 #define PM_STOP_CONFIG  (PWR_CR_LPDS | PWR_CR_FPDS)
 #endif
@@ -76,7 +81,7 @@
       defined(CPU_FAM_STM32L5)
 #define PM_STANDBY_CONFIG   (PWR_CR1_LPMS_STANDBY)
 #elif defined(CPU_FAM_STM32WB) || defined(CPU_FAM_STM32G0) || \
-      defined(CPU_FAM_STM32WL) || defined(CPU_FAM_STM32C0)
+      defined(CPU_FAM_STM32WL)
 #define PM_STANDBY_CONFIG   (PWR_CR1_LPMS_0 | PWR_CR1_LPMS_1)
 #elif defined(CPU_FAM_STM32F7)
 #define PM_STANDBY_CONFIG   (PWR_CR1_PDDS | PWR_CR1_CSBF)
@@ -84,9 +89,6 @@
 #define PM_STANDBY_CONFIG   (0)
 #elif defined(CPU_FAM_STM32U5)
 #define PM_STANDBY_CONFIG   (0)
-#elif defined(CPU_FAM_STM32H7)
-    /* Set D1 and D2 domains to enter DStandby */
-#  define PM_STANDBY_CONFIG   (PWR_CPUCR_PDDS_D1 | PWR_CPUCR_PDDS_D2 | PWR_CPUCR_PDDS_D3)
 #else
 #define PM_STANDBY_CONFIG   (PWR_CR_PDDS | PWR_CR_CWUF | PWR_CR_CSBF)
 #endif
@@ -95,7 +97,7 @@
 #if defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB) || \
     defined(CPU_FAM_STM32G4) || defined(CPU_FAM_STM32G0) || \
     defined(CPU_FAM_STM32L5) || defined(CPU_FAM_STM32U5) || \
-    defined(CPU_FAM_STM32WL) || defined(CPU_FAM_STM32C0)
+    defined(CPU_FAM_STM32WL)
 #define PWR_CR_REG     PWR->CR1
 #define PWR_WUP_REG    PWR->CR3
 /* Allow overridable SRAM2 retention mode using CFLAGS */
@@ -109,14 +111,15 @@
 #elif defined(CPU_FAM_STM32MP1)
 #define PWR_CR_REG     PWR->CR1
 #define PWR_WUP_REG    PWR->MCUWKUPENR
-#elif defined(CPU_FAM_STM32H7)
-#  define PWR_CR_REG     PWR->CR1
-#  define PWR_WUP_REG    PWR->WKUPEPR
-#  define PWR_CPUCR_REG  PWR->CPUCR
 #else
 #define PWR_CR_REG     PWR->CR
 #define PWR_WUP_REG    PWR->CSR
 #endif
+
+bool __use_default_clk_init = false;
+
+#include "gclk/generic_scaler.h"
+extern const gclk_clk_scaler_ll_t gclk_stm32_pll_r_scaler;
 
 void pm_set(unsigned mode)
 {
@@ -125,35 +128,8 @@ void pm_set(unsigned mode)
     switch (mode) {
 #if !defined(CPU_FAM_STM32MP1)
         case STM32_PM_STANDBY:
-#if defined(CPU_FAM_STM32H7)
-           /* 1. D3 follows CPU subsystem modes */
-            PWR_CPUCR_REG &= ~PWR_CPUCR_RUN_D3;
-
-            /* 2. Select Standby for all domains */
-            PWR_CPUCR_REG |= PM_STANDBY_CONFIG;
-
-            /*3. Clear CSSF flag */
-            PWR_CPUCR_REG |= PWR_CPUCR_CSSF;
-
-            /* 3. Disable WKUP4 first */
-            PWR_WUP_REG &= ~PWR_WKUPEPR_WKUPEN4;
-
-            /* 4. Clear wakeup flag */
-            PWR->WKUPCR = PWR_WKUPCR_WKUPC4;
-
-            /* 5. Configure pull-down */
-            PWR_WUP_REG =
-                (PWR_WUP_REG & ~PWR_WKUPEPR_WKUPPUPD4_Msk) |
-                (0x2UL << PWR_WKUPEPR_WKUPPUPD4_Pos);
-
-            /* 6. Rising edge / high-level */
-            PWR_WUP_REG &= ~PWR_WKUPEPR_WKUPP4;
-
-#else
-        PWR_CR_REG &= ~(PM_STOP_CONFIG | PM_STANDBY_CONFIG);
-        PWR_CR_REG |= PM_STANDBY_CONFIG;
-#endif
-
+            PWR_CR_REG &= ~(PM_STOP_CONFIG | PM_STANDBY_CONFIG);
+            PWR_CR_REG |= PM_STANDBY_CONFIG;
 #if defined(CPU_FAM_STM32L4) || defined(CPU_FAM_STM32WB) || \
     defined(CPU_FAM_STM32G4) || defined(CPU_FAM_STM32L5) || \
     defined(CPU_FAM_STM32WL)
@@ -168,7 +144,7 @@ void pm_set(unsigned mode)
             /* Clear flags */
             PWR->SCR |= PWR_SCR_CSBF;
 #endif
-            /* Enable WKUP pins to use for wakeup from standby mode */
+            /* Enable WKUP pin to use for wakeup from standby mode */
             PWR_WUP_REG |= PM_EWUP_CONFIG;
             /* Set SLEEPDEEP bit of system control block */
             deep = 1;
@@ -176,21 +152,7 @@ void pm_set(unsigned mode)
             break;
 #endif
         case STM32_PM_STOP:
-#if defined(CPU_FAM_STM32H7)
-            /* 1. D3 follows CPU subsystem modes */
-            PWR_CPUCR_REG &= ~PWR_CPUCR_RUN_D3;
-
-            /* 2. D1, D2 and D3 Stop mode */
-            PWR_CPUCR_REG &= ~(PM_STANDBY_CONFIG);
-
-            /*3. Clear CSSF flag */
-            PWR_CPUCR_REG |= PWR_CPUCR_CSSF;
-
-            /* Reset CR register */
-            PWR_CR_REG &= ~(PM_STOP_CONFIG | PWR_CR1_SVOS_Msk);
-#else
             PWR_CR_REG &= ~(PM_STOP_CONFIG | PM_STANDBY_CONFIG);
-#endif
             PWR_CR_REG |= PM_STOP_CONFIG;
             /* Set SLEEPDEEP bit of system control block */
             deep = 1;
@@ -200,14 +162,75 @@ void pm_set(unsigned mode)
             break;
     }
 
+#if IS_USED(MODULE_GCLK)
+    const gclk_t *core_clk = gclk_manager_get_core_clock_handle();
+    const gclk_t *pre_sleep_core_src;
+   
+    if (deep) {
+        pre_sleep_core_src = gclk_get_current_parent(core_clk);
+        gclk_manager_pre_pm_sleep_hook();
+    }
+#endif
+
     cortexm_sleep(deep);
 
+
+    /* Re-init clock after STOP */
+#if IS_USED(MODULE_GCLK)
     if (deep) {
-        /* Re-init clock after STOP */
-#if !defined(CPU_FAM_STM32MP1) || IS_USED(MODULE_STM32MP1_ENG_MODE)
-        stmclk_init_sysclk();
+#if defined(DBG_GPIO_WFI)
+        //gpio_clear(DBG_GPIO_WFI);
 #endif
+        /* workaround condition to check if sleep was actually entered.
+         * WFI wont actually enter sleep if an interrupt is pending when
+         * executing it. In that case, we do not need to restore the clock
+         * configuration.
+         * TODO: for standby there is a seperte flag to check if sleep was
+         * entered sucessfully.
+         * NOTE: a more generic way could be to backup the "whole" state
+         *       (with platform specfic optimizations based on which
+         *        state is volatile under given conditions).
+         * NOTE: potentially this API could look like
+         *       clock_conf_state_t _pre_state = gclk_manager_backup_state();
+         *       (... some sleep code ...)
+         *       if (gclk_manager_state_changed(_pre_state)) {
+         *          gclk_manager_restore(_pre_state);
+         *       }
+         *
+         *       The state may be encoded as config ID, or just individual clock
+         *       states, depending on what is reasonable for the particular platform.
+         *       A platform may also use out-of-band knowledge to determine if
+         *       a HW-induced config change happened (status flags that indicate if
+         *       sleep was entered etc.).  */
+        if (__use_default_clk_init) {
+          stmclk_init_sysclk();
+        } else {
+          /* TODO: consider replacing this check with something more efficient to determine if
+           *       post hook must be called (quick evaluation showed this can take up to
+           *       ~36 µs @ 24MHz  PLL config) */
+          const gclk_t *current_core_clk_src = gclk_get_current_parent(core_clk);
+          bool conf_changed = true;
+          /* if the system is still using the PLL, despite trying to enter LPM
+           * the deep sleep was actually not reached, and the config was not changed at all.
+           * In this case the re-initialization can be simplified. */
+          if ((pre_sleep_core_src == &gclk_stm32_pll_r_scaler.base) &&
+              (current_core_clk_src == pre_sleep_core_src)) {
+                conf_changed = false;
+          }
+          //if (current_core_clk_src !=  pre_sleep_core_src) {
+          gclk_manager_post_pm_sleep_hook(conf_changed);
+          //}
+        }
+#if defined(DBG_GPIO_WFI)
+        //gpio_set(DBG_GPIO_WFI);
     }
+#endif
+#else
+#if !defined(CPU_FAM_STM32MP1) || IS_USED(MODULE_STM32MP1_ENG_MODE)
+    stmclk_init_sysclk()
+#endif
+#endif
+
 }
 
 /**
@@ -247,7 +270,7 @@ void pm_backup_regulator_on(void)
         stmclk_dbp_unlock();
     }
     PWR_BACKUP_REGULATOR_REG |= BKPREG_CONFIG;
-    while (!(PWR_BACKUP_REGULATOR_REG & BKPREG_READY)){}
+    while (!(PWR_BACKUP_REGULATOR_REG & BKPREG_READY));
     if (locked) {
         stmclk_dbp_lock();
     }
