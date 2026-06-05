@@ -23,6 +23,10 @@ FEATURES_PROVIDED += periph_timer_query_freqs
 FEATURES_PROVIDED += periph_uart_modecfg
 FEATURES_PROVIDED += periph_uart_nonblocking
 
+ifneq (,$(filter $(CPU_FAM),l0 l4))
+  FEATURES_PROVIDED += periph_core_voltage
+endif
+
 ifneq (f1,$(CPU_FAM))
   FEATURES_PROVIDED += periph_gpio_ll_open_drain_pull_up
   FEATURES_PROVIDED += periph_gpio_ll_switch_dir

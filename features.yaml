@@ -513,6 +513,8 @@ groups:
           only provided by some STM32 MCUs.)
   - name: periph_pio
     help: A Programmable IO (PIO) is present. (Currently only RP2040)
+  - name: periph_core_voltage
+    help: The CPU core voltage of the internal regulator can be controlled dynamically.
 
   groups:
   - title: General-Purpose Input/Output (GPIO)
