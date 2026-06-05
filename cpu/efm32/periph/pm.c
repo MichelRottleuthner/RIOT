@@ -22,6 +22,10 @@
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
+/* TODO: this switch should be implemented here (either restore or use gclk module hook)
+ *       Currently this has no effect */
+bool __use_default_clk_init = false;
+
 void pm_set(unsigned mode)
 {
     switch (mode) {
