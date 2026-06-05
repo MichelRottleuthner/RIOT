@@ -6,8 +6,6 @@
  * directory for more details.
  */
 
-#pragma once
-
 /**
  * @defgroup    net_ieee802154_header IEEE 802.15.4 frame headers and definitions
  * @ingroup     net_ieee802154
@@ -20,13 +18,15 @@
  * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
  */
 
+#ifndef NET_IEEE802154_H
+#define NET_IEEE802154_H
+
 #include <stdint.h>
 #include <stdlib.h>
 
 #include "byteorder.h"
-#include "modules.h"
 #include "net/eui64.h"
-#include "time_units.h"
+#include "modules.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -120,18 +120,6 @@ extern "C" {
 #define IEEE802154_ACK_TIMEOUT_SYMS     (54)
 
 /**
- * @brief Symbol time for IEEE 802.15.4 MR-OFDM in µs
- */
-#define IEEE802154_MR_OFDM_SYMBOL_TIME_US   (120)
-
-/**
- * @brief Symbol time for IEEE 802.15.4 MR-FSK in µs
- *
- * symbol time is always 20 µs for MR-FSK (table 0, pg. 7)
- */
-#define IEEE802154_MR_FSK_SYMBOL_TIME_US    (20)
-
-/**
  * @brief value of measured power when RSSI is zero.
  *
  * This value is defined in the IEEE 802.15.4 standard
@@ -170,17 +158,6 @@ extern "C" {
 #define IEEE802154_ATURNAROUNDTIME_IN_SYMBOLS   (12)
 
 /**
- * O-QPSK Symbol time for 2.4 GHz:
- *
- * IEEE Std 802.15.4-2006
- * 6.5.2.3: Each data symbol shall be mapped into a 32-chip PN sequence
- * 6.5.2.4: Chip rate is nominally 2.0 Mchip/s on the 2.4 GHz O-QPSK band
- *
- * -> 32 Chip/symbol / 2MChip/s = 16 µs/symbol
- */
-#define IEEE802154_SYMBOL_TIME_US               (16)
-
-/**
  * IEEE Std 802.15.4-2020
  * Table 11-1—PHY constants: For all other PHYs¹, the duration of
  * 8 symbol periods.
@@ -199,67 +176,17 @@ typedef enum {
     IEEE802154_PHY_OQPSK,           /**< Offset Quadrature Phase-Shift Keying */
     IEEE802154_PHY_MR_OQPSK,        /**< Multi-Rate Offset Quadrature Phase-Shift Keying */
     IEEE802154_PHY_MR_OFDM,         /**< Multi-Rate Orthogonal Frequency-Division Multiplexing */
-    IEEE802154_PHY_MR_FSK,          /**< Multi-Rate Frequency Shift Keying */
-
-    IEEE802154_PHY_NO_OP,           /**< don't change PHY configuration */
+    IEEE802154_PHY_MR_FSK           /**< Multi-Rate Frequency Shift Keying */
 } ieee802154_phy_mode_t;
 
 /**
  * @brief   802.15.4 forward error correction schemes
  */
-typedef enum {
+enum {
     IEEE802154_FEC_NONE,            /**< no forward error correction */
     IEEE802154_FEC_NRNSC,           /**< non-recursive and non-systematic code */
     IEEE802154_FEC_RSC              /**< recursive and systematic code */
-} ieee802154_mr_fsk_fec_t;
-
-/**
- * @brief   802.15.4 MR-FSK symbol rates
- */
-typedef enum {
-    IEEE802154_MR_FSK_SRATE_50K,    /**< 50k Symbols/s  */
-    IEEE802154_MR_FSK_SRATE_100K,   /**< 100k Symbols/s */
-    IEEE802154_MR_FSK_SRATE_150K,   /**< 150k Symbols/s */
-    IEEE802154_MR_FSK_SRATE_200K,   /**< 200k Symbols/s */
-    IEEE802154_MR_FSK_SRATE_300K,   /**< 300k Symbols/s */
-    IEEE802154_MR_FSK_SRATE_400K,   /**< 400k Symbols/s */
-} ieee802154_mr_fsk_srate_t;
-
-/**
- * @brief   802.15.4 MR-OQPSK chip rates
- */
-typedef enum {
-    IEEE802154_MR_OQPSK_CHIPS_100,  /**< 100 kChip/s  */
-    IEEE802154_MR_OQPSK_CHIPS_200,  /**< 200 kChip/s  */
-    IEEE802154_MR_OQPSK_CHIPS_1000, /**< 1000 kChip/s */
-    IEEE802154_MR_OQPSK_CHIPS_2000, /**< 2000 kChip/s */
-} ieee802154_mr_oqpsk_chips_t;
-
-/**
- * @brief Get the minimum preamble length for a given symbol rate
- *
- * From IEEE 802.15.4g Table 6-64
- *
- * @param[in] srate     symbol rate
- * @return    preamble length in bytes
- */
-static inline uint8_t ieee802154_mr_fsk_plen(ieee802154_mr_fsk_srate_t srate)
-{
-    switch (srate) {
-    case IEEE802154_MR_FSK_SRATE_50K:
-        return 2;
-    case IEEE802154_MR_FSK_SRATE_100K:
-        return 3;
-    case IEEE802154_MR_FSK_SRATE_150K:
-    case IEEE802154_MR_FSK_SRATE_200K:
-    case IEEE802154_MR_FSK_SRATE_300K:
-        return 8;
-    case IEEE802154_MR_FSK_SRATE_400K:
-        return 10;
-    }
-
-    return 0;
-}
+};
 
 /**
  * @brief   Special address definitions
@@ -327,62 +254,6 @@ extern const uint8_t ieee802154_addr_bcast[IEEE802154_ADDR_BCAST_LEN];
  */
 #ifndef CONFIG_IEEE802154_DEFAULT_SUBGHZ_PAGE
 #define CONFIG_IEEE802154_DEFAULT_SUBGHZ_PAGE      (2U)
-#endif
-
-/**
- * @brief IEEE802.15.4 MR-OQPSK default chip rate
- */
-#ifndef CONFIG_IEEE802154_MR_OQPSK_DEFAULT_CHIPS
-#define CONFIG_IEEE802154_MR_OQPSK_DEFAULT_CHIPS    IEEE802154_MR_OQPSK_CHIPS_1000
-#endif
-
-/**
- * @brief IEEE802.15.4 MR-OQPSK default rate mode
- */
-#ifndef CONFIG_IEEE802154_MR_OQPSK_DEFAULT_RATE
-#define CONFIG_IEEE802154_MR_OQPSK_DEFAULT_RATE     (2U)
-#endif
-
-/**
- * @brief IEEE802.15.4 MR-OFDM default modulation option
- */
-#ifndef CONFIG_IEEE802154_MR_OFDM_DEFAULT_OPTION
-#define CONFIG_IEEE802154_MR_OFDM_DEFAULT_OPTION    (2U)
-#endif
-
-/**
- * @brief IEEE802.15.4 MR-OFDM default Modulation & Coding Scheme
- */
-#ifndef CONFIG_IEEE802154_MR_OFDM_DEFAULT_SCHEME
-#define CONFIG_IEEE802154_MR_OFDM_DEFAULT_SCHEME    (2U)
-#endif
-
-/**
- * @brief IEEE802.15.4 MR-FSK default symbol rate
- */
-#ifndef CONFIG_IEEE802154_MR_FSK_DEFAULT_SRATE
-#define CONFIG_IEEE802154_MR_FSK_DEFAULT_SRATE      IEEE802154_MR_FSK_SRATE_200K
-#endif
-
-/**
- * @brief IEEE802.15.4 MR-FSK default modulation index, fraction of 64
- */
-#ifndef CONFIG_IEEE802154_MR_FSK_DEFAULT_MOD_IDX
-#define CONFIG_IEEE802154_MR_FSK_DEFAULT_MOD_IDX    (64U)
-#endif
-
-/**
- * @brief IEEE802.15.4 MR-FSK default modulation order
- */
-#ifndef CONFIG_IEEE802154_MR_FSK_DEFAULT_MOD_ORD
-#define CONFIG_IEEE802154_MR_FSK_DEFAULT_MOD_ORD    (2U)
-#endif
-
-/**
- * @brief IEEE802.15.4 MR-FSK default error correction mode
- */
-#ifndef CONFIG_IEEE802154_MR_FSK_DEFAULT_FEC
-#define CONFIG_IEEE802154_MR_FSK_DEFAULT_FEC        IEEE802154_FEC_NONE
 #endif
 
 /**
@@ -462,7 +333,7 @@ extern const uint8_t ieee802154_addr_bcast[IEEE802154_ADDR_BCAST_LEN];
  * @note    For the moment, this is only valid for @ref pkg_opendsme
  */
 #ifndef CONFIG_IEEE802154_DSME_CAP_REDUCTION
-#define CONFIG_IEEE802154_DSME_CAP_REDUCTION             0
+#define CONFIG_IEEE802154_DSME_CAP_REDUCTION             1
 #endif
 
 /**
@@ -543,6 +414,19 @@ extern const uint8_t ieee802154_addr_bcast[IEEE802154_ADDR_BCAST_LEN];
  */
 #ifdef DOXYGEN
 #define CONFIG_IEEE802154_DSME_STATIC_GTS            0
+#endif
+
+/**
+ * @brief   Allow runtime setting of superframe structure
+ *
+ * When set, the MAC uses the runtime configured values for superframe order,
+ * Multisuperframeorder and Beaconorder. Those values may be updated via the
+ * corresponding netopot NETOPT_DSME_SUPERFRAME_SPEC.
+ *
+ * @note    For the moment, this is only valid for @ref pkg_opendsme
+ */
+#ifdef DOXYGEN
+#define CONFIG_IEEE802154_DSME_RUNTIME_SF_SPEC            0
 #endif
 
 /**
@@ -627,36 +511,6 @@ size_t ieee802154_set_frame_hdr(uint8_t *buf, const uint8_t *src, size_t src_len
 size_t ieee802154_get_frame_hdr_len(const uint8_t *mhr);
 
 /**
- * @brief   Get length of source address.
- *
- * @param[in] mhr   MAC header.
- *
- * @return  Length of source address
- *          or 0 if malformed or there is no source address.
- */
-uint8_t ieee802154_get_src_len(const uint8_t *mhr);
-
-/**
- * @brief   Get pointer to source address in MAC header.
- *
- * @param[in] mhr   MAC header.
- *
- * @return  Pointer to source address in MAC header
- *          or NULL if malformed or there is no source address.
- */
-const uint8_t *ieee802154_get_src_ptr(const uint8_t *mhr);
-
-/**
- * @brief   Get pointer to source PAN in MAC header.
- *
- * @param[in] mhr   MAC header.
- *
- * @return  Pointer to source PAN in MAC header
- *          or NULL if malformed or there is no source PAN.
- */
-const uint8_t *ieee802154_get_src_pan_ptr(const uint8_t *mhr);
-
-/**
  * @brief   Gets source address from MAC header.
  *
  * @pre (@p src != NULL) && (@p src_pan != NULL)
@@ -669,35 +523,6 @@ const uint8_t *ieee802154_get_src_pan_ptr(const uint8_t *mhr);
  * @return  -EINVAL, if @p mhr contains unexpected flags.
  */
 int ieee802154_get_src(const uint8_t *mhr, uint8_t *src, le_uint16_t *src_pan);
-
-/**
- * @brief   Get length of destination address.
- *
- * @param[in]   mhr   MAC header.
- * @return      Length of destination address
- *              or 0 if malformed or there is no destination address.
- */
-uint8_t ieee802154_get_dst_len(const uint8_t *mhr);
-
-/**
- * @brief   Get pointer to destination address in MAC header.
- *
- * @param[in] mhr   MAC header.
- *
- * @return  Pointer to destination address in MAC header
- *          or NULL if malformed or there is no destination address.
- */
-const uint8_t *ieee802154_get_dst_ptr(const uint8_t *mhr);
-
-/**
- * @brief   Get pointer to destination PAN in MAC header.
- *
- * @param[in] mhr   MAC header.
- *
- * @return  Pointer to destination PAN in MAC header
- *          or NULL if malformed or there is no destination PAN.
- */
-const uint8_t *ieee802154_get_dst_pan_ptr(const uint8_t *mhr);
 
 /**
  * @brief   Gets destination address from MAC header.
@@ -852,4 +677,5 @@ static inline uint8_t ieee802154_dbm_to_rssi(int16_t dbm)
 }
 #endif
 
+#endif /* NET_IEEE802154_H */
 /** @} */

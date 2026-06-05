@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2016-2019 Freie Universität Berlin
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2016-2019 Freie Universität Berlin
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
  */
-
-#pragma once
 
 /**
  * @defgroup    drivers_netdev_ieee802154 802.15.4 radio drivers
@@ -16,6 +17,8 @@
  *
  * @author  Martine Lenders <mlenders@inf.fu-berlin.de>
  */
+#ifndef NET_NETDEV_IEEE802154_H
+#define NET_NETDEV_IEEE802154_H
 
 #include "net/eui_provider.h"
 #include "net/ieee802154.h"
@@ -25,6 +28,7 @@
 #include "net/gnrc/nettype.h"
 #include "net/netopt.h"
 #include "net/netdev.h"
+#include "event.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -96,6 +100,8 @@ typedef enum {
  */
 typedef struct {
     netdev_t netdev;                        /**< @ref netdev_t base class */
+    void *mac;                              /**< TODO: temporary hack to get access to the mac instance
+                                                       from within the driver */
     /**
      * @brief IEEE 802.15.4 specific fields
      * @{
@@ -243,6 +249,24 @@ int netdev_ieee802154_set(netdev_ieee802154_t *dev, netopt_t opt, const void *va
                           size_t value_len);
 
 /**
+ * @brief  This function compares destination address and pan id with addresses
+ * and pan id of the device
+ *
+ * this function is meant top be used by drivers that do not support address
+ * filtering in hw
+ *
+ * @deprecated  This function is currently deprecated and will be removed
+ * after Release 2022.01. Use @ref ieee802154_dst_filter instead.
+ *
+ * @param[in] dev       network device descriptor
+ * @param[in] mhr       mac header
+ *
+ * @return 0            successful if packet is for the device
+ * @return 1            fails if packet is not for the device or pan
+ */
+int netdev_ieee802154_dst_filter(netdev_ieee802154_t *dev, const uint8_t *mhr);
+
+/**
  * @brief   Configure the hardware address of a IEEE 802.15.4 devices
  *
  * This will obtain a long and short address based on the netdev ID.
@@ -265,4 +289,5 @@ static inline void netdev_ieee802154_setup(netdev_ieee802154_t *dev)
 }
 #endif
 
+#endif /* NET_NETDEV_IEEE802154_H */
 /** @} */
