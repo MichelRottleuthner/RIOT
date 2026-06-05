@@ -25,6 +25,7 @@ FEATURES_PROVIDED += periph_uart_nonblocking
 
 ifneq (,$(filter $(CPU_FAM),l0 l4))
   FEATURES_PROVIDED += periph_core_voltage
+  FEATURES_PROVIDED += periph_flash_opt
 endif
 
 ifneq (f1,$(CPU_FAM))

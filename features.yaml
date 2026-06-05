@@ -728,6 +728,8 @@ groups:
     - name: periph_flashpage_aux
       help: It is possible to partition off a part of the internal flash for an
             auxiliary slot.
+    - name: periph_flash_opt
+      help: Flash option control is availbale (only get/set wait states as of now).
 
   - title: Other Peripheral Storage Features
     features:
