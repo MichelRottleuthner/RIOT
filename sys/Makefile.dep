@@ -730,4 +730,8 @@ ifneq (,$(filter wifi_scan_list,$(USEMODULE)))
   USEMODULE += l2scan_list
 endif
 
+ifneq (,$(filter gclk,$(USEMODULE)))
+  FEATURES_REQUIRED += gclk
+endif
+
 include $(RIOTBASE)/sys/test_utils/Makefile.dep
