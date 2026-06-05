@@ -79,6 +79,7 @@ static void _ztimer_periph_timer_callback(void *arg, int channel)
     (void)channel;
     ztimer_handler((ztimer_clock_t *)arg);
 }
+timer_cb_t __ztimer_perph_timer_cb = _ztimer_periph_timer_callback;
 
 #if MODULE_ZTIMER_ONDEMAND_TIMER
 static void _ztimer_periph_timer_start(ztimer_clock_t *clock)
