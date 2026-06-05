@@ -406,6 +406,7 @@ PSEUDOMODULES += shell_cmd_coreclk
 PSEUDOMODULES += shell_cmd_cryptoauthlib
 PSEUDOMODULES += shell_cmd_dfplayer
 PSEUDOMODULES += shell_cmd_fib
+PSEUDOMODULES += shell_cmd_gclk
 PSEUDOMODULES += shell_cmd_genfile
 PSEUDOMODULES += shell_cmd_gnrc_icmpv6_echo
 PSEUDOMODULES += shell_cmd_gnrc_ipv6_blacklist
