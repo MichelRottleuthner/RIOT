@@ -1,6 +1,9 @@
 /*
- * SPDX-FileCopyrightText: 2014-2016 Freie Universität Berlin
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2014-2016 Freie Universität Berlin
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
  */
 
 /**
@@ -57,6 +60,8 @@ void spi_init_pins(spi_t bus)
 #define GET_PORT(x) (x >> 4)
 #define USART_NUM(ref) ((ref == USART0) ? 0 : -1)
 
+int actual_spi_speeds[SPI_NUMOF];
+
 void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
 {
     (void)cs;
@@ -77,6 +82,39 @@ void spi_acquire(spi_t bus, spi_cs_t cs, spi_mode_t mode, spi_clk_t clk)
     init.msbf = true;
 
     USART_InitSync(spi_config[bus].dev, &init);
+
+    /* get the actually set up frequency */
+    /* HFPERCLK/HFPERBCLK used to clock all USART/UART peripheral modules. */
+    uint32_t refFreq;
+#if defined(_SILICON_LABS_32B_SERIES_2)
+    refFreq = CMU_ClockFreqGet(cmuClock_PCLK);
+#else
+#if defined(_CMU_HFPERPRESCB_MASK)
+    if (spi_config[bus].dev == USART2) {
+      refFreq = CMU_ClockFreqGet(cmuClock_HFPERB);
+    } else {
+      refFreq = CMU_ClockFreqGet(cmuClock_HFPER);
+    }
+#else
+    refFreq = CMU_ClockFreqGet(cmuClock_HFPER);
+#endif
+#endif
+
+    /* access the internal div member to calculate back to the baudrate that is ctually setup */
+    uint32_t div = spi_config[bus].dev->CLKDIV;
+
+    /*
+     * CLKDIV in synchronous mode is given by:
+     *
+     * CLKDIV = 256 * (fHFPERCLK/(2 * br) - 1)
+     *  so we calculate back like this:
+     *
+     * CLKDIV / 256 + 1 = fHFPERCLK/(2 * br)
+     * br * (CLKDIV / 256 + 1) =  0.5*fHFPERCLK
+     * br  =  fHFPERCLK / 2 * (CLKDIV / 256 + 1)
+     */
+    uint32_t br = refFreq / (2 * ((div >> 8) + 1));
+    actual_spi_speeds[bus] = br;
 
     /* configure pin functions */
 #if defined(_SILICON_LABS_32B_SERIES_0)
