@@ -285,6 +285,11 @@ unsigned int timer_read(tim_t tim)
     return (unsigned int)dev(tim)->CNT;
 }
 
+void timer_write(tim_t tim, unsigned int cnt)
+{
+    dev(tim)->CNT = cnt;
+}
+
 void timer_start(tim_t tim)
 {
     unsigned irqstate = irq_disable();
