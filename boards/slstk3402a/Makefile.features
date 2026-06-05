@@ -2,6 +2,7 @@ CPU_FAM = efm32pg12b
 CPU_MODEL = efm32pg12b500f1024gl125
 
 # Put defined MCU peripherals here (in alphabetical order)
+FEATURES_PROVIDED += gclk
 FEATURES_PROVIDED += periph_adc
 FEATURES_PROVIDED += periph_i2c
 FEATURES_PROVIDED += periph_rtc

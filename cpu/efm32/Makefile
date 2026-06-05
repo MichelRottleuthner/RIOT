@@ -1,7 +1,7 @@
 MODULE = cpu
 
 # add a list of subdirectories, that should also be build
-DIRS += periph
+DIRS += periph gclk
 DIRS += $(RIOTCPU)/cortexm_common
 
 ifneq (,$(filter cpu_efm32gg,$(USEMODULE)))
