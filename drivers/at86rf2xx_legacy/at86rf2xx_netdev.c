@@ -1,8 +1,11 @@
 /*
- * SPDX-FileCopyrightText: 2018 Kaspar Schleiser <kaspar@schleiser.de>
- * SPDX-FileCopyrightText: 2015 Freie Universität Berlin
- * SPDX-FileCopyrightText: 2023 Gerson Fernando Budke
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2018 Kaspar Schleiser <kaspar@schleiser.de>
+ *               2015 Freie Universität Berlin
+ *               2023 Gerson Fernando Budke
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
  */
 
 /**
@@ -27,7 +30,6 @@
 #include <assert.h>
 #include <errno.h>
 
-#include "architecture.h"
 #include "iolist.h"
 
 #include "net/eui64.h"
@@ -35,7 +37,7 @@
 #include "net/netdev.h"
 #include "net/netdev/ieee802154.h"
 
-#include "at86rf2xx.h"
+#include "at86rf2xx_legacy.h"
 #include "at86rf2xx_netdev.h"
 #include "at86rf2xx_internal.h"
 #include "at86rf2xx_registers.h"
@@ -45,6 +47,7 @@
 #if IS_USED(MODULE_AT86RF2XX_AES_SPI)
 #include "at86rf2xx_aes.h"
 #endif
+#include "net/ieee802154_mac.h"
 
 #define ENABLE_DEBUG 0
 #include "debug.h"
@@ -201,6 +204,8 @@ static int _init(netdev_t *netdev)
     return 0;
 }
 
+extern bool _ieee802154_ensure_ifs;
+
 static int _send(netdev_t *netdev, const iolist_t *iolist)
 {
     netdev_ieee802154_t *netdev_ieee802154 = container_of(netdev,
@@ -214,8 +219,8 @@ static int _send(netdev_t *netdev, const iolist_t *iolist)
     for (const iolist_t *iol = iolist; iol; iol = iol->iol_next) {
         /* current packet data + FCS too long */
         if ((len + iol->iol_len + 2) > AT86RF2XX_MAX_PKT_LENGTH) {
-            DEBUG("[at86rf2xx] error: packet too large (%" PRIuSIZE
-                  " byte) to be send\n", len + 2);
+            DEBUG("[at86rf2xx] error: packet too large (%u byte) to be send\n",
+                  (unsigned)len + 2);
             return -EOVERFLOW;
         }
         if (iol->iol_len) {
@@ -225,6 +230,14 @@ static int _send(netdev_t *netdev, const iolist_t *iolist)
 
     /* send data out directly if pre-loading id disabled */
     if (!(dev->flags & AT86RF2XX_OPT_PRELOADING)) {
+        if(_ieee802154_ensure_ifs) {
+            ieee802154_mac_t *mac = (ieee802154_mac_t*)(netdev_ieee802154->mac);
+            int32_t td = (mac->t_last_on_air + mac->t_ifs) - ztimer_now(ZTIMER_USEC);
+            if (td > 0) {
+              ztimer_sleep(ZTIMER_USEC, td);
+            }
+        }
+
         at86rf2xx_tx_exec(dev);
         if (netdev->event_callback) {
             netdev->event_callback(netdev, NETDEV_EVENT_TX_STARTED);
@@ -235,6 +248,10 @@ static int _send(netdev_t *netdev, const iolist_t *iolist)
     return (int)len;
 }
 
+/* buffer must hold maximum frame size + 2 bytes FCS + 1 byte LQI + 1 byte ED */
+uint8_t _fbc[IEEE802154_FRAME_LEN_MAX + 4];
+unsigned _fbc_pkt_len = 0;
+
 static int _recv(netdev_t *netdev, void *buf, size_t len, void *info)
 {
     netdev_ieee802154_t *netdev_ieee802154 = container_of(netdev,
@@ -242,110 +259,75 @@ static int _recv(netdev_t *netdev, void *buf, size_t len, void *info)
     at86rf2xx_t *dev = container_of(netdev_ieee802154, at86rf2xx_t, netdev);
     uint8_t phr;
     size_t pkt_len;
+    size_t read_len = 0;
 
-    /* frame buffer protection will be unlocked as soon as at86rf2xx_fb_stop() is called,
-     * Set receiver to PLL_ON state to be able to free the SPI bus and avoid losing data. */
-    at86rf2xx_set_state(dev, AT86RF2XX_STATE_PLL_ON);
-
-    /* start frame buffer access */
-    at86rf2xx_fb_start(dev);
-
-    /* get the size of the received packet */
-    phr = at86rf2xx_get_rx_len(dev);
-
-    /* ignore MSB (refer p.80) and subtract length of FCS field */
-    pkt_len = (phr & 0x7f) - 2;
-
-    /* return length when buf == NULL */
+    /* if no buffer was given, instead of securing the framebuffer with the
+     * old hack of switching to PLL, just copy the FB to an internal buffer
+     * temporarily.
+     * The PLL_ON hack had several downsides:
+     *  - separating the transactions for reading the size, data, info is inefficient.
+     *    - an addiional copy step takes only a fraction of the time it takes to
+     *      "tell the radio to switch state".
+     *  - when switching to PLL-ON, the state transition request first waits for the radio
+     *    to be not busy anymore. Effectively, before reading the data, this waits for the
+     *    radio to be done even with the autoack transmission, instead of already reading
+     *    the data while the radio still transmits the ACK in parallel.
+     * */
     if (buf == NULL) {
-        /* release SPI bus */
-        at86rf2xx_fb_stop(dev);
+        /* start frame buffer access */
+        at86rf2xx_fb_start(dev);
+        at86rf2xx_fb_read(dev, &phr, 1);
 
-        /* drop packet, continue receiving */
-        if (len > 0) {
-            /* set device back in operation state which was used before last transmission.
-             * This state is saved in at86rf2xx.c/at86rf2xx_tx_prepare() e.g RX_AACK_ON */
-            at86rf2xx_set_state(dev, dev->idle_state);
-        }
+        /* ignore MSB (refer p.80) and subtract length of FCS field */
+        pkt_len = (phr & 0x7f) - 2;
+        /* copy payload +
+         * Ignore FCS but advance fb read - we must give a temporary buffer here,
+         * as we are not allowed to issue SPI transfers without any buffer.
+          */
+        at86rf2xx_fb_read(dev, _fbc, pkt_len + 4);
+        at86rf2xx_fb_stop(dev);
+        _fbc_pkt_len = pkt_len;
 
         return pkt_len;
-    }
+    } else if (_fbc_pkt_len > 0) {
+        read_len = _fbc_pkt_len > len ? len : _fbc_pkt_len;
+        /* the framebuffer was read from the device before,
+         * it must be copied now */
+        memcpy(buf, _fbc, len);
 
-    /* not enough space in buf */
-    if (pkt_len > len) {
-        at86rf2xx_fb_stop(dev);
-        /* set device back in operation state which was used before last transmission.
-         * This state is saved in at86rf2xx.c/at86rf2xx_tx_prepare() e.g RX_AACK_ON */
-        at86rf2xx_set_state(dev, dev->idle_state);
-        return -ENOBUFS;
-    }
-    /* copy payload */
-    at86rf2xx_fb_read(dev, (uint8_t *)buf, pkt_len);
-
-    /* Ignore FCS but advance fb read - we must give a temporary buffer here,
-     * as we are not allowed to issue SPI transfers without any buffer */
-    uint8_t tmp[2];
-    at86rf2xx_fb_read(dev, tmp, 2);
-    (void)tmp;
-
-    /* AT86RF212B RSSI_BASE_VAL + 1.03 * ED, base varies for diff. modulation and datarates
-     * AT86RF232  RSSI_BASE_VAL + ED, base -91dBm
-     * AT86RF233  RSSI_BASE_VAL + ED, base -94dBm
-     * AT86RF231  RSSI_BASE_VAL + ED, base -91dBm
-     * AT86RFA1   RSSI_BASE_VAL + ED, base -90dBm
-     * AT86RFR2   RSSI_BASE_VAL + ED, base -90dBm
-     *
-     * AT86RF231 MAN. p.92, 8.4.3 Data Interpretation
-     * AT86RF232 MAN. p.91, 8.4.3 Data Interpretation
-     * AT86RF233 MAN. p.102, 8.5.3 Data Interpretation
-     *
-     * for performance reasons we ignore the 1.03 scale factor on the 212B,
-     * which causes a slight error in the values, but the accuracy of the ED
-     * value is specified as +/- 5 dB, so it should not matter very much in real
-     * life.
-     */
-    if (info != NULL) {
-        uint8_t ed = 0;
-        netdev_ieee802154_rx_info_t *radio_info = info;
-        at86rf2xx_fb_read(dev, &(radio_info->lqi), 1);
-
-#if AT86RF2XX_HAVE_ED_REGISTER
-        /* AT86RF231 does not provide ED at the end of the frame buffer, read
-         * from separate register instead */
-        at86rf2xx_fb_stop(dev);
-        ed = at86rf2xx_reg_read(dev, AT86RF2XX_REG__PHY_ED_LEVEL);
-#else
-        at86rf2xx_fb_read(dev, &ed, 1);
-        at86rf2xx_fb_stop(dev);
-#endif
-        radio_info->rssi = RSSI_BASE_VAL + ed;
-        DEBUG("[at86rf2xx] LQI:%d high is good, RSSI:%d high is either good or "
-              "too much interference.\n", radio_info->lqi, radio_info->rssi);
-#if AT86RF2XX_IS_PERIPH && IS_USED(MODULE_NETDEV_IEEE802154_RX_TIMESTAMP)
-        /* AT86RF2XX_IS_PERIPH means the MCU is ATmegaRFR2 that has symbol counter */
-        {
-            uint32_t rx_sc;
-            rx_sc = at86rf2xx_get_sc(dev);
-
-            /* convert counter value to ns */
-            uint64_t res = SC_TO_NS * (uint64_t)rx_sc;
-            netdev_ieee802154_rx_info_set_timestamp(radio_info, res);
-            DEBUG("[at86rf2xx] CS: %" PRIu32 " timestamp: %" PRIu32 ".%09" PRIu32 " ",
-                    rx_sc, (uint32_t)(radio_info->timestamp / NS_PER_SEC),
-                           (uint32_t)(radio_info->timestamp % NS_PER_SEC));
+        if (info != NULL) {
+            netdev_ieee802154_rx_info_t *radio_info = info;
+            radio_info->lqi = _fbc[_fbc_pkt_len + 2];
+            radio_info->rssi = RSSI_BASE_VAL + _fbc[_fbc_pkt_len + 3];
         }
-#endif
 
-    }
-    else {
+        len = _fbc_pkt_len;
+        _fbc_pkt_len = 0;
+        return len;
+
+    } else { /* recv was called with a pre-alocated buffer, so the data can be directly
+                read from the radio into the buffer */
+        /* start frame buffer access */
+        at86rf2xx_fb_start(dev);
+        at86rf2xx_fb_read(dev, &phr, 1);
+
+        /* ignore MSB (refer p.80) and subtract length of FCS field */
+        pkt_len = (phr & 0x7f) - 2;
+        read_len = pkt_len > len ? len : pkt_len;
+        at86rf2xx_fb_read(dev, buf, read_len);
+
+        uint8_t fcs_lqi_ed[4];
+
+        at86rf2xx_fb_read(dev, fcs_lqi_ed, 4);
         at86rf2xx_fb_stop(dev);
+
+        if (info != NULL) {
+            netdev_ieee802154_rx_info_t *radio_info = info;
+            radio_info->lqi = fcs_lqi_ed[2];
+            radio_info->rssi = RSSI_BASE_VAL + fcs_lqi_ed[3];
+        }
+        return read_len;
     }
-
-    /* set device back in operation state which was used before last transmission.
-     * This state is saved in at86rf2xx.c/at86rf2xx_tx_prepare() e.g RX_AACK_ON */
-    at86rf2xx_set_state(dev, dev->idle_state);
-
-    return pkt_len;
 }
 
 static int _set_state(at86rf2xx_t *dev, netopt_state_t state)
@@ -826,16 +808,23 @@ static void _isr_send_complete(at86rf2xx_t *dev, uint8_t trac_status)
                 break;
 #else
                     case AT86RF2XX_TRX_STATE__TRAC_SUCCESS:
-                    case AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING:
+                        //TODO: for MLME.poll: mlme_poll_confirm(NO_DATA)
                         netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE);
                         DEBUG("[at86rf2xx] TX SUCCESS\n");
                         break;
+                    case AT86RF2XX_TRX_STATE__TRAC_SUCCESS_DATA_PENDING:
+                        //TODO: for MLME.poll: mlme_poll_confirm(SUCCESS)
+                        netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE_DATA_PENDING);
+                        DEBUG("[at86rf2xx] TX SUCCESS DATA PENDING\n");
+                        break;
 #endif
                     case AT86RF2XX_TRX_STATE__TRAC_NO_ACK:
+                        //TODO: for MLME.poll: mlme_poll_confirm(NO_ACK)
                         netdev->event_callback(netdev, NETDEV_EVENT_TX_NOACK);
                         DEBUG("[at86rf2xx] TX NO_ACK\n");
                         break;
                     case AT86RF2XX_TRX_STATE__TRAC_CHANNEL_ACCESS_FAILURE:
+                        //TODO: for MLME.poll: mlme_poll_confirm(CHANNEL_ACCESS_FAILURE)
                         netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
                         DEBUG("[at86rf2xx] TX_CHANNEL_ACCESS_FAILURE\n");
                         break;
@@ -893,18 +882,18 @@ static void _isr(netdev_t *netdev)
     trac_status = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATE)
                   & AT86RF2XX_TRX_STATE_MASK__TRAC;
 
-    if (irq_mask & AT86RF2XX_IRQ_STATUS_MASK__RX_START) {
-        netdev->event_callback(netdev, NETDEV_EVENT_RX_STARTED);
-        DEBUG("[at86rf2xx] EVT - RX_START\n");
-    }
+    /* NOTE: this is not used anyway. However, even better would be to just disable
+     *       generation of this interrupt alltogether. */
+    //if (irq_mask & AT86RF2XX_IRQ_STATUS_MASK__RX_START) {
+    //    //netdev->event_callback(netdev, NETDEV_EVENT_RX_STARTED);
+    //    DEBUG("[at86rf2xx] EVT - RX_START\n");
+    //}
 
     if (irq_mask & AT86RF2XX_IRQ_STATUS_MASK__TRX_END) {
         if ((state == AT86RF2XX_PHY_STATE_RX)
             || (state == AT86RF2XX_PHY_STATE_RX_BUSY)) {
             DEBUG("[at86rf2xx] EVT - RX_END\n");
-
             _isr_recv_complete(netdev);
-
         }
         else if (state == AT86RF2XX_PHY_STATE_TX) {
             /* check for more pending TX calls and return to idle state if
@@ -912,6 +901,7 @@ static void _isr(netdev_t *netdev)
             assert(dev->pending_tx != 0);
             /* Radio is idle, any TX transaction is done */
             dev->pending_tx = 0;
+            /* TODO: check if this is better done *after* below callback */
             at86rf2xx_set_state(dev, dev->idle_state);
             DEBUG("[at86rf2xx] return to idle state 0x%x\n", dev->idle_state);
             _isr_send_complete(dev, trac_status);

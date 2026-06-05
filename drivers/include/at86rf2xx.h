@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2015 Freie Universität Berlin
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2015 Freie Universität Berlin
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser General
+ * Public License v2.1. See the file LICENSE in the top level directory for more
+ * details.
  */
-
-#pragma once
 
 /**
  * @defgroup    drivers_at86rf2xx AT86RF2xx based drivers
@@ -25,6 +26,9 @@
  * @author      Joakim Nohlgård <joakim.nohlgard@eistec.se>
  */
 
+#ifndef AT86RF2XX_H
+#define AT86RF2XX_H
+
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -33,6 +37,8 @@
 #include "net/netdev.h"
 #include "net/netdev/ieee802154.h"
 #include "net/gnrc/nettype.h"
+#include "net/ieee802154/radio.h"
+#include "event.h"
 
 /* we need no peripherals for memory mapped radios */
 #if !defined(MODULE_AT86RFA1) && !defined(MODULE_AT86RFR2)
@@ -277,53 +283,41 @@ typedef struct at86rf2xx_params {
  * @extends netdev_ieee802154_t
  */
 typedef struct {
-    netdev_ieee802154_t netdev;             /**< netdev parent struct */
-#if AT86RF2XX_IS_PERIPH
-    /* ATmega256rfr2 signals transceiver events with different interrupts
-     * they have to be stored to mimic the same flow as external transceiver
-     * Use irq_status to map saved interrupts of SOC transceiver,
-     * as they clear after IRQ callback.
-     *
-     *  irq_status = IRQ_STATUS
-     */
-    uint8_t irq_status;                     /**< save irq status */
-#else
+#if !AT86RF2XX_IS_PERIPH
     /* device specific fields */
     at86rf2xx_params_t params;              /**< parameters for initialization */
 #endif
-    uint16_t flags;                         /**< Device specific flags */
-    uint8_t state;                          /**< current state of the radio */
-    uint8_t tx_frame_len;                   /**< length of the current TX frame */
-#ifdef MODULE_AT86RF212B
-    /* Only AT86RF212B supports multiple pages (PHY modes) */
-    uint8_t page;                       /**< currently used channel page */
-#endif
-    uint8_t idle_state;                 /**< state to return to after sending */
-    uint8_t pending_tx;                 /**< keep track of pending TX calls
-                                             this is required to know when to
-                                             return to @ref at86rf2xx_t::idle_state */
-#if AT86RF2XX_HAVE_RETRIES
+#if AT86RF2XX_HAVE_RETRIES && AT86RF2XX_IS_PERIPH
     /* Only radios with the XAH_CTRL_2 register support frame retry reporting */
     int8_t tx_retries;                  /**< Number of NOACK retransmissions */
 #endif
+    uint8_t channel;                    /**< previously configured channel */
+    uint8_t pdt_lvl_rv;                 /**< previously configured PDT level reg val */
+    /* Used for debugging/assertions. saves the request currenly active request on
+     * the request call. Is only reset on the confirm call.
+     * TODO: is probably better moved to the HAL itself. */
+    uint8_t request_in_progress;        /**< Used for debugging/assertions. saves the request currenly active request. */
+    bool sleep;                         /**< whether the device is sleeping or not */
+    /* whether the device is busy with TX. This is used to differenciate between
+     * RX/TX interrupt without relying on a state register read.
+     * For this to work, the driver has to set this flag to true if and only if
+     * the radio is instructed to do a TX. In that case, on interrupt, it is
+     * certain the IRQ originated from a TX.
+     * TODO: merge this with the above request_in_progress flag. */
+    bool tx_in_progress;
+    uint8_t current_state;              /**< previously configured state */
+    mutex_t lock;                       /**< device lock */
 } at86rf2xx_t;
 
 /**
- * @brief   Setup an AT86RF2xx based device state
- *
- * @param[out] dev          device descriptor
- * @param[in]  params       parameters for device initialization
- * @param[in]  index        index of @p params in a global parameter struct array.
- *                          If initialized manually, pass a unique identifier instead.
+ * @brief Event Bottom Half Processor descriptor for AT86RF2XX transceivers.
  */
-void at86rf2xx_setup(at86rf2xx_t *dev, const at86rf2xx_params_t *params, uint8_t index);
-
-/**
- * @brief   Trigger a hardware reset and configure radio with default values
- *
- * @param[in,out] dev       device to reset
- */
-void at86rf2xx_reset(at86rf2xx_t *dev);
+typedef struct {
+    at86rf2xx_t dev;        /**< Device descriptor */
+    ieee802154_dev_t *hal;  /**< Pointer to the Radio HAL descriptor */
+    event_queue_t *evq;     /**< Pointer to the event queue */
+    event_t ev;             /**< ISR offload event */
+} at86rf2xx_bhp_ev_t;
 
 /**
  * @brief   Set the short address of the given device
@@ -383,20 +377,6 @@ int at86rf2xx_set_rate(at86rf2xx_t *dev, uint8_t rate);
 void at86rf2xx_set_pan(at86rf2xx_t *dev, uint16_t pan);
 
 /**
- * @brief   Set the transmission power of the given device [in dBm]
- *
- * If the device does not support the exact dBm value given, it will set a value
- * as close as possible to the given value. If the given value is larger or
- * lower then the maximal or minimal possible value, the min or max value is
- * set, respectively.
- *
- * @param[in] dev           device to write to
- * @param[in] txpower       transmission power in dBm
- * @param[in] channel       the current channel
- */
-void at86rf2xx_set_txpower(const at86rf2xx_t *dev, int16_t txpower, uint8_t channel);
-
-/**
  * @brief   Get the configured receiver sensitivity of the given device [in dBm]
  *
  * @param[in] dev           device to read from
@@ -412,11 +392,13 @@ int8_t at86rf2xx_get_rxsensitivity(const at86rf2xx_t *dev);
  * as close as possible to the given value. If the given value is larger or
  * lower then the maximal or minimal possible value, the min or max value is
  * set, respectively.
+ * The value value is cached to speed up write operations to the same register
+ * which are not related to the level, by saving a register read.
  *
  * @param[in] dev           device to write to
  * @param[in] rxsens        rx sensitivity in dBm
  */
-void at86rf2xx_set_rxsensitivity(const at86rf2xx_t *dev, int8_t rxsens);
+void at86rf2xx_set_rxsensitivity(at86rf2xx_t *dev, int8_t rxsens);
 
 /**
  * @brief   Get the maximum number of retransmissions
@@ -528,36 +510,6 @@ void at86rf2xx_set_option(at86rf2xx_t *dev, uint16_t option, bool state);
 uint8_t at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state);
 
 /**
- * @brief   Prepare for sending of data
- *
- * This function puts the given device into the TX state, so no receiving of
- * data is possible after it was called.
- *
- * @param[in,out] dev        device to prepare for sending
- */
-void at86rf2xx_tx_prepare(at86rf2xx_t *dev);
-
-/**
- * @brief   Load chunks of data into the transmit buffer of the given device
- *
- * @param[in,out] dev       device to write data to
- * @param[in] data          buffer containing the data to load
- * @param[in] len           number of bytes in @p buffer
- * @param[in] offset        offset used when writing data to internal buffer
- *
- * @return                  offset + number of bytes written
- */
-size_t at86rf2xx_tx_load(at86rf2xx_t *dev, const uint8_t *data,
-                         size_t len, size_t offset);
-
-/**
- * @brief   Trigger sending of data previously loaded into transmit buffer
- *
- * @param[in] dev           device to trigger
- */
-void at86rf2xx_tx_exec(at86rf2xx_t *dev);
-
-/**
  * @brief   Perform one manual channel clear assessment (CCA)
  *
  * The CCA mode and threshold level depends on the current transceiver settings.
@@ -570,7 +522,7 @@ void at86rf2xx_tx_exec(at86rf2xx_t *dev);
 bool at86rf2xx_cca(at86rf2xx_t *dev);
 
 /**
- * @brief   Enable the smart receive technology (SRT)
+ * @brief   Enable the smart receive tecnology (SRT)
  *
  * The SRT reduces the power consumption during RX listening periods.
  *
@@ -580,15 +532,65 @@ bool at86rf2xx_cca(at86rf2xx_t *dev);
 void at86rf2xx_enable_smart_idle(at86rf2xx_t *dev);
 
 /**
- * @brief   Disable the smart receive technology (SRT)
+ * @brief   Disable the smart receive tecnology (SRT)
  *
  * @param[in]  dev          device to use
  *
  */
 void at86rf2xx_disable_smart_idle(at86rf2xx_t *dev);
 
+/**
+ * @brief Disable AT86RF2XX clock output.
+ *
+ * @note This function only works for periph versions of AT86RF2XX.
+ *
+ * @param[in,out]  dev      pointer to device descriptor.
+ */
+void at86rf2xx_disable_clock_output(at86rf2xx_t *dev);
+
+/**
+ * @brief   Offload pending IRQ.
+ *
+ * Should be called in thread context from a thread with higher priority than
+ * the thread that controls the device.
+ *
+ * @param[in]  hal          device to offload IRQs.
+ *
+ */
+void at86rf2xx_irq_handler(ieee802154_dev_t *hal);
+
+/**
+ * @brief Init an AT86RF2XX device
+ *
+ * @param[in,out] dev   pointer to device descriptor
+ * @param[in] params    parameters for device initialization. Can be NULL for periph variant.
+ * @param[in,out] hal   pointer to the Radio HAL descriptor
+ * @param[in] cb        ISR callback. Can be NULL for periph variant.
+ * @param[in] ctx       Context of the ISR callback. Can be NULL for periph variant.
+ *
+ * @return error code
+ * @retval 0 on success
+ * @retval negative errno on failure
+ */
+int at86rf2xx_init(at86rf2xx_t *dev, const at86rf2xx_params_t *params, ieee802154_dev_t *hal, void (*cb)(void*), void *ctx);
+
+/**
+ * @brief Init an AT86RF2XX device with an event based Bottom Half Processor.
+ *
+ * @param[in,out] bhp   pointer to the event BHP descriptor
+ * @param[in] params    parameters for device initialization
+ * @param[in,out] hal   pointer to the Radio HAL descriptor
+ * @param[in] evq       pointer to the event queue
+ *
+ * @return error code
+ * @retval 0 on success
+ * @retval negative errno on failure
+ */
+int at86rf2xx_init_event(at86rf2xx_bhp_ev_t *bhp, const at86rf2xx_params_t *params, ieee802154_dev_t *hal, event_queue_t *evq);
+
 #ifdef __cplusplus
 }
 #endif
 
+#endif /* AT86RF2XX_H */
 /** @} */

@@ -1,0 +1,11 @@
+# include variants of the AT86RF2xx drivers as pseudo modules
+PSEUDOMODULES += at86rf212b_legacy
+PSEUDOMODULES += at86rf231_legacy
+PSEUDOMODULES += at86rf232_legacy
+PSEUDOMODULES += at86rf233_legacy
+PSEUDOMODULES += at86rfa1_legacy
+PSEUDOMODULES += at86rfr2_legacy
+PSEUDOMODULES += at86rf2xx_aes_spi_legacy
+
+USEMODULE_INCLUDES_at86rf2xx_legacy := $(LAST_MAKEFILEDIR)/include
+USEMODULE_INCLUDES += $(USEMODULE_INCLUDES_at86rf2xx_legacy)

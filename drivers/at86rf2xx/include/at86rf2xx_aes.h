@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2020 Otto-von-Guericke-Universität Magdeburg
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2020 Otto-von-Guericke-Universität Magdeburg
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser General
+ * Public License v2.1. See the file LICENSE in the top level directory for more
+ * details.
  */
-
-#pragma once
 
 /**
  * @ingroup     drivers_at86rf2xx
@@ -19,6 +20,8 @@
  *
  * @author      Fabian Hüßler   <fabian.huessler@ovgu.de>
  */
+#ifndef AT86RF2XX_AES_H
+#define AT86RF2XX_AES_H
 
 #include "at86rf2xx.h"
 
@@ -235,4 +238,5 @@ void at86rf2xx_aes_cbc_decrypt(at86rf2xx_t *dev,
 }
 #endif
 
+#endif /* AT86RF2XX_AES_H */
 /** @} */

@@ -1,7 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2013 Alaeddine Weslati <alaeddine.weslati@inria.fr>
- * SPDX-FileCopyrightText: 2015 Freie Universität Berlin
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2013 Alaeddine Weslati <alaeddine.weslati@inria.fr>
+ * Copyright (C) 2015 Freie Universität Berlin
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
  */
 
 /**
@@ -37,22 +40,22 @@ static inline void getbus(const at86rf2xx_t *dev)
 void at86rf2xx_reg_write(const at86rf2xx_t *dev, uint8_t addr, uint8_t value)
 {
     uint8_t reg = (AT86RF2XX_ACCESS_REG | AT86RF2XX_ACCESS_WRITE | addr);
-
+    uint8_t obuf[] = { reg, value};
     getbus(dev);
-    spi_transfer_reg(SPIDEV, CSPIN, reg, value);
+    spi_transfer_bytes(SPIDEV, CSPIN, false, obuf, NULL, 2);
     spi_release(SPIDEV);
 }
 
 uint8_t at86rf2xx_reg_read(const at86rf2xx_t *dev, uint8_t addr)
 {
     uint8_t reg = (AT86RF2XX_ACCESS_REG | AT86RF2XX_ACCESS_READ | addr);
-    uint8_t value;
 
+    uint8_t obuf[] = { reg, 0};
+    uint8_t ibuf[2];
     getbus(dev);
-    value = spi_transfer_reg(SPIDEV, CSPIN, reg, 0);
+    spi_transfer_bytes(SPIDEV, CSPIN, false, obuf, ibuf, 2);
     spi_release(SPIDEV);
-
-    return value;
+    return ibuf[1];
 }
 
 void at86rf2xx_sram_read(const at86rf2xx_t *dev, uint8_t offset,
@@ -105,8 +108,8 @@ void at86rf2xx_fb_stop(const at86rf2xx_t *dev)
 uint8_t at86rf2xx_get_status(const at86rf2xx_t *dev)
 {
     /* if sleeping immediately return state */
-    if (dev->state == AT86RF2XX_STATE_SLEEP) {
-        return dev->state;
+    if (dev->sleep) {
+        return AT86RF2XX_STATE_SLEEP;
     }
 
     return (at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
@@ -115,6 +118,7 @@ uint8_t at86rf2xx_get_status(const at86rf2xx_t *dev)
 
 void at86rf2xx_assert_awake(at86rf2xx_t *dev)
 {
+    uint8_t state;
     if (at86rf2xx_get_status(dev) == AT86RF2XX_STATE_SLEEP) {
         /* wake up and wait for transition to TRX_OFF */
 #if AT86RF2XX_IS_PERIPH
@@ -132,9 +136,9 @@ void at86rf2xx_assert_awake(at86rf2xx_t *dev)
          * Spin until we are actually awake
          */
         do {
-            dev->state = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
+            state = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
                          & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS;
-        } while (dev->state != AT86RF2XX_TRX_STATUS__TRX_OFF);
+        } while (state != AT86RF2XX_TRX_STATUS__TRX_OFF);
     }
 }
 
@@ -151,14 +155,14 @@ void at86rf2xx_hardware_reset(at86rf2xx_t *dev)
 #endif
     ztimer_sleep(ZTIMER_USEC, AT86RF2XX_RESET_DELAY);
 
-    /* update state: if the radio state was P_ON (initialization phase),
-     * it remains P_ON. Otherwise, it should go to TRX_OFF
-     */
-    do {
-        dev->state = at86rf2xx_reg_read(dev, AT86RF2XX_REG__TRX_STATUS)
-                     & AT86RF2XX_TRX_STATUS_MASK__TRX_STATUS;
-    } while ((dev->state != AT86RF2XX_STATE_TRX_OFF)
-             && (dev->state != AT86RF2XX_STATE_P_ON));
+    /* enforce that this function is left in a well defined state (TRX_OFF).
+     * Checking for P_ON *or* TRX_OFF is not enough, as in P_ON the device
+     * may still respond with incorrect data, which makes a subsequent
+     * check for the partnumber fail in some cases. */
+    at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_STATE,
+                        AT86RF2XX_STATE_TRX_OFF);
+
+    while (at86rf2xx_get_status(dev) != AT86RF2XX_STATE_TRX_OFF) {}
 }
 
 #if AT86RF2XX_RANDOM_NUMBER_GENERATOR
@@ -183,7 +187,7 @@ void at86rf2xx_get_random(at86rf2xx_t *dev, uint8_t *data, size_t len)
 #endif
 
 #if !AT86RF2XX_IS_PERIPH
-void at86rf2xx_spi_init(at86rf2xx_t *dev, void (*irq_handler)(void *arg))
+void at86rf2xx_spi_init(at86rf2xx_t *dev, void (*irq_handler)(void *arg), void *ctx)
 {
     /* initialize GPIOs */
     spi_init_cs(dev->params.spi, dev->params.cs_pin);
@@ -191,7 +195,7 @@ void at86rf2xx_spi_init(at86rf2xx_t *dev, void (*irq_handler)(void *arg))
     gpio_clear(dev->params.sleep_pin);
     gpio_init(dev->params.reset_pin, GPIO_OUT);
     gpio_set(dev->params.reset_pin);
-    gpio_init_int(dev->params.int_pin, GPIO_IN, GPIO_RISING, irq_handler, dev);
+    gpio_init_int(dev->params.int_pin, GPIO_IN, GPIO_RISING, irq_handler, ctx);
 
     /* Intentionally check if bus can be acquired, if assertions are on */
     if (!IS_ACTIVE(NDEBUG)) {

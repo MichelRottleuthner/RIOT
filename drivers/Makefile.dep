@@ -24,8 +24,12 @@ ifneq (,$(filter at86rf215%,$(USEMODULE)))
   USEMODULE += at86rf215
 endif
 
-ifneq (,$(filter at86rf%, $(filter-out at86rf215%, $(USEMODULE))))
+ifneq (,$(filter at86rf233, $(filter-out at86rf215%, $(USEMODULE))))
   USEMODULE += at86rf2xx
+endif
+
+ifneq (,$(filter at86rf%_legacy, $(filter-out at86rf215%, $(USEMODULE))))
+  USEMODULE += at86rf2xx_legacy
 endif
 
 ifneq (,$(filter bme680_%,$(USEMODULE)))

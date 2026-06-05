@@ -1,7 +1,10 @@
 /*
- * SPDX-FileCopyrightText: 2015 Freie Universität Berlin
- * SPDX-FileCopyrightText: 2017 HAW Hamburg
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2015 Freie Universität Berlin
+ *               2017 HAW Hamburg
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
  */
 
 /**
@@ -129,7 +132,7 @@ void at86rf2xx_set_pan(at86rf2xx_t *dev, uint16_t pan)
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__PAN_ID_1, le_pan.u8[1]);
 }
 
-static inline void _set_txpower(const at86rf2xx_t *dev, int16_t txpower, uint8_t channel)
+static inline uint8_t _get_txpower_regval(int16_t txpower, uint8_t channel)
 {
     (void) channel;
     txpower += AT86RF2XX_TXPOWER_OFF;
@@ -142,28 +145,51 @@ static inline void _set_txpower(const at86rf2xx_t *dev, int16_t txpower, uint8_t
     }
 #if AT86RF2XX_HAVE_SUBGHZ
     if (channel == 0) {
-        at86rf2xx_reg_write(dev, AT86RF2XX_REG__PHY_TX_PWR,
-                            dbm_to_tx_pow_868[txpower]);
+        return dbm_to_tx_pow_868[txpower];
     }
     else if (channel < 11) {
-        at86rf2xx_reg_write(dev, AT86RF2XX_REG__PHY_TX_PWR,
-                            dbm_to_tx_pow_915[txpower]);
+        return dbm_to_tx_pow_915[txpower];
     }
 #else
-    at86rf2xx_reg_write(dev, AT86RF2XX_REG__PHY_TX_PWR,
-                        dbm_to_tx_pow[txpower]);
+    return dbm_to_tx_pow[txpower];
 #endif
 }
+
+static inline void _lock_bus(const at86rf2xx_t *dev)
+{
+    spi_acquire(dev->params.spi, dev->params.cs_pin,
+                SPI_MODE_0, dev->params.spi_clk);
+}
+
+static inline void _unlock_bus(const at86rf2xx_t *dev)
+{
+    spi_release(dev->params.spi);
+}
+
+static inline void _reg_write_no_lock(const at86rf2xx_t *dev, uint8_t addr, uint8_t value)
+{
+    uint8_t reg = (AT86RF2XX_ACCESS_REG | AT86RF2XX_ACCESS_WRITE | addr);
+    spi_transfer_reg(dev->params.spi, dev->params.cs_pin, reg, value);
+}
+
+static inline uint8_t _reg_read_no_lock(const at86rf2xx_t *dev, uint8_t addr)
+{
+    uint8_t reg = (AT86RF2XX_ACCESS_REG | AT86RF2XX_ACCESS_READ | addr);
+    return spi_transfer_reg(dev->params.spi, dev->params.cs_pin, reg, 0);
+}
+
 
 void at86rf2xx_configure_phy(at86rf2xx_t *dev, uint8_t chan, uint8_t page, int16_t txpower)
 {
     /* we must be in TRX_OFF before changing the PHY configuration */
-    uint8_t prev_state = at86rf2xx_set_state(dev, AT86RF2XX_STATE_TRX_OFF);
+    uint8_t prev_state = at86rf2xx_set_state(dev, AT86RF2XX_STATE_FORCE_TRX_OFF);
+    _lock_bus(dev);
+
     (void) page;
     (void) chan;
     (void) txpower;
-
 #if AT86RF2XX_HAVE_SUBGHZ
+    _unlock_bus(dev);
     /* The TX power register must be updated after changing the channel if
      * moving between bands. */
 
@@ -194,22 +220,29 @@ void at86rf2xx_configure_phy(at86rf2xx_t *dev, uint8_t chan, uint8_t page, int16
 
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__TRX_CTRL_2, trx_ctrl2);
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__RF_CTRL_0, rf_ctrl0);
+    _lock_bus(dev);
 #endif
 
-    uint8_t phy_cc_cca = at86rf2xx_reg_read(dev, AT86RF2XX_REG__PHY_CC_CCA);
-    /* Clear previous configuration for channel number */
-    phy_cc_cca &= ~(AT86RF2XX_PHY_CC_CCA_MASK__CHANNEL);
-
-    /* Update the channel register */
-    phy_cc_cca |= (chan & AT86RF2XX_PHY_CC_CCA_MASK__CHANNEL);
-    at86rf2xx_reg_write(dev, AT86RF2XX_REG__PHY_CC_CCA, phy_cc_cca);
+    /* Update the cached channel value and corresponding  register.
+     * As the driver currently only updates the channel in the CCA register,
+     * it does not need to be read first. In case this changes in the future,
+     * an additional read (or respective caching) will be needed). */
+    dev->channel = chan;
+    uint8_t phy_cc_cca = (chan & AT86RF2XX_PHY_CC_CCA_MASK__CHANNEL);
+    _reg_write_no_lock(dev,  AT86RF2XX_REG__PHY_CC_CCA, phy_cc_cca);
 
     /* Update the TX power register to achieve the same power (in dBm) */
-    _set_txpower(dev, txpower, chan);
+    uint8_t txprv = _get_txpower_regval(txpower, chan);
+    _reg_write_no_lock(dev,  AT86RF2XX_REG__PHY_TX_PWR, txprv);
 
     /* Return to the state we had before reconfiguring */
+    _unlock_bus(dev);
     at86rf2xx_set_state(dev, prev_state);
+    //TODO: aboe could potentially be sped up like this but that needs some more verification/testing:
+    //_reg_write_no_lock(dev, AT86RF2XX_REG__TRX_STATE, AT86RF2XX_STATE_PLL_ON);
+    //_unlock_bus(dev);
 }
+
 
 int8_t at86rf2xx_get_rxsensitivity(const at86rf2xx_t *dev)
 {
@@ -219,7 +252,7 @@ int8_t at86rf2xx_get_rxsensitivity(const at86rf2xx_t *dev)
     return rxsens > 0 ? RSSI_BASE_VAL + ((rxsens - 1) * 3) : MIN_RX_SENSITIVITY;
 }
 
-void at86rf2xx_set_rxsensitivity(const at86rf2xx_t *dev, int8_t rxsens)
+void at86rf2xx_set_rxsensitivity(at86rf2xx_t *dev, int8_t rxsens)
 {
     uint8_t hwval;
     /* From datasheet, rxsens = @ref RSSI_BASE_VAL + (3 * (RX_PDT_LEVEL-1)).
@@ -238,7 +271,8 @@ void at86rf2xx_set_rxsensitivity(const at86rf2xx_t *dev, int8_t rxsens)
 
     uint8_t tmp = at86rf2xx_reg_read(dev, AT86RF2XX_REG__RX_SYN);
     tmp &= ~(AT86RF2XX_RX_SYN__RX_PDT_LEVEL);
-    tmp |= (hwval & AT86RF2XX_RX_SYN__RX_PDT_LEVEL);
+    dev->pdt_lvl_rv = hwval & AT86RF2XX_RX_SYN__RX_PDT_LEVEL;
+    tmp |= dev->pdt_lvl_rv;
     at86rf2xx_reg_write(dev, AT86RF2XX_REG__RX_SYN, tmp);
 }
 
@@ -349,9 +383,6 @@ void at86rf2xx_set_option(at86rf2xx_t *dev, uint16_t option, bool state)
 
     DEBUG("set option %i to %i\n", option, state);
 
-    /* set option field */
-    dev->flags = (state) ? (dev->flags |  option)
-                         : (dev->flags & ~option);
     /* trigger option specific actions */
     switch (option) {
         case AT86RF2XX_OPT_CSMA:
@@ -430,8 +461,6 @@ static inline void _set_state(at86rf2xx_t *dev, uint8_t state, uint8_t cmd)
     else {
         while (at86rf2xx_get_status(dev) == AT86RF2XX_STATE_IN_PROGRESS) {}
     }
-
-    dev->state = state;
 }
 
 uint8_t at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
@@ -469,18 +498,18 @@ uint8_t at86rf2xx_set_state(at86rf2xx_t *dev, uint8_t state)
             /* Go to SLEEP mode from TRX_OFF */
 #if AT86RF2XX_IS_PERIPH
             /* reset interrupts states in device */
-            dev->irq_status = 0;
             /* Setting SLPTR bit brings radio transceiver to sleep in in TRX_OFF*/
             *AT86RF2XX_REG__TRXPR |= (AT86RF2XX_TRXPR_SLPTR);
 #else
             gpio_set(dev->params.sleep_pin);
 #endif
-            dev->state = state;
+            dev->sleep = true;
         }
         else {
             if (old_state == AT86RF2XX_STATE_SLEEP) {
                 DEBUG("at86rf2xx: waking up from sleep mode\n");
                 at86rf2xx_assert_awake(dev);
+                dev->sleep = false;
             }
             _set_state(dev, state, state);
         }

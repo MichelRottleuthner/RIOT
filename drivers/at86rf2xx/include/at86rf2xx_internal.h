@@ -1,11 +1,12 @@
 /*
- * SPDX-FileCopyrightText: 2013 Alaeddine Weslati <alaeddine.weslati@inria.fr>
- * SPDX-FileCopyrightText: 2015 Freie Universität Berlin
- * SPDX-FileCopyrightText: 2017 HAW Hamburg
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2013 Alaeddine Weslati <alaeddine.weslati@inria.fr>
+ * Copyright (C) 2015 Freie Universität Berlin
+ *               2017 HAW Hamburg
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser General
+ * Public License v2.1. See the file LICENSE in the top level directory for more
+ * details.
  */
-
-#pragma once
 
 /**
  * @ingroup     drivers_at86rf2xx
@@ -19,6 +20,9 @@
  * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
  * @author      Sebastian Meiling <s@mlng.net>
  */
+
+#ifndef AT86RF2XX_INTERNAL_H
+#define AT86RF2XX_INTERNAL_H
 
 #include <stdint.h>
 
@@ -146,7 +150,7 @@ void at86rf2xx_sram_write(const at86rf2xx_t *dev, uint8_t offset,
                           const uint8_t *data, size_t len);
 #endif
 /**
- * @brief   Start a read transaction internal frame buffer of the given device
+ * @brief   Start a read transcation internal frame buffer of the given device
  *
  * Reading the frame buffer returns some extra bytes that are not accessible
  * through reading the RAM directly. This locks the used SPI.
@@ -178,7 +182,7 @@ static inline void at86rf2xx_fb_read(const at86rf2xx_t *dev, uint8_t *data, size
 void at86rf2xx_fb_read(const at86rf2xx_t *dev, uint8_t *data, size_t len);
 #endif
 /**
- * @brief   Stop a read transaction internal frame buffer of the given device
+ * @brief   Stop a read transcation internal frame buffer of the given device
  *
  * Release the SPI device and unlock frame buffer protection.
  *
@@ -248,11 +252,14 @@ void at86rf2xx_get_random(at86rf2xx_t *dev, uint8_t *data, size_t len);
  *
  * @param[in,out] dev       device to initialize
  * @param[in] irq_handler   IRQ handler
+ * @param[in,out] ctx       Context of the IRQ handler
  */
-void at86rf2xx_spi_init(at86rf2xx_t *dev, void (*irq_handler)(void *arg));
+void at86rf2xx_spi_init(at86rf2xx_t *dev, void (*irq_handler)(void *arg), void *ctx);
 
 /**
  * @brief Get the PSDU length of the received frame.
+ *
+ * This function increases the FIFO counter.
  *
  * @param[in] dev   pointer to the device descriptor
  *
@@ -271,24 +278,24 @@ static inline uint8_t at86rf2xx_get_rx_len(at86rf2xx_t *dev)
 }
 
 /**
- * @brief Get the IRQ flags.
+ * @brief Peek the PSDU length of the received frame.
  *
- * This function clears the IRQ flags
- * @param[in,out] dev   pointer to the device descriptor
+ * @param[in] dev   pointer to the device descriptor
  *
- * @return IRQ flags
+ * @return the PSDU length
  */
-static inline uint8_t at86rf2xx_get_irq_flags(at86rf2xx_t *dev)
+static inline uint8_t at86rf2xx_peek_rx_len(at86rf2xx_t *dev)
 {
     (void) dev;
 #if AT86RF2XX_IS_PERIPH
-    uint8_t irq_mask = dev->irq_status;
-    dev->irq_status = 0;
-    return irq_mask;
+    return TST_RX_LENGTH;
 #else
-    return at86rf2xx_reg_read(dev, AT86RF2XX_REG__IRQ_STATUS);
+    uint8_t phr;
+    at86rf2xx_fb_start(dev);
+    phr = at86rf2xx_get_rx_len(dev);
+    at86rf2xx_fb_stop(dev);
+    return phr;
 #endif
-
 }
 
 #if AT86RF2XX_IS_PERIPH
@@ -335,4 +342,5 @@ static inline uint32_t at86rf2xx_get_sc(const at86rf2xx_t *dev)
 }
 #endif
 
+#endif /* AT86RF2XX_INTERNAL_H */
 /** @} */

@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: 2013 Alaeddine Weslati <alaeddine.weslati@inria.fr>
- * SPDX-FileCopyrightText: 2015 Freie Universität Berlin
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (C) 2013 Alaeddine Weslati <alaeddine.weslati@inria.fr>
+ * Copyright (C) 2015 Freie Universität Berlin
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
  */
-
-#pragma once
 
 /**
  * @ingroup     drivers_at86rf2xx
@@ -19,6 +20,9 @@
  * @author      Kaspar Schleiser <kaspar@schleiser.de>
  * @author      Kévin Roussel <Kevin.Roussel@inria.fr>
  */
+
+#ifndef AT86RF2XX_REGISTERS_H
+#define AT86RF2XX_REGISTERS_H
 
 #include "at86rf2xx.h"
 
@@ -545,4 +549,5 @@ extern "C" {
 }
 #endif
 
+#endif /* AT86RF2XX_REGISTERS_H */
 /** @} */
