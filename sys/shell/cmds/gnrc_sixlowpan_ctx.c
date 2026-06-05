@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+extern char *strtok_r(char *, const char *, char **);
 
 #include "kernel_defines.h"
 #include "net/gnrc/sixlowpan/ctx.h"
