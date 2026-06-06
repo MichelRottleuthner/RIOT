@@ -79,6 +79,8 @@ void riscv_irq_init(void)
     irq_enable();
 }
 
+#define TRAP_ID_ECALL_FROM_M_MODE (0xb)
+
 /**
  * @brief Global trap and interrupt handler
  */
@@ -94,8 +96,10 @@ __attribute((used)) static void handle_trap(uword_t mcause)
     bool is_interrupt = (mcause & MCAUSE_INT) == MCAUSE_INT;
 
 #ifdef DEVELHELP
-    printf("Trap: mcause=0x%" PRIx32 " mepc=0x%lx mtval=0x%lx\n",
-           (uint32_t)mcause, read_csr(mepc), read_csr(mtval));
+    if (!(!is_interrupt && (trap == TRAP_ID_ECALL_FROM_M_MODE))) {
+        printf("Trap: mcause=0x%" PRIx32 " mepc=0x%lx mtval=0x%lx\n",
+               (uint32_t)mcause, read_csr(mepc), read_csr(mtval));
+    }
 
     if (!is_interrupt) {
         const char *error_messages[] = {
@@ -120,12 +124,13 @@ __attribute((used)) static void handle_trap(uword_t mcause)
             "Software check",
             "Hardware error"
         };
-
-        if (trap < ARRAY_SIZE(error_messages)) {
-            printf("Machine Cause Error 0x%lx: %s\n", trap, error_messages[trap]);
-        }
-        else {
-            printf("Machine Cause Error 0x%lx: Reserved / Custom\n", trap);
+        if (trap != TRAP_ID_ECALL_FROM_M_MODE) {
+            if (trap < ARRAY_SIZE(error_messages)) {
+                printf("Machine Cause Error 0x%lx: %s\n", trap, error_messages[trap]);
+            }
+            else {
+                printf("Machine Cause Error 0x%lx: Reserved / Custom\n", trap);
+            }
         }
     }
 #endif
