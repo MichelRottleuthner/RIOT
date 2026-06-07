@@ -29,6 +29,9 @@
 
 int gpio_init(gpio_t pin, gpio_mode_t mode)
 {
+    if (pin == GPIO_UNDEF) {
+        return -ENOTSUP;
+    }
     /* Check if we exceed the maximum number of GPIO pins */
     assert(pin < GPIO_PIN_NUMOF);
 
@@ -72,6 +75,9 @@ int gpio_init(gpio_t pin, gpio_mode_t mode)
 
 bool gpio_read(gpio_t pin)
 {
+    if (pin == GPIO_UNDEF) {
+        return 0;
+    }
     /* Check if we exceed the maximum number of GPIO pins */
     assert(pin < GPIO_PIN_NUMOF);
     /* Read the pin state */
@@ -80,6 +86,9 @@ bool gpio_read(gpio_t pin)
 
 void gpio_set(gpio_t pin)
 {
+    if (pin == GPIO_UNDEF) {
+        return;
+    }
     /* Check if we exceed the maximum number of GPIO pins */
     assert(pin < GPIO_PIN_NUMOF);
     SIO->GPIO_OUT_SET = 1 << pin; /* Set the pin to HIGH */
@@ -87,6 +96,9 @@ void gpio_set(gpio_t pin)
 
 void gpio_clear(gpio_t pin)
 {
+    if (pin == GPIO_UNDEF) {
+        return;
+    }
     /* Check if we exceed the maximum number of GPIO pins */
     assert(pin < GPIO_PIN_NUMOF);
     SIO->GPIO_OUT_CLR = 1 << pin; /* Set the pin to LOW */
@@ -94,6 +106,9 @@ void gpio_clear(gpio_t pin)
 
 void gpio_toggle(gpio_t pin)
 {
+    if (pin == GPIO_UNDEF) {
+        return;
+    }
     /* Check if we exceed the maximum number of GPIO pins */
     assert(pin < GPIO_PIN_NUMOF);
     SIO->GPIO_OUT_XOR = 1 << pin; /* Toggle the pin state (XOR) */
@@ -101,6 +116,9 @@ void gpio_toggle(gpio_t pin)
 
 void gpio_write(gpio_t pin, bool value)
 {
+    if (pin == GPIO_UNDEF) {
+        return;
+    }
     /* Check if we exceed the maximum number of GPIO pins */
     assert(pin < GPIO_PIN_NUMOF);
     if (value) {
