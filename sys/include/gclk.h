@@ -420,7 +420,7 @@ typedef struct gclk_range32 {
  */
 typedef struct gclk_reg_val_factor_lut {
     uint16_t factor;  /**< Integer factor the clock is scaled by. */
-    uint8_t reg_val;  /**< Value that must be written to the configuration register
+    uint16_t reg_val; /**< Value that must be written to the configuration register
                            to set the above factor */
 } gclk_reg_val_factor_lut_t;
 
