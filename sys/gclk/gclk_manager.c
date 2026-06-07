@@ -36,12 +36,13 @@
 #define LOG_LEVEL LOG_NONE
 #include "log.h"
 
+#if IS_USED(MODULE_ZTIMER_PERIPH_TIMER)
 /* custom RIOT-specific hooks required to tap into peripheral re-init code for clock config changes */
 extern ztimer_periph_timer_t *___ztimer_periph_timer_instance;
-
 extern timer_cb_t __ztimer_perph_timer_cb;
 extern void timer_write(tim_t tim, unsigned int cnt);
 static unsigned int _timer_cnt_backup = 0;
+#endif
 
 /**
  * @brief Constrained clock configs cache.
@@ -1921,13 +1922,17 @@ int gclk_mananger_set_dfs_frequencies(const uint32_t *freqs, size_t cnt) {
                 cnt, MAX_DFS_FREQ_VALUES_NUM);
     }
 
+#if IS_USED(MODULE_ZTIMER_USEC)
     uint64_t t_1 = ztimer_now(ZTIMER_USEC);
+#endif
     int res = _populate_dfs_freqs_bf(_mgr_ctx.active_core_scale_setting, freqs, cnt);
+#if IS_USED(MODULE_ZTIMER_USEC)
     uint64_t t_2 = ztimer_now(ZTIMER_USEC);
 
     uint32_t t_populate_dfs = (uint32_t)((t_2 - t_1)/1000);
 
     printf("took %lu ms for populate\n", t_populate_dfs);
+#endif
 
     _mgr_ctx.dfs_frequencies_cnt = res > 0 ? res : 0;
 
@@ -1939,11 +1944,15 @@ int gclk_mananger_set_default_dfs_frequencies(void) {
         printf("no active core scale setting defined\n");
         return 0;
     }
+#if IS_USED(MODULE_ZTIMER_USEC)
     uint64_t t_1 = ztimer_now(ZTIMER_USEC);
+#endif
     int res = gclk_mananger_set_dfs_frequencies(_mgr_ctx.active_core_scale_setting->default_freqs, _mgr_ctx.active_core_scale_setting->default_freqs_cnt);
+#if IS_USED(MODULE_ZTIMER_USEC)
     uint64_t t_2 = ztimer_now(ZTIMER_USEC);
     uint32_t t_default_dfs_setup = (uint32_t)((t_2 - t_1)/1000);
     printf("took %lu ms for default topo setup\n", t_default_dfs_setup);
+#endif
     return res;
 }
 
@@ -1951,7 +1960,9 @@ const gclk_t* gclk_manager_get_core_clock_handle(void) {
     return gclk_core_clock_handle;
 }
 
+#if IS_USED(MODULE_PM_LAYERED)
 #include "pm_layered.h"
+#endif
 
 void gclk_manager_default_stdio_reinit_cb(const gclk_t* altered_clk, const gclk_t* affected_clk, uint32_t f_old, uint32_t f_new, bool post_change) {
     (void)altered_clk;
@@ -1960,9 +1971,13 @@ void gclk_manager_default_stdio_reinit_cb(const gclk_t* altered_clk, const gclk_
     (void)f_new;
     if (post_change) {
         stdio_init();
-        pm_unblock(1);
+#if IS_USED(MODULE_PM_LAYERED)
+            pm_unblock(1);
+#endif
     } else {
-        pm_block(1);
+#if IS_USED(MODULE_PM_LAYERED)
+            pm_block(1);
+#endif
         /* Must be done (at least) on nucleo-l476rg because stdio_init powers on the uart again, which blocks a PM mode which in turn
          * increments the PM-block registrations, which overflows if there is no balancing number of PM-unblocks by shutting down the uart */
         uart_poweroff(STDIO_UART_DEV);
@@ -1975,14 +1990,18 @@ void gclk_manager_default_timer_reinit_cb(const gclk_t* altered_clk, const gclk_
     (void)f_old;
     (void)f_new;
     if (post_change) {
+#if IS_USED(MODULE_ZTIMER_PERIPH_TIMER)
         timer_init(CONFIG_ZTIMER_USEC_DEV, CONFIG_ZTIMER_USEC_BASE_FREQ, __ztimer_perph_timer_cb, ___ztimer_periph_timer_instance);
         /* TODO: add compensation value based on independently clocked timer */
         timer_write(CONFIG_ZTIMER_USEC_DEV, _timer_cnt_backup);
+#endif
     } else {
+#if IS_USED(MODULE_ZTIMER_PERIPH_TIMER)
         /* backup current timer value for restoration after re-init */
         _timer_cnt_backup  = timer_read(CONFIG_ZTIMER_USEC_DEV);
         /* stop the timer during frequency updates */
         timer_stop(CONFIG_ZTIMER_USEC_DEV);
+#endif
     }
 }
 
