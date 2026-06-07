@@ -11,5 +11,5 @@ void board_init(void) {
      * Otherwise the LED will not work after a reset
      * This is needed, esp. when the LED is used via
      * the define macros */
-    gpio_init(LED0_PIN_ID, GPIO_OUT);
+    gpio_init(LED0_PIN, GPIO_OUT);
 }
