@@ -132,6 +132,11 @@ extern "C" {
                                BITMASK_BIT_31_SET(X) ? 31 : 0\
                                ))))))))))))))))))))))))))))))))
 
+/**
+ * @brief Macro to get a 32 bit bitmask from MSB and LSB.
+ */
+#define STATIC_BITRANGE_TO_MASK(MSB,LSB) (((0xFFFFFFFFUL)>>(31-MSB)) & ((0xFFFFFFFFUL)<<(LSB)))
+
 #ifdef __cplusplus
 }
 #endif
