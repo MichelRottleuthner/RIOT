@@ -95,6 +95,7 @@ __attribute((used)) static void handle_trap(uword_t mcause)
     /* Check if this is an interrupt or a trap, indicated by the left most bit */
     bool is_interrupt = (mcause & MCAUSE_INT) == MCAUSE_INT;
 
+#if 0
 #ifdef DEVELHELP
     if (!(!is_interrupt && (trap == TRAP_ID_ECALL_FROM_M_MODE))) {
         printf("Trap: mcause=0x%" PRIx32 " mepc=0x%lx mtval=0x%lx\n",
@@ -133,6 +134,7 @@ __attribute((used)) static void handle_trap(uword_t mcause)
             }
         }
     }
+#endif
 #endif
 
     if (is_interrupt) {

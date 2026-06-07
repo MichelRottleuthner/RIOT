@@ -35,8 +35,10 @@ void xh3irq_handler(void)
     uint32_t meinext = (read_csr(0xBE4) >> MEINEXT_IRQ_OFFSET) & MEINEXT_MASK;
 
     void (*isr)(void) = (void (*)(void)) vector_cpu[meinext];
+#if 0
 #ifdef DEVELHELP
     printf("Calling isr %p for irq %ld\n", isr, meinext);
+#endif
 #endif
     isr();
 }
