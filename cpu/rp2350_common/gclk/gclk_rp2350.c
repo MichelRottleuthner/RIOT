@@ -40,6 +40,11 @@
 #define LOG_LEVEL LOG_NONE
 #include "log.h"
 
+/* TODO: this switch should be integrated with pm.c
+ *       Currently this has no effect except for silencing the compiler */
+bool __use_default_clk_init = false;
+
+
 uint32_t volatile * const conf_regs[] = {
     [GCLK_NULL_REG]                 = NULL,
     [GCLK_RP2350_PLL_SYS_CS]        = &PLL_SYS->CS,
