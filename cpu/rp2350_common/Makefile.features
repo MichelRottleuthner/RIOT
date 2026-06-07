@@ -2,3 +2,4 @@ FEATURES_PROVIDED += periph_gpio
 FEATURES_PROVIDED += periph_uart
 FEATURES_PROVIDED += periph_flash_opt
 FEATURES_PROVIDED += periph_core_voltage
+FEATURES_PROVIDED += gclk

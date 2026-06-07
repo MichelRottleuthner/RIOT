@@ -1,0 +1,155 @@
+/*
+ * Copyright (C) 2026 HAW Hamburg <michel.rottleuthner@haw-hamburg.de>
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
+ */
+/**
+ * @ingroup     sys_gclk
+ *
+ * @{
+ *
+ * @file
+ * @brief       Configuration for the clock manager module
+ *
+ * @author      Michel Rottleuthner <michel.rottleuthner@haw-hamburg.de>
+ */
+#ifndef GCLK_MANAGER_CONF_H
+#define GCLK_MANAGER_CONF_H
+
+#include "gclk.h"
+#include "gclk_manager.h"
+//#include "gclk_efm32_types.h"
+#include "gclk/generic_gate.h"
+#include "gclk/generic_scaler.h"
+#include "gclk/generic_mux.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern const gclk_t * const core_clock_instance;
+extern const unsigned int GCLK_PREFERRED_FREQ_CONF_CNT;
+extern gclk_t const *gclock_handle_for_core_freq;
+extern const unsigned int DVFS_CONFS_CNT;
+
+/* the below transitions are used to switch from one source to another */
+//gclk_manager_sequence_step_t hfxo_to_hfrco_transition_steps[] = {
+//    { .op = CLK_CONFIG_TARGET, .clk = &gclk_efm32_hfrco_scaler.base },
+//    { .op = CLK_CONFIG_TARGET, .clk = &gclk_efm32_hfclk_scaler.base },
+//    { .op = CLK_CONFIG_TARGET, .clk = &gclk_efm32_hfcorepresc_scaler.base },
+//    { .op = CLK_ENABLE,     .clk = &gclk_efm32_hfrco_base_gate.base },
+//    { .op = CLK_SET_PARENT, .clk = &gclk_efm32_hfsrcclk_mux.base, .clk_arg = &gclk_efm32_hfrco_dpll_mux.base },
+//    { .op = CLK_DISABLE,    .clk = &gclk_efm32_hfxo_base_gate.base },
+//};
+
+/**
+ * @name    Frequency limit configuration
+ * All of these limits apply to the system clock.
+ */
+static const freq_conf_limit_t sys_freq_vc_ws_limits[] = {
+    { .freq_max =  150000000, .vc_idx_min = 0, .ws_min = 0 },
+};
+
+enum {
+    RP2350_XX_TOPO_ID_HFXO_DPLL = 0,
+};
+
+/* TODO: there are transitions that actually works the same way for multiple source-topologies
+ * Therefore topology should actually be some kind of "topologies list" or we need a separate setting entry
+ * for each applicable source+topology */
+gclk_scale_setting_t scale_settings[] = {
+};
+
+#define SCALE_SETTINGS_NUMOF       (ARRAY_SIZE(scale_settings))
+
+extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_scaler;
+extern const gclk_clk_scaler_ll_t gclk_rp2350_rosc_scaler;
+extern const gclk_generic_gate_t gclk_rp2350_xosc_gate;
+extern const gclk_generic_gate_t gclk_rp2350_clksrc_gpin0_gate;
+extern const gclk_generic_gate_t gclk_rp2350_clksrc_gpin1_gate;
+
+extern const gclk_generic_gate_t gclk_rp2350_clk_sys_gate;
+
+/* Defines a list of clock sources that are allowed to be used as the originating source to drive the systems core clock.
+ * A clock listed here is not neccessarily able to drive the core clock directly. Instead, this list just defines the roots
+ * of possible topologies that may drive the core clock but without listing all possible topologies explicitly.
+ * If a given topology and clock configuration is appliccable is of course still subject to certain runtime conditions like
+ * configuration constraints and püeripheral requirements */
+static const gclk_t* core_clock_sources[] = {
+&gclk_rp2350_pll_sys_scaler.base,
+&gclk_rp2350_rosc_scaler.base,
+&gclk_rp2350_xosc_gate.base,
+&gclk_rp2350_clksrc_gpin0_gate.base,
+&gclk_rp2350_clksrc_gpin1_gate.base,
+};
+
+#define CORE_CLOCK_SOURCES_NUMOF   (ARRAY_SIZE(core_clock_sources))
+
+const gclk_t* gclk_core_clock_handle = &gclk_rp2350_clk_sys_gate.base;
+
+//TODO: those do not add actual constraints (max value same as possible config)
+// - just here for testing for now
+/* these constraints universally apply for this platform at all times */
+const gclk_freq_constraint_t global_clock_constraints[] = {
+    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_clk_sys_gate.base, .freq = 150000000 },
+};
+
+#define GLOBAL_CLOCK_CONSTRAINTS_NUMOF (ARRAY_SIZE(global_clock_constraints))
+
+#define CORE_CLOCK_SOURCES_NUMOF   (ARRAY_SIZE(core_clock_sources))
+
+/* Defines the maximum number of discrete frequency steps that are used for dynamic frequency scaling
+ * and PU metric assessment */
+#define MAX_DFS_FREQ_VALUES_NUM (6)
+
+#define DFS_CYCLER_MIN_FREQ (2000000)
+#define DFS_CYCLER_MAX_FREQ (40000000)
+
+/* for each unique clock instance that has associated frequency configuration limits,
+ * this points to the limit list */
+static const clock_freq_conf_limits_t gclk_freq_conf_limits[] = {
+    { .clk = &gclk_rp2350_clk_sys_gate.base,
+      .limits = sys_freq_vc_ws_limits,
+      .len = ARRAY_SIZE(sys_freq_vc_ws_limits)
+    },
+};
+#define GCLK_FREQ_LIMIT_CLKS_NUMOF   ARRAY_SIZE(gclk_freq_conf_limits)
+
+/* TODO: also add explicit transition descriptors for same-to-same-topo transitions? */
+gclk_manager_topo_switch_desc_t core_clk_topo_switch_descs[] = {
+};
+
+#define CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF   (ARRAY_SIZE(core_clk_topo_switch_descs))
+
+/* TODO: replace these placeholders with data from the model */
+const gclk_manager_power_properties_t clock_power_model[] = {
+    //{ .clk = NULL, .P_en_nW = 0, .C_fF = 0 },
+};
+#define GCLK_MANAGER_CONF_SYS_PSTATIC_NW (1000000)
+#define GLOBAL_CLOCK_POWER_MODEL_PROPERTIES_NUMOF (0)
+#define GLOBAL_CLOCK_POWER_MODEL_AVAILABLE (0)
+
+
+gclk_clock_change_notify_list_t stdio_nl;
+gclk_clock_change_notify_list_t timer_reinit_nl;
+//extern const gclk_clk_scaler_ll_t gclk_efm32_hfperpresc_scaler;
+
+//TODO: should just be taken from resets.h (currently there are dependency issues with the includes ) */
+#define RESET_PLL_USB (1u << 15u)
+
+static inline int gclk_manager_platform_init(void) {
+    /* the reset must be performed before the regsiters can be written */
+    reset_component(RESET_PLL_USB, RESET_PLL_USB);
+    //gclk_manager_register_clk_change_cb(&gclk_efm32_hfperpresc_scaler.base, &timer_reinit_nl, gclk_manager_default_timer_reinit_cb);
+    //gclk_manager_register_clk_change_cb(&gclk_efm32_hfperpresc_scaler.base, &stdio_nl, gclk_manager_default_stdio_reinit_cb);
+    return 0;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* GCLK_MANAGER_CONF_H */
+/** @} */

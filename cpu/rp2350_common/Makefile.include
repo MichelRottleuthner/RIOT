@@ -11,6 +11,8 @@ INCLUDES += -I$(RIOTCPU)/rp2350_common/include
 INCLUDES += -isystem$(RIOTBASE)/build/pkg/picosdk/src/rp2_common/cmsis/stub/CMSIS/Core/Include
 INCLUDES += -isystem$(RIOTBASE)/build/pkg/picosdk/src/rp2_common/cmsis/stub/CMSIS/Device/RP2350/Include
 INCLUDES += -isystem$(RIOTBASE)/build/pkg/picosdk/src/rp2350/hardware_regs/include/hardware
+INCLUDES += -isystem$(RIOTBASE)/build/pkg/picosdk/src/rp2350/hardware_structs/include
+INCLUDES += -isystem$(RIOTBASE)/build/pkg/picosdk/src/rp2350/hardware_regs/include
 
 # Supported programmers and debuggers
 PROGRAMMERS_SUPPORTED := picotool openocd jlink
