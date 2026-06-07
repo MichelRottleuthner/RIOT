@@ -2860,7 +2860,9 @@ int _sc_get_max_freq(int argc, char **argv)
     }
 
     if (clk) {
+#if IS_USED(MODULE_ZTIMER_PERIPH_TIMER)
         uint64_t t_start = ztimer_now(ZTIMER_USEC);
+#endif
         uint32_t max_involved_clks = gclk_get_clk_subtree_max_depth(clk, 0);
 
         clk_topology_entry_t best_topology[max_involved_clks];
@@ -2877,7 +2879,9 @@ int _sc_get_max_freq(int argc, char **argv)
         printf("Max frequency for %s: %lu Hz\n", gclk_get_name(clk), leaf_freq);
         printf("Obtainable by using the following topology:\n");
         gclk_manager_print_topology_conf(best_topology, max_involved_clks, true, false);
+#if IS_USED(MODULE_ZTIMER_PERIPH_TIMER)
         printf("took %lu ms\n", (uint32_t)((ztimer_now(ZTIMER_USEC) - t_start)/1000));
+#endif
     } else {
         printf("could not find clock named %s\n", argv[1]);
     }
@@ -2901,7 +2905,9 @@ int _sc_get_min_freq(int argc, char **argv)
     }
 
     if (clk) {
+#if IS_USED(MODULE_ZTIMER_PERIPH_TIMER)
         uint64_t t_start = ztimer_now(ZTIMER_USEC);
+#endif
         uint32_t max_involved_clks = gclk_get_clk_subtree_max_depth(clk, 0);
 
         clk_topology_entry_t best_topology[max_involved_clks];
@@ -2917,7 +2923,9 @@ int _sc_get_min_freq(int argc, char **argv)
         printf("Min frequency for %s: %lu Hz\n", gclk_get_name(clk), leaf_freq);
         printf("Obtainable by using the following topology:\n");
         gclk_manager_print_topology_conf(best_topology, max_involved_clks, true, false);
+#if IS_USED(MODULE_ZTIMER_PERIPH_TIMER)
         printf("took %lu ms\n", (uint32_t)((ztimer_now(ZTIMER_USEC) - t_start)/1000));
+#endif
     } else {
         printf("could not find clock named %s\n", argv[1]);
     }
