@@ -4,7 +4,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+// TODO: something in this file causes issues on raspi-pico-2, needs further investigation
+#ifndef BOARD_RPI_PICO_2_RISCV
 #include "periph/gpio.h"
 #include "mutex.h"
 extern bool debughelpers_is_coordinator;
@@ -209,7 +210,10 @@ extern named_reg_map_t hfrcoctrl_regmap;
 extern void _bin_dump(uint32_t val);
 extern void _reg_map_bin_val_dump(const named_reg_map_t *r, uint32_t val);
 extern uint32_t _reg_map_bin_dump(const named_reg_map_t *r);
-
+#else /* #ifndef BOARD_RPI_PICO_2_RISCV */
+#define LA_PIN6 GPIO_PIN(0,15)
+#define LA_PIN7 GPIO_PIN(0,15)
+#endif
 #ifdef __cplusplus
 }
 #endif
