@@ -46,11 +46,23 @@ void _irq_enable(uart_t uart)
     rp_irq_enable(uart_config[uart].irqn);
 }
 
+#if IS_ACTIVE(MODULE_GCLK)
+    #include "gclk/generic_scaler.h"
+    #include "gclk.h"
+    extern const gclk_clk_scaler_ll_t gclk_rp2350_clk_peri_div_scaler;
+#endif
+
 void _set_symbolrate(uart_t uart, uint32_t baud)
 {
     assert(baud != 0);
     UART0_Type *dev = uart_config[uart].dev;
-    uint32_t baud_rate_div = (8 * CPUFREQ / baud);
+#if IS_ACTIVE(MODULE_GCLK)
+    uint32_t peri_freq_hz = gclk_get_current_freq(&gclk_rp2350_clk_peri_div_scaler.base);
+#else
+    uint32_t peri_freq_hz = CPUFREQ;
+#endif
+    //uint32_t baud_rate_div = (8 * CPUFREQ / baud);
+    uint32_t baud_rate_div = (8 * peri_freq_hz / baud);
     uint32_t baud_ibrd = baud_rate_div >> 7;
     uint32_t baud_fbrd;
 
