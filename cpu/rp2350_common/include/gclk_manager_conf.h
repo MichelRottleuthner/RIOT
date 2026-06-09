@@ -24,6 +24,7 @@
 #include "gclk/generic_gate.h"
 #include "gclk/generic_scaler.h"
 #include "gclk/generic_mux.h"
+#include "periph/core_voltage.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,7 +40,7 @@ extern const unsigned int DVFS_CONFS_CNT;
  * All of these limits apply to the system clock.
  */
 static const freq_conf_limit_t sys_freq_vc_ws_limits[] = {
-    { .freq_max =  150000000, .vc_idx_min = 0, .ws_min = 0 },
+    { .freq_max =  150000000, .vc_idx_min = 11, .ws_min = 0 },
 };
 
 enum {
@@ -231,6 +232,8 @@ static inline int gclk_manager_platform_init(void) {
     reset_component(RESET_PLL_USB, RESET_PLL_USB);
     //gclk_manager_register_clk_change_cb(&gclk_efm32_hfperpresc_scaler.base, &timer_reinit_nl, gclk_manager_default_timer_reinit_cb);
     //gclk_manager_register_clk_change_cb(&gclk_efm32_hfperpresc_scaler.base, &stdio_nl, gclk_manager_default_stdio_reinit_cb);
+
+    core_voltage_init();
 
     bool set_uart_to_xosc = true;
 
