@@ -131,9 +131,13 @@ const gclk_manager_sequence_step_t clk_sys__aux_xosc__aux_pllsys[] = {
     { .op = CLK_ENABLE,         .clk = &gclk_rp2350_pll_sys_vco_gate.base },
 
     { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_pll_sys_bypass_mux.base,   .clk_arg = &gclk_rp2350_pll_sys_postdiv2_scaler.base },
+    // this may in some cases slow down the clock unnecessarily, but it it is always safe to do
+    // because even at the lowest div (== 1) the sys clock is at max exposed to the crystal freq
+    // An optimization could take into account if the scaler adaptation would still be allowed
+    // after switching over to the new clock
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_clk_sys_div_scaler.base },
     { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_clk_sys_auxsrc_mux.base,   .clk_arg = &gclk_rp2350_pll_sys_bypass_mux.base },
     { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_clk_sys_src_mux.base,   .clk_arg = &gclk_rp2350_clk_sys_auxsrc_mux.base },
-    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_clk_sys_div_scaler.base },
 };
 
 const gclk_manager_topo_switch_desc_t core_clk_topo_switch_descs[] = {
