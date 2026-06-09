@@ -24,11 +24,12 @@ extern "C" {
 
 /* Static number ob bits needed to encode a config register index
  * preferrably this should be max 4 to save as much space as possible in the regref field
+ * on this platform we have >16 registers so we need at least 5 bits
  * */
-#define GCLK_CONF_REG_IDX_BITWIDTH (4)
+#define GCLK_CONF_REG_IDX_BITWIDTH (5)
 
 /* Static number of clock instances */
-#define GCLK_NUM_OF_CLOCKS (20)
+#define GCLK_NUM_OF_CLOCKS (26)
 
 typedef enum {
     GCLK_NULL_REG = 0,
@@ -37,6 +38,7 @@ typedef enum {
     GCLK_RP2350_PLL_SYS_FBDIV_INT,
     GCLK_RP2350_PLL_SYS_PRIM,
     GCLK_RP2350_CLK_SYS_CTRL,
+    GCLK_RP2350_CLK_SYS_DIV,
     GCLK_RP2350_CLK_REF_CTRL,
     GCLK_RP2350_PLL_USB_CS,
     GCLK_RP2350_PLL_USB_FBDIV_INT,
@@ -44,7 +46,10 @@ typedef enum {
     GCLK_RP2350_PLL_USB_PWR,
     GCLK_RP2350_CLK_PERI_CTRL,
     GCLK_RP2350_CLK_PERI_DIV,
-    GCLK_EFM32__LAST_CONF_REG_IDX,
+    GCLK_RP2350_CLK_GPOUT0_CTRL,
+    GCLK_RP2350_CLK_GPOUT0_DIV,
+    GCLK_RP2350_ROSC_CTRL,
+    GCLK_RP2350__LAST_CONF_REG_IDX,
     /* @todo: add unused entry at the end to derive count? */
 } gclk_conf_reg_id_t;
 

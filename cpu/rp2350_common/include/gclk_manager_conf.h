@@ -34,16 +34,6 @@ extern const unsigned int GCLK_PREFERRED_FREQ_CONF_CNT;
 extern gclk_t const *gclock_handle_for_core_freq;
 extern const unsigned int DVFS_CONFS_CNT;
 
-/* the below transitions are used to switch from one source to another */
-//gclk_manager_sequence_step_t hfxo_to_hfrco_transition_steps[] = {
-//    { .op = CLK_CONFIG_TARGET, .clk = &gclk_efm32_hfrco_scaler.base },
-//    { .op = CLK_CONFIG_TARGET, .clk = &gclk_efm32_hfclk_scaler.base },
-//    { .op = CLK_CONFIG_TARGET, .clk = &gclk_efm32_hfcorepresc_scaler.base },
-//    { .op = CLK_ENABLE,     .clk = &gclk_efm32_hfrco_base_gate.base },
-//    { .op = CLK_SET_PARENT, .clk = &gclk_efm32_hfsrcclk_mux.base, .clk_arg = &gclk_efm32_hfrco_dpll_mux.base },
-//    { .op = CLK_DISABLE,    .clk = &gclk_efm32_hfxo_base_gate.base },
-//};
-
 /**
  * @name    Frequency limit configuration
  * All of these limits apply to the system clock.
@@ -66,11 +56,102 @@ gclk_scale_setting_t scale_settings[] = {
 
 extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_scaler;
 extern const gclk_clk_scaler_ll_t gclk_rp2350_rosc_scaler;
+extern const gclk_generic_gate_t gclk_rp2350_rosc_gate;
 extern const gclk_generic_gate_t gclk_rp2350_xosc_gate;
-extern const gclk_generic_gate_t gclk_rp2350_clksrc_gpin0_gate;
-extern const gclk_generic_gate_t gclk_rp2350_clksrc_gpin1_gate;
+extern const gclk_t gclk_rp2350_gpin0_src;
+extern const gclk_t gclk_rp2350_gpin1_src;
 
 extern const gclk_generic_gate_t gclk_rp2350_clk_sys_gate;
+extern const gclk_mux_ll_t gclk_rp2350_clk_sys_auxsrc_mux;
+extern const gclk_mux_ll_t gclk_rp2350_pll_sys_bypass_mux;
+
+extern const gclk_generic_gate_t gclk_rp2350_pll_sys_vco_gate;
+extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_postdiv1_scaler;
+extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_postdiv2_scaler;
+
+extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_refdiv_scaler;
+extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_usb_refdiv_scaler;
+extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_usb_fbdiv_scaler;
+extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_fbdiv_scaler;
+extern const gclk_mux_ll_t gclk_rp2350_clk_sys_src_mux;
+extern const gclk_clk_scaler_ll_t gclk_rp2350_clk_sys_div_scaler;
+
+const gclk_t* gclk_core_clock_handle = &gclk_rp2350_clk_sys_gate.base;
+
+/*
+ *
+ * ID | Topology
+ * ---|-------------------
+ *  0 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_REF_SRC]-->[CLK_REF_AUXSRC]-->[PLL_USB_BYPASS]-->[PLL_USB_POSTDIV2]-->[PLL_USB_POSTDIV1]-->[PLL_USB_VCO]-->[PLL_USB_FBDIV]-->[PLL_USB_REFDIV]-->[XOSC]
+ *  1 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_REF_SRC]-->[CLK_REF_AUXSRC]-->[PLL_USB_BYPASS]-->[XOSC]
+ *  ### default topology in RIOT vvv
+ *  2 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_SYS_AUXSRC]-->[PLL_SYS_BYPASS]-->[PLL_SYS_POSTDIV2]-->[PLL_SYS_POSTDIV1]-->[PLL_SYS_VCO]-->[PLL_SYS_FBDIV]-->[PLL_SYS_REFDIV]-->[XOSC]
+ *  ### default topology in RIOT ^^^
+ *  3 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_SYS_AUXSRC]-->[PLL_SYS_BYPASS]-->[XOSC]
+ *  4 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_SYS_AUXSRC]-->[PLL_USB_BYPASS]-->[PLL_USB_POSTDIV2]-->[PLL_USB_POSTDIV1]-->[PLL_USB_VCO]-->[PLL_USB_FBDIV]-->[PLL_USB_REFDIV]-->[XOSC]
+ *  5 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_SYS_AUXSRC]-->[PLL_USB_BYPASS]-->[XOSC]
+ *  6 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_SYS_AUXSRC]-->[ROSC]-->[ROSC_BASE]
+ *  7 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_SYS_AUXSRC]-->[XOSC]
+ *  8 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_SYS_AUXSRC]-->[GPIN0]
+ *  9 | [CLK_SYS]-->[CLK_SYS_SRC]-->[CLK_SYS_AUXSRC]-->[GPIN0]
+ */
+enum {
+    RP2350_TOPOID_CLK_SYS_REF_XOSC_PLL_USB   = 0,
+    RP2350_TOPOID_CLK_SYS_REF_PLLUSBBYP_XOSC = 1,
+    RP2350_TOPOID_CLK_SYS_AUX_PLLSYS_XOSC    = 2,
+    RP2350_TOPOID_CLK_SYS_AUX_PLLSYSBYP_XOSC = 3,
+    RP2350_TOPOID_CLK_SYS_AUX_PLLUSB_XOSC    = 4,
+    RP2350_TOPOID_CLK_SYS_AUX_PLLUSBBYP_XOSC = 5,
+    RP2350_TOPOID_CLK_SYS_AUX_ROSC           = 6,
+    RP2350_TOPOID_CLK_SYS_AUX_XOSC           = 7,
+    RP2350_TOPOID_CLK_SYS_AUX_GPIN0          = 8,
+    RP2350_TOPOID_CLK_SYS_AUX_GPIN1          = 9,
+};
+
+const gclk_manager_sequence_step_t clk_sys__aux_pllsys__aux_rosc[] = {
+    { .op = CLK_CONFIG_TARGET, .clk = &gclk_rp2350_rosc_scaler.base },
+    { .op = CLK_ENABLE,        .clk = &gclk_rp2350_rosc_gate.base },
+    { .op = CLK_SET_PARENT,    .clk = &gclk_rp2350_clk_sys_auxsrc_mux.base,   .clk_arg = &gclk_rp2350_rosc_scaler.base },
+    /* TODO: optional: disable old topo (if not needed) */
+};
+
+const gclk_manager_sequence_step_t clk_sys__aux_pllsys__aux_xosc[] = {
+    { .op = CLK_SET_PARENT,    .clk = &gclk_rp2350_clk_sys_auxsrc_mux.base,   .clk_arg = &gclk_rp2350_xosc_gate.base },
+    /* TODO: optional: disable old topo (if not needed) */
+};
+
+const gclk_manager_sequence_step_t clk_sys__aux_xosc__aux_pllsys[] = {
+    /* make sure the PLL is off before adjusting internal values */
+    { .op = CLK_DISABLE,        .clk = &gclk_rp2350_pll_sys_vco_gate.base },
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_postdiv2_scaler.base },
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_postdiv1_scaler.base },
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base },
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_refdiv_scaler.base },
+    /* re-enable PLL before using it as source */
+    { .op = CLK_ENABLE,         .clk = &gclk_rp2350_pll_sys_vco_gate.base },
+
+    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_pll_sys_bypass_mux.base,   .clk_arg = &gclk_rp2350_pll_sys_postdiv2_scaler.base },
+    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_clk_sys_auxsrc_mux.base,   .clk_arg = &gclk_rp2350_pll_sys_bypass_mux.base },
+    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_clk_sys_src_mux.base,   .clk_arg = &gclk_rp2350_clk_sys_auxsrc_mux.base },
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_clk_sys_div_scaler.base },
+};
+
+const gclk_manager_topo_switch_desc_t core_clk_topo_switch_descs[] = {
+    { .src_topo_id = RP2350_TOPOID_CLK_SYS_AUX_PLLSYS_XOSC,
+      .dst_topo_id = RP2350_TOPOID_CLK_SYS_AUX_ROSC,
+      .steps = clk_sys__aux_pllsys__aux_rosc,
+      .step_cnt= ARRAY_SIZE(clk_sys__aux_pllsys__aux_rosc) },
+    { .src_topo_id = RP2350_TOPOID_CLK_SYS_AUX_PLLSYS_XOSC,
+      .dst_topo_id = RP2350_TOPOID_CLK_SYS_AUX_XOSC,
+      .steps = clk_sys__aux_pllsys__aux_xosc,
+      .step_cnt= ARRAY_SIZE(clk_sys__aux_pllsys__aux_xosc) },
+    { .src_topo_id = RP2350_TOPOID_CLK_SYS_AUX_XOSC,
+      .dst_topo_id = RP2350_TOPOID_CLK_SYS_AUX_PLLSYS_XOSC,
+      .steps = clk_sys__aux_xosc__aux_pllsys,
+      .step_cnt= ARRAY_SIZE(clk_sys__aux_xosc__aux_pllsys) },
+};
+
+#define CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF   (ARRAY_SIZE(core_clk_topo_switch_descs))
 
 /* Defines a list of clock sources that are allowed to be used as the originating source to drive the systems core clock.
  * A clock listed here is not neccessarily able to drive the core clock directly. Instead, this list just defines the roots
@@ -81,19 +162,23 @@ static const gclk_t* core_clock_sources[] = {
 &gclk_rp2350_pll_sys_scaler.base,
 &gclk_rp2350_rosc_scaler.base,
 &gclk_rp2350_xosc_gate.base,
-&gclk_rp2350_clksrc_gpin0_gate.base,
-&gclk_rp2350_clksrc_gpin1_gate.base,
+&gclk_rp2350_gpin0_src,
+&gclk_rp2350_gpin1_src,
 };
 
 #define CORE_CLOCK_SOURCES_NUMOF   (ARRAY_SIZE(core_clock_sources))
-
-const gclk_t* gclk_core_clock_handle = &gclk_rp2350_clk_sys_gate.base;
 
 //TODO: those do not add actual constraints (max value same as possible config)
 // - just here for testing for now
 /* these constraints universally apply for this platform at all times */
 const gclk_freq_constraint_t global_clock_constraints[] = {
     { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_clk_sys_gate.base, .freq = 150000000 },
+    { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_usb_refdiv_scaler.base, .freq =   5000000 },
+    { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_sys_refdiv_scaler.base, .freq =   5000000 },
+    { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_usb_fbdiv_scaler.base, .freq =  750000000 }, // VCO
+    { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base, .freq =  750000000 }, // VCO
+    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_pll_usb_fbdiv_scaler.base, .freq = 1600000000 }, // VCO
+    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base, .freq = 1600000000 }, // VCO
 };
 
 #define GLOBAL_CLOCK_CONSTRAINTS_NUMOF (ARRAY_SIZE(global_clock_constraints))
@@ -116,12 +201,6 @@ static const clock_freq_conf_limits_t gclk_freq_conf_limits[] = {
     },
 };
 #define GCLK_FREQ_LIMIT_CLKS_NUMOF   ARRAY_SIZE(gclk_freq_conf_limits)
-
-/* TODO: also add explicit transition descriptors for same-to-same-topo transitions? */
-gclk_manager_topo_switch_desc_t core_clk_topo_switch_descs[] = {
-};
-
-#define CORE_CLOCK_TOPO_SWITCH_DESC_NUMOF   (ARRAY_SIZE(core_clk_topo_switch_descs))
 
 /* TODO: replace these placeholders with data from the model */
 const gclk_manager_power_properties_t clock_power_model[] = {
