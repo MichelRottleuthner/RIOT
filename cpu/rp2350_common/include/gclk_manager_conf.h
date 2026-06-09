@@ -64,6 +64,7 @@ extern const gclk_t gclk_rp2350_gpin1_src;
 extern const gclk_generic_gate_t gclk_rp2350_clk_sys_gate;
 extern const gclk_mux_ll_t gclk_rp2350_clk_sys_auxsrc_mux;
 extern const gclk_mux_ll_t gclk_rp2350_pll_sys_bypass_mux;
+extern const gclk_mux_ll_t gclk_rp2350_clk_peri_auxsrc_mux;
 
 extern const gclk_generic_gate_t gclk_rp2350_pll_sys_vco_gate;
 extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_postdiv1_scaler;
@@ -75,6 +76,7 @@ extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_usb_fbdiv_scaler;
 extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_fbdiv_scaler;
 extern const gclk_mux_ll_t gclk_rp2350_clk_sys_src_mux;
 extern const gclk_clk_scaler_ll_t gclk_rp2350_clk_sys_div_scaler;
+extern const gclk_generic_gate_t gclk_rp2350_clk_peri_gate;
 
 const gclk_t* gclk_core_clock_handle = &gclk_rp2350_clk_sys_gate.base;
 
@@ -222,11 +224,43 @@ gclk_clock_change_notify_list_t timer_reinit_nl;
 //TODO: should just be taken from resets.h (currently there are dependency issues with the includes ) */
 #define RESET_PLL_USB (1u << 15u)
 
+extern bool _custom_print_enable;
+
 static inline int gclk_manager_platform_init(void) {
     /* the reset must be performed before the regsiters can be written */
     reset_component(RESET_PLL_USB, RESET_PLL_USB);
     //gclk_manager_register_clk_change_cb(&gclk_efm32_hfperpresc_scaler.base, &timer_reinit_nl, gclk_manager_default_timer_reinit_cb);
     //gclk_manager_register_clk_change_cb(&gclk_efm32_hfperpresc_scaler.base, &stdio_nl, gclk_manager_default_stdio_reinit_cb);
+
+    bool set_uart_to_xosc = true;
+
+    if (set_uart_to_xosc) {
+        _custom_print_enable = false;
+        const gclk_t* altered_clk = NULL;
+        const gclk_t* affected_clk = NULL;
+        uint32_t f_old = 0;
+        uint32_t f_new = 0;
+        bool post_change = false;
+
+        gclk_manager_default_stdio_reinit_cb(altered_clk, affected_clk, f_old, f_new, post_change);
+        gclk_disable(&gclk_rp2350_clk_peri_gate.base);
+
+        const gclk_t *mux = &gclk_rp2350_clk_peri_auxsrc_mux.base;
+        const gclk_t *parent = &gclk_rp2350_xosc_gate.base;
+
+        int idx = gclk_parent2idx(mux, parent);
+
+        if (idx < 0) {
+            printf("[%s] does not have a parent named [%s]\n", gclk_get_name(mux), gclk_get_name(parent));
+            assert(false);
+        }
+
+        gclk_set_parent(mux, idx);
+        gclk_enable(&gclk_rp2350_clk_peri_gate.base);
+        post_change = true;
+        gclk_manager_default_stdio_reinit_cb(altered_clk, affected_clk, f_old, f_new, post_change);
+        _custom_print_enable = true;
+    }
     return 0;
 }
 
