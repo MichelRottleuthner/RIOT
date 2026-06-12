@@ -78,9 +78,13 @@ int core_voltage_init(void) {
 }
 
 void core_voltage_set(unsigned int voltage_idx) {
-    if (voltage_idx > POWMAN_VREG_VSEL_MAX_VAL) {
-        voltage_idx = POWMAN_VREG_VSEL_MAX_VAL;
+    /* don't allow going out of spec for now */
+    if (voltage_idx > POWMAN_VREG_VSEL_DEFAULT_VAL) {
+        voltage_idx = POWMAN_VREG_VSEL_DEFAULT_VAL;
     }
+    //if (voltage_idx > POWMAN_VREG_VSEL_MAX_VAL) {
+    //    voltage_idx = POWMAN_VREG_VSEL_MAX_VAL;
+    //}
     POWMAN->VREG = (POWMAN->VREG & ~(POWMAN_VREG_VSEL_BITS | POWMAN_PASSWD_BITS))
                    | (POWMAN_PASSWD)
                    | (voltage_idx << POWMAN_VREG_VSEL_LSB);
