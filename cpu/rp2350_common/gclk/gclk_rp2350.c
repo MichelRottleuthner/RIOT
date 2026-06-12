@@ -116,6 +116,8 @@ const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_fbdiv_scaler;
 const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_vco_scaler;
 const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_postdiv1_scaler;
 const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_postdiv2_scaler;
+const gclk_generic_gate_t gclk_rp2350_pll_sys_postdiv_gate;
+
 const gclk_mux_ll_t gclk_rp2350_pll_sys_bypass_mux;
 const gclk_generic_gate_t gclk_rp2350_pll_sys_vco_gate;
 
@@ -128,10 +130,76 @@ const gclk_mux_ll_t gclk_rp2350_pll_usb_bypass_mux;
 const gclk_generic_gate_t gclk_rp2350_pll_usb_vco_gate;
 
 const gclk_mux_ll_t gclk_rp2350_clk_sys_mux;
-const gclk_generic_gate_t gclk_rp2350_clk_sys_gate;
 
+
+/*
 #define GCLK_RP2350_PLAIN_SCALER_STATIC_INIT(NAME)\
 .base.separated_ops  = gclk_plain_scaler_ops,\
+.base.flags.scalable = 1,\
+.base.name           = #NAME
+*/
+
+unsigned int _dbg_generic_scaler_get_factor(const gclk_t *clk) {
+    gclk_clk_scaler_ll_t *scaler = to_gclk_clk_scaler_ll_t(clk);
+
+    /* update only read if scaler config register is valid */
+    if (gclk_regref2conf_reg(scaler->regref)) {
+        uint32_t cur_conf_reg_val = gclk_reg_util_read_masked(gclk_regref2conf_reg(scaler->regref),
+                                                              gclk_regref2conf_mask(scaler->regref));
+
+        uint32_t factor = gclk_regval2factor(clk, cur_conf_reg_val);
+        return factor;
+    }
+
+    return 0;
+}
+
+void _dbg_generic_scaler_set_factor(const gclk_t *clk, unsigned int factor) {
+    gclk_clk_scaler_ll_t *scaler = to_gclk_clk_scaler_ll_t(clk);
+
+    /* update only if we have a valid scaler config register */
+    if (gclk_regref2conf_reg(scaler->regref)) {
+
+        uint32_t scale_reg_val = gclk_factor2regval(clk, factor);
+        gclk_reg_util_write_masked(gclk_regref2conf_reg(scaler->regref),
+                                   gclk_regref2conf_mask(scaler->regref), scale_reg_val);
+    }
+}
+
+unsigned int _dbg_generic_scaler_get_conf(const gclk_t *clk) {
+    gclk_clk_scaler_ll_t *scaler = to_gclk_clk_scaler_ll_t(clk);
+
+    /* update only read if scaler config register is valid */
+    if (gclk_regref2conf_reg(scaler->regref)) {
+
+        uint32_t cur_conf_reg_val = gclk_reg_util_read_masked(gclk_regref2conf_reg(scaler->regref),
+                                                              gclk_regref2conf_mask(scaler->regref));
+        return cur_conf_reg_val;
+    }
+
+    return 0;
+}
+
+void _dbg_generic_scaler_set_conf(const gclk_t *clk, unsigned int conf) {
+    gclk_clk_scaler_ll_t *scaler = to_gclk_clk_scaler_ll_t(clk);
+
+    /* update only if we have a valid scaler config register */
+    if (gclk_regref2conf_reg(scaler->regref)) {
+        gclk_reg_util_write_masked(gclk_regref2conf_reg(scaler->regref),
+                                   gclk_regref2conf_mask(scaler->regref), conf);
+    }
+}
+
+
+const gclk_op_t _dbg_plain_scaler_ops[] = {
+      { .scale_ops = { .get_factor = _dbg_generic_scaler_get_factor,
+                       .set_factor = _dbg_generic_scaler_set_factor,}},
+      { .getset_ops = { .get_conf = _dbg_generic_scaler_get_conf,
+                        .set_conf  = _dbg_generic_scaler_set_conf,}},
+};
+
+#define GCLK_RP2350_PLAIN_SCALER_STATIC_INIT(NAME)\
+.base.separated_ops  = _dbg_plain_scaler_ops,\
 .base.flags.scalable = 1,\
 .base.name           = #NAME
 
@@ -212,8 +280,8 @@ const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_postdiv2_scaler = {
 
 /* The BYPASS mux can either route the ref clock through the PLL or outut the ref clock directly */
 static const gclk_parent_config_lut_t _pll_sys_bypass_mux_configs[] = {
-    { .parent = &gclk_rp2350_pll_sys_postdiv2_scaler.base, .config_reg_val = 0 }, /* PLL out */
-    { .parent = &gclk_rp2350_xosc_gate.base,               .config_reg_val = 1 }, /* FREF = XOSC */
+    { .parent = &gclk_rp2350_pll_sys_postdiv_gate.base,  .config_reg_val = 0 }, /* PLL out */
+    { .parent = &gclk_rp2350_xosc_gate.base,             .config_reg_val = 1 }, /* FREF = XOSC */
 };
 
 const gclk_mux_ll_t gclk_rp2350_pll_sys_bypass_mux = {
@@ -357,9 +425,20 @@ const gclk_generic_gate_t gclk_rp2350_xosc_gate = {
                            .rdy_bit = 0, }
 };
 
+void _dbg_rp2350_pll(void)
+
+{
+    PLL_SYS_Type *pll = PLL_USB;
+    uint32_t csval = pll->CS;
+    printf("CS:       0x%08lx\n", csval);
+    printf("PWR:      0x%08lx\n", pll->PWR);
+    printf("FBDIV_INT 0x%08lx\n", pll->FBDIV_INT);
+    printf("PRIM      0x%08lx\n", pll->PRIM);
+    printf("INTR      0x%08lx\n", pll->INTR);
+}
+
 void gclk_rp2350_pll_enable(const gclk_t *clk, bool on) {
     gclk_generic_gate_t *gate = to_gclk_generic_gate_t(clk);
-    //gclk_reg_ref_t regref = gate->regref;
 
     PLL_SYS_Type *pll;
     if (gate == &gclk_rp2350_pll_sys_vco_gate) {
@@ -372,17 +451,20 @@ void gclk_rp2350_pll_enable(const gclk_t *clk, bool on) {
 
     if (on) {
         LOG_DEBUG("%s: enabling %s...\n", __FUNCTION__, gclk_get_name(clk));
+        /* only control the pll-globalpower down and the vco.
+         * the post div powerdown is controlled by a separate gate node */
         atomic_clear(&pll->PWR,
-                    PLL_PWR_PD_BITS | PLL_PWR_VCOPD_BITS | PLL_PWR_POSTDIVPD_BITS);
+                     PLL_PWR_PD_BITS | PLL_PWR_VCOPD_BITS);
     } else {
         LOG_DEBUG("%s: disabling %s...\n", __FUNCTION__, gclk_get_name(clk));
-        //gclk_reg_util_clear_mask(gclk_regref2enable_reg(regref), gclk_regref2enable_mask(regref)
         atomic_set(&pll->PWR,
-                    PLL_PWR_PD_BITS | PLL_PWR_VCOPD_BITS | PLL_PWR_POSTDIVPD_BITS);
+                   PLL_PWR_PD_BITS | PLL_PWR_VCOPD_BITS);
     }
 
-    /* sleep 10ms to allow the PLL to stabilize */
-    xosc_sleep(10);
+    uint32_t csval = pll->CS;
+    while (!(csval & PLL_CS_LOCK_BITS)) {
+        csval = pll->CS;
+    }
 }
 
 bool gclk_rp2350_pll_is_enabled(const gclk_t *clk) {
@@ -407,6 +489,70 @@ const gclk_op_t gclk_rp2350_pll_vco_gate_ops[] = {
   { .gate_ops = { .is_enabled = gclk_rp2350_pll_is_enabled,
                   .enable     = gclk_rp2350_pll_enable, }},
 };
+
+void gclk_rp2350_pll_postdiv_enable(const gclk_t *clk, bool on) {
+    gclk_generic_gate_t *gate = to_gclk_generic_gate_t(clk);
+    //gclk_reg_ref_t regref = gate->regref;
+
+    PLL_SYS_Type *pll;
+    if (gate == &gclk_rp2350_pll_sys_postdiv_gate) {
+        pll = PLL_SYS;
+    //} else if (gate == &gclk_rp2350_pll_usb_vco_gate) {
+    //    pll = PLL_USB;
+    } else {
+        assert(false);
+    }
+
+    if (on) {
+        LOG_DEBUG("%s: enabling %s...\n", __FUNCTION__, gclk_get_name(clk));
+        atomic_clear(&pll->PWR, PLL_PWR_POSTDIVPD_BITS);
+    } else {
+        LOG_DEBUG("%s: disabling %s...\n", __FUNCTION__, gclk_get_name(clk));
+        atomic_set(&pll->PWR, PLL_PWR_POSTDIVPD_BITS);
+    }
+    //xosc_sleep(10);
+}
+
+bool gclk_rp2350_pll_postdiv_is_enabled(const gclk_t *clk) {
+    gclk_generic_gate_t *gate = to_gclk_generic_gate_t(clk);
+
+    PLL_SYS_Type *pll;
+    if (gate == &gclk_rp2350_pll_sys_postdiv_gate) {
+        pll = PLL_SYS;
+    //} else if (gate == &gclk_rp2350_pll_usb_vco_gate) {
+    //    pll = PLL_USB;
+    } else {
+        assert(false);
+    }
+
+    /* if powerdown is set the gate is disabled */
+    if (pll->PWR & PLL_PWR_POSTDIVPD_BITS) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+const gclk_op_t gclk_rp2350_pll_postdiv_gate_ops[] = {
+  { .gate_ops = { .is_enabled = gclk_rp2350_pll_postdiv_is_enabled,
+                  .enable     = gclk_rp2350_pll_postdiv_enable, }},
+};
+
+#define _PLL_POSTDIV_GATE_STATIC_INIT(NAME,PARENT)\
+.base.separated_ops    = gclk_rp2350_pll_postdiv_gate_ops,\
+.base.fixed_parent     = PARENT,\
+.base.flags.gateable   = 1,\
+.base.name             = #NAME,\
+.regref                = { .en      = GCLK_NULL_REG,\
+                           .rdy     = GCLK_NULL_REG,\
+                           .en_bit  = 0,\
+                           .rdy_bit = 0, }
+
+const gclk_generic_gate_t gclk_rp2350_pll_sys_postdiv_gate = {
+_PLL_POSTDIV_GATE_STATIC_INIT(PLL_SYS_POSTDIV_GATE,
+                          &gclk_rp2350_pll_sys_postdiv2_scaler.base)
+};
+
 
 #define _PLL_VCO_GATE_STATIC_INIT(NAME,PARENT,EN_REG_ID,RDY_REG_ID,EN_BIT,RDY_BIT)\
 .base.separated_ops    = gclk_rp2350_pll_vco_gate_ops,\
@@ -473,7 +619,7 @@ const gclk_mux_ll_t gclk_rp2350_clk_ref_src_mux = {
 
 /* CLK_SYS AUXSRC: Selects the auxiliary clock source, will glitch when switching. */
 static const gclk_parent_config_lut_t _clk_sys_aux_src_mux_configs[] = {
-    //{ .parent = &gclk_rp2350_pll_sys_postdiv2_scaler.base, .config_reg_val = 0 }, /* 0x0 → CLKSRC_PLL_SYS */
+    //{ .parent = &gclk_rp2350_pll_sys_postdiv_gate.base, .config_reg_val = 0 }, /* 0x0 → CLKSRC_PLL_SYS */
     //{ .parent = &gclk_rp2350_pll_usb_postdiv2_scaler.base, .config_reg_val = 1 }, /* 0x1 → CLKSRC_PLL_USB */
     { .parent = &gclk_rp2350_pll_sys_bypass_mux.base, .config_reg_val = 0 }, /* 0x0 → CLKSRC_PLL_SYS */
     { .parent = &gclk_rp2350_pll_usb_bypass_mux.base, .config_reg_val = 1 }, /* 0x1 → CLKSRC_PLL_USB */
@@ -767,8 +913,6 @@ int gclk_enable_pin_output(const gclk_t *clk, const gpio_t pin) {
     return ENABLE_PIN_OUTPUT_INVALID_PIN;
 }
 
-gclk_t const *gclock_handle_for_core_freq = &gclk_rp2350_clk_sys_div_scaler.base;
-
 /* making this static leads to copies if included from multiple places, so avoid that */
 const gclk_t *gclks[GCLK_NUM_OF_CLOCKS] = {
     // clock sources vvv
@@ -783,6 +927,7 @@ const gclk_t *gclks[GCLK_NUM_OF_CLOCKS] = {
     &gclk_rp2350_pll_sys_postdiv1_scaler.base,
     &gclk_rp2350_pll_sys_postdiv2_scaler.base,
     &gclk_rp2350_pll_sys_bypass_mux.base,
+    &gclk_rp2350_pll_sys_postdiv_gate.base,
 
     // pll_usb vvv
     &gclk_rp2350_pll_usb_refdiv_scaler.base,

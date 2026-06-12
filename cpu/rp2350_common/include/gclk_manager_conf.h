@@ -41,6 +41,13 @@ extern const unsigned int DVFS_CONFS_CNT;
  */
 static const freq_conf_limit_t sys_freq_vc_ws_limits[] = {
     { .freq_max =  150000000, .vc_idx_min = 11, .ws_min = 0 },
+    /* The rp2350 spec doesn't define a proper voltage frequency matrix
+     * instead it define the nominal voltage at 1.1V and indicates 1.05V to be
+     * the minimum for the whole range.
+     * We arbitrarily choose to allow the lower value at half the frequency.
+     * This is within spec, but there may be more headroom to leverage lower levels
+     * or higher frequencies at this level. */
+    { .freq_max =   75000000, .vc_idx_min = 10, .ws_min = 0 },
 };
 
 enum {
@@ -62,10 +69,11 @@ extern const gclk_generic_gate_t gclk_rp2350_xosc_gate;
 extern const gclk_t gclk_rp2350_gpin0_src;
 extern const gclk_t gclk_rp2350_gpin1_src;
 
-extern const gclk_generic_gate_t gclk_rp2350_clk_sys_gate;
 extern const gclk_mux_ll_t gclk_rp2350_clk_sys_auxsrc_mux;
 extern const gclk_mux_ll_t gclk_rp2350_pll_sys_bypass_mux;
+extern const gclk_mux_ll_t gclk_rp2350_pll_usb_bypass_mux;
 extern const gclk_mux_ll_t gclk_rp2350_clk_peri_auxsrc_mux;
+extern const gclk_generic_gate_t gclk_rp2350_pll_sys_postdiv_gate;
 
 extern const gclk_generic_gate_t gclk_rp2350_pll_sys_vco_gate;
 extern const gclk_clk_scaler_ll_t gclk_rp2350_pll_sys_postdiv1_scaler;
@@ -79,7 +87,7 @@ extern const gclk_mux_ll_t gclk_rp2350_clk_sys_src_mux;
 extern const gclk_clk_scaler_ll_t gclk_rp2350_clk_sys_div_scaler;
 extern const gclk_generic_gate_t gclk_rp2350_clk_peri_gate;
 
-const gclk_t* gclk_core_clock_handle = &gclk_rp2350_clk_sys_gate.base;
+const gclk_t* gclk_core_clock_handle = &gclk_rp2350_clk_sys_div_scaler.base;
 
 /*
  *
@@ -125,22 +133,30 @@ const gclk_manager_sequence_step_t clk_sys__aux_pllsys__aux_xosc[] = {
 
 const gclk_manager_sequence_step_t clk_sys__aux_xosc__aux_pllsys[] = {
     /* make sure the PLL is off before adjusting internal values */
+    { .op = CLK_DISABLE,        .clk = &gclk_rp2350_pll_sys_postdiv_gate.base },
     { .op = CLK_DISABLE,        .clk = &gclk_rp2350_pll_sys_vco_gate.base },
-    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_postdiv2_scaler.base },
-    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_postdiv1_scaler.base },
-    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base },
     { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_refdiv_scaler.base },
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base },
     /* re-enable PLL before using it as source */
     { .op = CLK_ENABLE,         .clk = &gclk_rp2350_pll_sys_vco_gate.base },
 
-    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_pll_sys_bypass_mux.base,   .clk_arg = &gclk_rp2350_pll_sys_postdiv2_scaler.base },
+    //configure post scalers after turning on VCO
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_postdiv1_scaler.base },
+    { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_postdiv2_scaler.base },
+    { .op = CLK_ENABLE,         .clk = &gclk_rp2350_pll_sys_postdiv_gate.base },
+    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_pll_sys_bypass_mux.base,   .clk_arg = &gclk_rp2350_pll_sys_postdiv_gate.base },
     // this may in some cases slow down the clock unnecessarily, but it it is always safe to do
     // because even at the lowest div (== 1) the sys clock is at max exposed to the crystal freq
     // An optimization could take into account if the scaler adaptation would still be allowed
     // after switching over to the new clock
     { .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_clk_sys_div_scaler.base },
-    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_clk_sys_auxsrc_mux.base,   .clk_arg = &gclk_rp2350_pll_sys_bypass_mux.base },
-    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_clk_sys_src_mux.base,   .clk_arg = &gclk_rp2350_clk_sys_auxsrc_mux.base },
+    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_clk_sys_auxsrc_mux.base, .clk_arg = &gclk_rp2350_pll_sys_bypass_mux.base },
+    { .op = CLK_SET_PARENT,     .clk = &gclk_rp2350_clk_sys_src_mux.base,    .clk_arg = &gclk_rp2350_clk_sys_auxsrc_mux.base },
+    // tested as workaround for improper freq lock (works for previously improperly locked configs, but breaks others ;)
+    //{ .op = CLK_SET_FACTOR,     .clk = &gclk_rp2350_pll_sys_postdiv2_scaler.base, .num_arg=7 },
+    //{ .op = CLK_SET_FACTOR,     .clk = &gclk_rp2350_pll_sys_postdiv1_scaler.base, .num_arg=3 },
+    //{ .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_postdiv1_scaler.base },
+    //{ .op = CLK_CONFIG_TARGET,  .clk = &gclk_rp2350_pll_sys_postdiv2_scaler.base },
 };
 
 const gclk_manager_topo_switch_desc_t core_clk_topo_switch_descs[] = {
@@ -179,13 +195,15 @@ static const gclk_t* core_clock_sources[] = {
 // - just here for testing for now
 /* these constraints universally apply for this platform at all times */
 const gclk_freq_constraint_t global_clock_constraints[] = {
-    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_clk_sys_gate.base, .freq = 150000000 },
+    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_clk_sys_div_scaler.base,    .freq =  150000000 },
     { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_usb_refdiv_scaler.base, .freq =   5000000 },
     { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_sys_refdiv_scaler.base, .freq =   5000000 },
-    { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_usb_fbdiv_scaler.base, .freq =  750000000 }, // VCO
-    { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base, .freq =  750000000 }, // VCO
-    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_pll_usb_fbdiv_scaler.base, .freq = 1600000000 }, // VCO
-    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base, .freq = 1600000000 }, // VCO
+    { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_usb_fbdiv_scaler.base,  .freq =  750000000 }, // VCO
+    { .type = GCLK_ENSURE_MIN_FREQ, .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base,  .freq =  750000000 }, // VCO
+    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_pll_usb_fbdiv_scaler.base,  .freq = 1600000000 }, // VCO
+    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_pll_sys_fbdiv_scaler.base,  .freq = 1600000000 }, // VCO
+    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_pll_sys_bypass_mux.base,    .freq =  150000000 }, // PLL_SYS FOUTPOSTDIV
+    { .type = GCLK_ENSURE_MAX_FREQ, .clk = &gclk_rp2350_pll_usb_bypass_mux.base,    .freq =   48000000 }, // PLL_USB FOUTPOSTDIV
 };
 
 #define GLOBAL_CLOCK_CONSTRAINTS_NUMOF (ARRAY_SIZE(global_clock_constraints))
@@ -202,7 +220,7 @@ const gclk_freq_constraint_t global_clock_constraints[] = {
 /* for each unique clock instance that has associated frequency configuration limits,
  * this points to the limit list */
 static const clock_freq_conf_limits_t gclk_freq_conf_limits[] = {
-    { .clk = &gclk_rp2350_clk_sys_gate.base,
+    { .clk = &gclk_rp2350_clk_sys_div_scaler.base,
       .limits = sys_freq_vc_ws_limits,
       .len = ARRAY_SIZE(sys_freq_vc_ws_limits)
     },

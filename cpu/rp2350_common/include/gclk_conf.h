@@ -29,7 +29,7 @@ extern "C" {
 #define GCLK_CONF_REG_IDX_BITWIDTH (5)
 
 /* Static number of clock instances */
-#define GCLK_NUM_OF_CLOCKS (26)
+#define GCLK_NUM_OF_CLOCKS (27)
 
 typedef enum {
     GCLK_NULL_REG = 0,
